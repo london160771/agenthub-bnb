@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { isDbConnected } from '../config/db.js';
 import { hasAiKey } from '../config/env.js';
 import { sendSuccess } from '../utils/apiResponse.js';
+import agentRoutes from './agentRoutes.js';
 
 const router = Router();
 
@@ -21,7 +22,7 @@ router.get('/health', (req, res) => {
 });
 
 // Feature routers are mounted here as later phases land:
-//   router.use('/agents', agentRoutes);
+router.use('/agents', agentRoutes);
 //   router.use('/executions', executionRoutes);
 //   ...
 
