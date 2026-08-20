@@ -1,0 +1,21 @@
+{
+  "name": "agenthub-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AgentHub API — discovery, evaluation and hiring marketplace for AI agents on BNB Smart Chain.",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js",
+    "seed": "node scripts/seed.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.3.0",
+    "mongoose": "^9.9.3",
+    "morgan": "^1.11.0"
+  }
+}
