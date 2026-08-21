@@ -272,9 +272,9 @@ export default function AgentProfilePage() {
       </div>
 
       {/* Body */}
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="mt-6 grid gap-5 sm:mt-8 sm:gap-6 lg:grid-cols-[1fr_320px]">
         {/* Main column */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {description && (
             <Card>
               <CardBody>
@@ -340,7 +340,7 @@ export default function AgentProfilePage() {
         </div>
 
         {/* Sidebar */}
-        <aside className="space-y-6">
+        <aside className="space-y-4 sm:space-y-6">
           <Card>
             <CardBody>
               <SectionHeading title="Pricing" className="mb-3" />
@@ -416,7 +416,7 @@ export default function AgentProfilePage() {
 
       {/* Related */}
       {related.length > 0 && (
-        <section className="mt-10">
+        <section className="mt-8 sm:mt-10">
           <SectionHeading title={`More ${categoryLabel(agentCategory)} agents`} />
           <AgentGrid agents={related} />
         </section>

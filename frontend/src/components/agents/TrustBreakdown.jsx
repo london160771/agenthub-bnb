@@ -79,13 +79,13 @@ export function TrustBreakdown({ trust = {}, className }) {
         </div>
       </div>
 
-      <div className="mt-6 space-y-4">
+      <div className="mt-5 space-y-3.5 sm:mt-6 sm:space-y-4">
         {TRUST_FACTORS.map((f) => (
           <FactorRow key={f.key} label={f.label} weight={f.weight} value={trust[f.key] ?? null} blurb={f.blurb} />
         ))}
       </div>
 
-      <p className="mt-6 flex items-start gap-2 rounded-lg border border-line bg-panel-2 p-3 text-xs leading-relaxed text-muted">
+      <p className="mt-5 flex items-start gap-2 rounded-lg border border-line bg-panel-2 p-3 text-xs leading-relaxed text-muted sm:mt-6">
         <Info size={14} className="mt-0.5 shrink-0 text-faint" aria-hidden="true" />
         {TRUST_DISCLAIMER}
       </p>

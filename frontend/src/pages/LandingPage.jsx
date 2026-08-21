@@ -59,7 +59,7 @@ function HeroFinder() {
 
   return (
     <form onSubmit={submit} className="max-w-xl">
-      <label htmlFor="hero-finder" className="mb-2 block text-xs font-medium text-muted">
+      <label htmlFor="hero-finder" className="mb-2 block text-sm font-medium text-muted sm:text-xs">
         Describe what you need
       </label>
       <div className="flex flex-col gap-2.5 sm:flex-row">
@@ -68,9 +68,9 @@ function HeroFinder() {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="I need an agent to monitor my DeFi position"
-          className="h-12 min-w-0 flex-1 rounded-xl border border-line bg-panel px-4 text-sm text-fg placeholder:text-faint focus:border-brand/60 focus:outline-none"
+          className="h-14 w-full min-w-0 rounded-xl border border-line bg-panel px-4 text-base text-fg placeholder:text-faint focus:border-brand/60 focus:outline-none sm:h-12 sm:w-auto sm:flex-1 sm:text-sm"
         />
-        <Button type="submit" size="lg" className="shrink-0">
+        <Button type="submit" size="lg" className="h-14 shrink-0 sm:h-12">
           Find an Agent
           <ArrowRight size={18} aria-hidden="true" />
         </Button>

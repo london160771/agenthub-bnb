@@ -43,7 +43,7 @@ export function AgentCard({ agent }) {
   const provenance = SOURCE_LABELS[source];
 
   return (
-    <Card as={Link} to={`/agents/${agentId}`} interactive className="group flex h-full flex-col p-5">
+    <Card as={Link} to={`/agents/${agentId}`} interactive className="group flex h-full flex-col p-4 sm:p-5">
       <div className="flex items-start gap-3">
         <AgentAvatar name={name} seed={agentId} src={avatar} size="md" />
         <div className="min-w-0 flex-1">
@@ -55,9 +55,8 @@ export function AgentCard({ agent }) {
         <AgentStatus status={status} />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:mt-4">
         <AgentTrustScore score={trustScore ?? trust.overall} confidence={trust.confidence} />
-        {provenance && <Badge variant={provenance.variant}>{provenance.label}</Badge>}
         {ratingAvg != null && (
           <span
             className="inline-flex items-center gap-1 text-xs text-muted"
@@ -68,15 +67,16 @@ export function AgentCard({ agent }) {
             {reviewCount != null && <span className="text-faint">({reviewCount})</span>}
           </span>
         )}
+        {provenance && <Badge variant={provenance.variant}>{provenance.label}</Badge>}
       </div>
 
       {description && (
         <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-muted">{description}</p>
       )}
 
-      {skills.length > 0 && <AgentSkills skills={skills} max={3} className="mt-3" />}
+      {skills.length > 0 && <AgentSkills skills={skills} max={3} mobileMax={2} className="mt-3" />}
 
-      <div className="mt-auto pt-4">
+      <div className="mt-auto pt-3 sm:pt-4">
         <div className="border-t border-line pt-3">
           <AgentMetrics metrics={metrics} />
         </div>
@@ -100,7 +100,7 @@ export function AgentCard({ agent }) {
 /** Loading placeholder matching the card's shape. */
 export function AgentCardSkeleton() {
   return (
-    <Card className="flex h-full flex-col p-5">
+    <Card className="flex h-full flex-col p-4 sm:p-5">
       <div className="flex items-start gap-3">
         <Skeleton className="h-11 w-11 rounded-xl" />
         <div className="flex-1 space-y-2">

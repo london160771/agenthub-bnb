@@ -15,5 +15,5 @@ export function Card({ as: Tag = 'div', className, interactive = false, ...props
 }
 
 export function CardBody({ className, ...props }) {
-  return <div className={cn('p-5', className)} {...props} />;
+  return <div className={cn('p-4 sm:p-5', className)} {...props} />;
 }
