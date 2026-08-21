@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout.jsx';
 import LandingPage from '../pages/LandingPage.jsx';
 import DiscoverPage from '../pages/DiscoverPage.jsx';
+import AgentProfilePage from '../pages/AgentProfilePage.jsx';
 import PlaceholderPage from '../pages/PlaceholderPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 
@@ -16,10 +17,7 @@ export function AppRoutes() {
         <Route path="/" element={<LandingPage />} />
 
         <Route path="/discover" element={<DiscoverPage />} />
-        <Route
-          path="/agents/:agentId"
-          element={<PlaceholderPage eyebrow="Agent" title="Agent profile" />}
-        />
+        <Route path="/agents/:agentId" element={<AgentProfilePage />} />
         <Route
           path="/find"
           element={

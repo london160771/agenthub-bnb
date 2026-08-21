@@ -27,6 +27,7 @@ const SIZES = {
   sm: 'h-9 w-9 text-xs',
   md: 'h-11 w-11 text-sm',
   lg: 'h-14 w-14 text-base',
+  xl: 'h-20 w-20 text-2xl',
 };
 
 export function AgentAvatar({ name, src, seed, size = 'md', className }) {

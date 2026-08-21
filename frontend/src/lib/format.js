@@ -54,6 +54,14 @@ export function confidenceLabel(confidence) {
   return 'limited data';
 }
 
+/** ISO date → "Mar 2024" by default; null/invalid → "—". */
+export function formatDate(dateInput, opts = { month: 'short', year: 'numeric' }) {
+  if (!dateInput) return '—';
+  const d = new Date(dateInput);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', opts);
+}
+
 /** Relative time from an ISO date string, e.g. "3h ago", "2d ago". */
 export function relativeTime(dateInput) {
   if (!dateInput) return 'unknown';
