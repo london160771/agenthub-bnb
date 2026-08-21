@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout.jsx';
 import LandingPage from '../pages/LandingPage.jsx';
+import DiscoverPage from '../pages/DiscoverPage.jsx';
 import PlaceholderPage from '../pages/PlaceholderPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 
@@ -14,16 +15,7 @@ export function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route path="/" element={<LandingPage />} />
 
-        <Route
-          path="/discover"
-          element={
-            <PlaceholderPage
-              eyebrow="Marketplace"
-              title="Discover AI Agents"
-              description="Find the right agent for any task."
-            />
-          }
-        />
+        <Route path="/discover" element={<DiscoverPage />} />
         <Route
           path="/agents/:agentId"
           element={<PlaceholderPage eyebrow="Agent" title="Agent profile" />}
