@@ -74,6 +74,8 @@ export const getAgents = asyncHandler(async (req, res) => {
     sort,
     verified,
     minTrust: parseNumberParam(q.minTrust, { min: 0, max: 100, name: 'minTrust' }),
+    minSuccess: parseNumberParam(q.minSuccess, { min: 0, max: 100, name: 'minSuccess' }),
+    minPrice: parseNumberParam(q.minPrice, { min: 0, name: 'minPrice' }),
     maxPrice: parseNumberParam(q.maxPrice, { min: 0, name: 'maxPrice' }),
     protocol: q.protocol ? String(q.protocol) : null,
     skill: q.skill ? String(q.skill) : null,

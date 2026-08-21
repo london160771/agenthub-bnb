@@ -12,6 +12,7 @@ const DEFAULT_LIMIT = 24;
 const SORTS = {
   trust: { trustScore: -1, reviewCount: -1 },
   executions: { 'metrics.executions': -1 },
+  success: { 'metrics.successRate': -1, 'metrics.executions': -1 },
   rating: { ratingAvg: -1, reviewCount: -1 },
   'price-low': { 'pricing.amount': 1 },
   'price-high': { 'pricing.amount': -1 },
@@ -37,7 +38,13 @@ function buildFilter(opts) {
   if (opts.status) filter.status = opts.status;
   if (opts.verified != null) filter.verified = opts.verified;
   if (opts.minTrust != null) filter.trustScore = { $gte: opts.minTrust };
-  if (opts.maxPrice != null) filter['pricing.amount'] = { $lte: opts.maxPrice };
+  if (opts.minSuccess != null) filter['metrics.successRate'] = { $gte: opts.minSuccess };
+  if (opts.minPrice != null || opts.maxPrice != null) {
+    const price = {};
+    if (opts.minPrice != null) price.$gte = opts.minPrice;
+    if (opts.maxPrice != null) price.$lte = opts.maxPrice;
+    filter['pricing.amount'] = price;
+  }
   if (opts.protocol) filter.protocols = opts.protocol;
   if (opts.skill) filter.skills = opts.skill;
 
