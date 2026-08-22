@@ -3,6 +3,7 @@ import { AppLayout } from '../components/layout/AppLayout.jsx';
 import LandingPage from '../pages/LandingPage.jsx';
 import DiscoverPage from '../pages/DiscoverPage.jsx';
 import AgentProfilePage from '../pages/AgentProfilePage.jsx';
+import ComparePage from '../pages/ComparePage.jsx';
 import PlaceholderPage from '../pages/PlaceholderPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 
@@ -28,16 +29,7 @@ export function AppRoutes() {
             />
           }
         />
-        <Route
-          path="/compare"
-          element={
-            <PlaceholderPage
-              eyebrow="Compare"
-              title="Compare agents"
-              description="Weigh two or three agents side by side."
-            />
-          }
-        />
+        <Route path="/compare" element={<ComparePage />} />
         <Route
           path="/hire/:agentId"
           element={<PlaceholderPage eyebrow="Hire" title="Hire an agent" />}
