@@ -2,11 +2,14 @@ const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 /** Error thrown by the API layer, carrying a stable code + HTTP status. */
 export class ApiError extends Error {
-  constructor(message, { code, status } = {}) {
+  constructor(message, { code, status, details } = {}) {
     super(message);
     this.name = 'ApiError';
     this.code = code || 'ERROR';
     this.status = status;
+    // Structured extras from the backend envelope, e.g. the existing
+    // `executionId` returned with a duplicate-hire 409. Null when absent.
+    this.details = details ?? null;
   }
 }
 
@@ -42,6 +45,7 @@ async function request(path, { method = 'GET', body, signal, headers } = {}) {
     throw new ApiError(error.message || `Request failed (${res.status})`, {
       code: error.code || 'HTTP_ERROR',
       status: res.status,
+      details: error.details,
     });
   }
 

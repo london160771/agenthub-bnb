@@ -34,7 +34,20 @@ export const CATEGORIES = [
   { id: 'research', label: 'Research', icon: 'search' },
 ];
 
-// BNB Smart Chain networks. chainIds are canonical (56 mainnet, 97 testnet).
+/**
+ * BNB Smart Chain networks.
+ *
+ * Every value here is verified against official BNB Chain documentation — none
+ * of it is guessed (AGENTS.md requires this):
+ *   - chain ids 56 / 97 and the RPC hosts: BNB Chain JSON-RPC endpoint docs
+ *     https://docs.bnbchain.org/bnb-smart-chain/developers/json_rpc/json-rpc-endpoint/
+ *   - network names, tBNB symbol and explorers: https://chainlist.org/chain/97
+ *   - testnet faucet: https://docs.bnbchain.org/bnb-smart-chain/developers/faucet/
+ *
+ * `rpcUrls` / `nativeCurrency` exist so the wallet can be asked to ADD the
+ * network (EIP-3085 `wallet_addEthereumChain`) when it doesn't know it yet.
+ * `decimals: 18` is what EIP-3085 requires for a native currency.
+ */
 export const CHAINS = {
   mainnet: {
     id: 56,
@@ -43,6 +56,8 @@ export const CHAINS = {
     shortName: 'BSC',
     explorer: 'https://bscscan.com',
     currency: 'BNB',
+    rpcUrls: ['https://bsc-dataseed.bnbchain.org'],
+    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
   },
   testnet: {
     id: 97,
@@ -51,6 +66,10 @@ export const CHAINS = {
     shortName: 'BSC Testnet',
     explorer: 'https://testnet.bscscan.com',
     currency: 'tBNB',
+    rpcUrls: ['https://bsc-testnet-dataseed.bnbchain.org'],
+    nativeCurrency: { name: 'BNB', symbol: 'tBNB', decimals: 18 },
+    // Where to get free test funds (capped at 0.3 tBNB/day per the docs).
+    faucet: 'https://www.bnbchain.org/en/testnet-faucet',
   },
 };
 

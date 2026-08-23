@@ -4,12 +4,17 @@
  * shown as "—" / "Unrated" rather than invented.
  */
 
-/** Format a BNB price. 0 → "Free". Trailing zeros trimmed. */
-export function formatBnb(amount) {
+/**
+ * Format a native-token price. 0 → "Free". Trailing zeros trimmed.
+ *
+ * The currency is a parameter because the same number is "BNB" on mainnet and
+ * "tBNB" on testnet — labelling test funds as real BNB would be misleading.
+ */
+export function formatBnb(amount, currency = 'BNB') {
   if (amount == null) return '—';
   if (amount === 0) return 'Free';
   const s = Number(amount).toFixed(4).replace(/\.?0+$/, '');
-  return `${s} BNB`;
+  return `${s} ${currency}`;
 }
 
 /** Compact number: 1842 → "1.8K", 1_200_000 → "1.2M". */

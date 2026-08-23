@@ -17,6 +17,7 @@ export class ApiError extends Error {
 // Convenience factories for the most common failures.
 ApiError.badRequest = (message, details) => new ApiError(400, 'BAD_REQUEST', message, details);
 ApiError.notFound = (message = 'Resource not found') => new ApiError(404, 'NOT_FOUND', message);
+ApiError.conflict = (message, details) => new ApiError(409, 'CONFLICT', message, details);
 ApiError.unavailable = (message = 'Service temporarily unavailable') =>
   new ApiError(503, 'SERVICE_UNAVAILABLE', message);
 
