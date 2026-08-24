@@ -8,11 +8,12 @@ import { WalletContext } from './walletContext.js';
  *
  * WHAT THIS DOES: talks to the wallet extension the browser injects at
  * `window.ethereum`, using the standard EIP-1193 interface — a small set of
- * named requests every wallet understands. We use exactly four:
+ * named requests every wallet understands. We use exactly five:
  *   - eth_requestAccounts  → ask permission to see the user's address (popup)
  *   - eth_accounts         → read an address we were ALREADY granted (no popup)
  *   - eth_chainId          → which network the wallet is pointed at
- *   - wallet_switchEthereumChain / wallet_addEthereumChain → move to testnet
+ *   - wallet_switchEthereumChain → point the wallet at testnet
+ *   - wallet_addEthereumChain    → teach it testnet first, if it needs that
  *
  * WHAT THIS DELIBERATELY DOES NOT DO: it never calls `eth_sendTransaction`,
  * never calls a signing method, and never asks for a private key, seed phrase or

@@ -1,0 +1,1510 @@
+AGENTHUB — BNB CHAIN HACKATHON
+FULL MVP BUILD SPECIFICATION FOR CODEX
+
+Version: 1.0
+Purpose: Turn this specification into a working, polished hackathon MVP.
+
+============================================================
+1. PRODUCT OVERVIEW
+============================================================
+
+Product name:
+AgentHub
+
+One-line description:
+AgentHub is a discovery, evaluation, comparison, and hiring marketplace for AI agents on BNB Smart Chain.
+
+Core problem:
+There are many AI agents in the BNB ecosystem, but users need a simple way to discover what agents do, evaluate whether they are trustworthy and active, compare alternatives, and hire an agent to perform a task.
+
+Core product promise:
+DISCOVER → EVALUATE → COMPARE → HIRE → EXECUTE → VERIFY
+
+Important scope decision:
+Do NOT build dozens of new AI agents. Use existing BNB/ERC-8004 agents wherever practical. Build the marketplace/discovery layer. If an existing agent cannot be integrated in time, create a small number of simple demo/adapter agents or use clearly labeled seeded data for non-critical marketplace entries.
+
+The MVP must feel like a real product, not a CRUD hackathon demo.
+
+============================================================
+2. HACKATHON STRATEGY
+============================================================
+
+Primary goal:
+Build the strongest possible marketplace/discovery experience for the BNB Chain hackathon.
+
+Secondary goal:
+Support the TermiX-style "Agent Advantage" story by measuring whether hiring an agent is better than doing the same task manually.
+
+Do NOT spend time on:
+- Building a new blockchain
+- Building a new AI model
+- Building dozens of agents
+- Multi-chain support
+- Agent DAO/governance
+- Full agent creation/publishing platform
+- Complex agent-to-agent orchestration
+- Production-scale infrastructure
+- Full trading automation
+- High-risk financial execution
+
+Priority:
+Tier 1 features are mandatory.
+Tier 2 features should be built after Tier 1 works.
+Polish and reliability are more important than adding Tier 3 features.
+
+============================================================
+3. TIER 1 — MUST HAVE
+============================================================
+
+1. Marketplace
+2. Agent profiles
+3. Search
+4. Filters
+5. Categories
+6. AI Agent Finder
+7. Trust Score
+8. ERC-8004 integration / agent identity
+9. Wallet connection
+10. Hire Agent flow
+11. Agent execution
+12. Activity dashboard
+13. BNB Smart Chain integration
+
+============================================================
+4. TIER 2 — SHOULD HAVE
+============================================================
+
+14. Agent comparison
+15. Advanced analytics
+16. Agent reviews
+17. Performance charts
+18. Notifications
+19. Advanced recommendations
+20. Better category discovery
+
+============================================================
+5. MAIN USER JOURNEY
+============================================================
+
+Scenario:
+A user wants an agent to monitor a DeFi lending position.
+
+Flow:
+
+Landing
+→ Find Agent
+→ User types natural-language request
+→ AI interprets task
+→ Recommended agents appear
+→ User opens agent profile
+→ Reviews identity/trust/performance
+→ User compares another agent if desired
+→ User hires selected agent
+→ Connects wallet
+→ Configures task
+→ Confirms
+→ Agent executes
+→ Result displayed
+→ Agent Advantage displays time/cost benefit
+→ Execution appears in activity history
+
+This journey must be extremely polished.
+
+============================================================
+6. PAGE MAP
+============================================================
+
+Routes:
+
+/
+ /discover
+ /agents/:agentId
+ /find
+ /compare
+ /hire/:agentId
+ /execution/:executionId
+ /dashboard
+ /activity
+ /saved
+ /settings
+
+Use React Router.
+
+============================================================
+7. PAGE: LANDING
+============================================================
+
+Route:
+/
+
+Purpose:
+Immediately explain AgentHub and drive users into discovery.
+
+Sections:
+
+1. Navbar
+- AgentHub logo
+- Discover
+- Find Agent
+- Compare
+- Connect Wallet
+- Responsive mobile menu
+
+2. Hero
+Headline:
+"Find the right AI agent for the job."
+
+Subheadline:
+"Discover, compare and hire verified AI agents running on BNB Smart Chain."
+
+Primary CTA:
+"Find an Agent"
+
+Natural-language input:
+"I need an agent to monitor my DeFi position"
+
+CTA:
+"Find Agent"
+
+3. Ecosystem stats
+Display clearly labeled ecosystem/marketplace statistics.
+If using the BNB ecosystem figure, make clear it is an ecosystem-level figure, not AgentHub's own indexed count.
+
+4. Featured agents
+3–6 cards.
+
+5. Categories
+- Monitoring
+- Trading
+- Health Factor
+- Yield
+- Portfolio
+- Research
+
+6. How it works
+- Discover
+- Evaluate
+- Hire
+- Execute
+
+7. Trust/verification section
+Explain ERC-8004 identity and performance information.
+
+8. Agent Advantage section
+Explain that AgentHub can compare agent execution against manual work.
+
+9. Final CTA
+"Explore BNB Agents"
+
+============================================================
+8. PAGE: DISCOVER MARKETPLACE
+============================================================
+
+Route:
+/discover
+
+Purpose:
+Primary agent discovery interface.
+
+Top:
+Title:
+"Discover AI Agents"
+
+Subtitle:
+"Find the right agent for any task."
+
+Search input:
+"Search agents, skills, protocols..."
+
+Filters:
+Category:
+- Monitoring
+- Trading
+- Yield
+- Health Factor
+- Portfolio
+- Research
+
+Chain:
+- BNB Smart Chain
+
+Status:
+- Live
+- Verified
+- Recently active
+
+Price:
+- Free
+- < $0.10
+- $0.10–$1
+- $1+
+
+Trust:
+- 90+
+- 80+
+- 70+
+
+Performance:
+- 90%+
+- 80%+
+
+Sorting:
+- Recommended
+- Highest rated
+- Most successful
+- Most used
+- Lowest cost
+- Newest
+
+Agent cards must show:
+- Avatar/logo
+- Name
+- Category
+- Short description
+- Skills
+- Trust score
+- ERC-8004 verified indicator where applicable
+- Execution count
+- Success rate
+- Price
+- Status
+- View Agent button
+- Hire button
+
+Implement:
+- Search
+- Filter combinations
+- Sort
+- Pagination or infinite scroll
+- Loading state
+- Empty state
+- Error state
+
+============================================================
+9. PAGE: AGENT DETAILS
+============================================================
+
+Route:
+/agents/:agentId
+
+Purpose:
+Provide enough information for a user to decide whether to hire.
+
+Header:
+- Avatar
+- Name
+- Category
+- Description
+- ERC-8004 verification
+- BNB Smart Chain
+- Status
+- Hire Agent
+- Compare
+- Save
+
+Sections:
+
+1. Overview
+2. Skills
+3. Supported protocols
+4. Performance
+5. Trust Score
+6. On-chain identity
+7. Recent activity
+8. Performance charts
+9. Reviews
+10. Similar/recommended agents
+
+Performance metrics:
+- Success rate
+- Executions
+- Average response time
+- Active since
+- Average cost
+
+Trust Score:
+Show one overall score and breakdown:
+- Identity
+- Performance
+- Activity
+- Reliability
+- Reviews
+
+Explain how score is calculated.
+
+ERC-8004 section:
+- Agent ID
+- Owner/address where appropriate
+- Registration data
+- Endpoint where appropriate
+- Registry/source
+- Links to explorer/registry when available
+
+Do not fabricate blockchain information.
+
+============================================================
+10. PAGE: AI AGENT FINDER
+============================================================
+
+Route:
+/find
+
+Purpose:
+Let users describe their task in natural language.
+
+UI:
+
+"What do you need an agent to do?"
+
+Large textarea.
+
+Example:
+"I need an agent that monitors my Venus lending position and warns me before liquidation."
+
+On submit:
+1. Parse the task.
+2. Identify category.
+3. Identify skills.
+4. Identify protocol if present.
+5. Rank compatible agents.
+6. Explain why each result matches.
+
+Display:
+- Best match
+- Match percentage
+- Why it matches
+- Trust
+- Success rate
+- Cost
+- View Agent
+- Hire
+
+Example interpretation:
+- DeFi
+- Lending
+- Position monitoring
+- Liquidation protection
+
+Do not make recommendations arbitrary. Use a deterministic scoring layer with AI-assisted task classification.
+
+Recommended scoring:
+40% task compatibility
+20% skill compatibility
+15% trust
+10% success
+10% price
+5% activity
+
+============================================================
+11. PAGE: COMPARE
+============================================================
+
+Route:
+/compare
+
+Tier 2.
+
+Allow users to select 2–3 agents.
+
+Comparison table:
+- Trust score
+- Success rate
+- Executions
+- Average response time
+- Average cost
+- ERC-8004
+- Status
+- Supported protocols
+- Skills
+- Reviews
+
+Highlight best value/overall agent.
+
+Provide clear "Hire" buttons.
+
+============================================================
+12. PAGE: HIRE AGENT
+============================================================
+
+Route:
+/hire/:agentId
+
+Purpose:
+Convert marketplace discovery into an actual task.
+
+Steps:
+
+1. Agent summary
+2. Task configuration
+3. Wallet
+4. Cost
+5. Confirmation
+
+Example configuration:
+- Wallet/address
+- Protocol
+- Position/target
+- Threshold
+- Frequency
+- Task-specific options
+
+Cost summary:
+Agent fee
+Network fee
+Total
+
+Wallet:
+Connect wallet
+Network check
+Confirm and Hire
+
+Never ask users for private keys or seed phrases.
+
+For demo/testnet use, make the network explicit.
+
+============================================================
+13. PAGE: EXECUTION
+============================================================
+
+Route:
+/execution/:executionId
+
+Purpose:
+Show a live execution experience.
+
+Progress states:
+- Agent hired
+- Task received
+- Wallet verified
+- Querying data
+- Analyzing
+- Generating result
+- Complete
+
+Use polling or WebSocket if practical; polling is acceptable for MVP.
+
+Completed result example:
+
+Task completed
+
+Health Factor: 2.14
+Risk Level: LOW
+Position: $4,820
+Borrow: $2,104
+Recommendation: No action required.
+
+Show transaction hash/link where applicable.
+
+Handle failed execution gracefully.
+
+============================================================
+14. PAGE: EXECUTION RESULT / AGENT ADVANTAGE
+============================================================
+
+Can be a completed state inside /execution/:executionId.
+
+Show:
+- Agent used
+- Task
+- Execution duration
+- Cost
+- Result
+- Transaction if applicable
+
+Agent Advantage:
+
+Compare manual vs agent:
+- Manual time
+- Agent time
+- Manual steps
+- Agent steps
+- Manual cost
+- Agent cost
+
+Example:
+Manual: ~14 minutes
+Agent: 2.8 seconds
+
+IMPORTANT:
+Do not use fabricated measurements in final judging materials. Gather real measurements from at least three real tasks where possible.
+
+============================================================
+15. PAGE: DASHBOARD
+============================================================
+
+Route:
+/dashboard
+
+Show:
+
+Stats:
+- Agents hired
+- Tasks completed
+- Total spent
+- Time saved
+
+Active agents:
+- Name
+- Status
+- Last execution
+
+Recent activity:
+- Agent
+- Task
+- Result
+- Cost
+- Time
+
+Recommended agents based on user activity.
+
+============================================================
+16. PAGE: ACTIVITY
+============================================================
+
+Route:
+/activity
+
+Table:
+- Agent
+- Task
+- Status
+- Cost
+- Duration
+- Date
+
+Filters:
+- All
+- Completed
+- Failed
+- Pending
+
+Click an execution to open its detail.
+
+============================================================
+17. PAGE: SAVED AGENTS
+============================================================
+
+Route:
+/saved
+
+Show bookmarked agents.
+
+Allow:
+- Save
+- Unsave
+- Open profile
+- Hire
+
+============================================================
+18. PAGE: SETTINGS
+============================================================
+
+Route:
+/settings
+
+Sections:
+
+Wallet:
+- Connected address
+- Network
+
+Notifications:
+- Task completed
+- Task failed
+- Important alert
+- Recommendations
+
+Preferences:
+- Preferred categories
+- Price range
+- Risk level
+
+============================================================
+19. NAVIGATION
+============================================================
+
+Desktop:
+AgentHub
+Discover
+Find Agent
+Compare
+Activity
+Dashboard
+Connect Wallet
+
+Mobile bottom navigation:
+Home
+Discover
+Find
+Activity
+Profile
+
+============================================================
+20. TECH STACK
+============================================================
+
+Frontend:
+- React
+- Vite
+- JavaScript
+- React Router
+- Tailwind CSS
+- wagmi
+- viem
+
+Backend:
+- Node.js
+- Express
+
+Database:
+- MongoDB
+
+Blockchain:
+- BNB Smart Chain
+- BNB Smart Chain Testnet for development
+
+Agent ecosystem:
+- ERC-8004 for identity/discovery where available
+- Use current BNB Agent SDK / official documentation
+- Investigate ERC-8183/x402 only where required by actual hiring/payment implementation
+
+AI:
+- LLM API for task classification/recommendation
+- Keep API keys server-side
+
+Deployment:
+- Vercel for frontend
+- Render/Railway or equivalent for backend
+- MongoDB Atlas
+
+IMPORTANT:
+Before implementing any BNB/ERC-8004 API integration, verify the current official documentation and available endpoints. Do not invent API endpoints or contract addresses.
+
+============================================================
+21. DATABASE MODELS
+============================================================
+
+Agent:
+
+{
+  agentId,
+  name,
+  description,
+  category,
+  subcategory,
+  avatar,
+  ownerAddress,
+  chain,
+  erc8004Id,
+  endpoint,
+  skills: [],
+  protocols: [],
+  pricing: {
+    amount,
+    currency,
+    model
+  },
+  metrics: {
+    executions,
+    successRate,
+    avgResponseTime,
+    activeSince,
+    avgCost
+  },
+  trustScore,
+  status,
+  tags: [],
+  source,
+  createdAt,
+  updatedAt
+}
+
+Execution:
+
+{
+  executionId,
+  agentId,
+  userAddress,
+  task,
+  input,
+  output,
+  status,
+  cost,
+  duration,
+  transactionHash,
+  createdAt,
+  completedAt
+}
+
+User:
+
+{
+  walletAddress,
+  savedAgents: [],
+  hiredAgents: [],
+  preferences: {
+    categories: [],
+    priceRange,
+    riskLevel
+  },
+  notificationSettings
+}
+
+Review:
+
+{
+  agentId,
+  userAddress,
+  rating,
+  comment,
+  executionId,
+  createdAt
+}
+
+============================================================
+22. BACKEND API
+============================================================
+
+Agents:
+GET /api/agents
+GET /api/agents/:id
+GET /api/agents/:id/stats
+GET /api/agents/:id/activity
+
+Search:
+GET /api/search
+POST /api/agent-finder
+
+Recommendations:
+POST /api/recommendations
+
+Compare:
+POST /api/compare
+
+Hiring:
+POST /api/hire
+GET /api/hire/:id
+
+Executions:
+POST /api/executions
+GET /api/executions/:id
+GET /api/executions
+
+Reviews:
+POST /api/agents/:id/reviews
+GET /api/agents/:id/reviews
+
+Users:
+GET /api/user/:wallet
+PUT /api/user/:wallet/preferences
+POST /api/user/:wallet/saved
+DELETE /api/user/:wallet/saved/:agentId
+
+Add validation and consistent error responses.
+
+============================================================
+23. FRONTEND FOLDER STRUCTURE
+============================================================
+
+src/
+  assets/
+  components/
+    ui/
+    layout/
+    agents/
+    marketplace/
+    wallet/
+    charts/
+    execution/
+  pages/
+    Landing/
+    Discover/
+    AgentDetails/
+    AgentFinder/
+    Compare/
+    Hire/
+    Execution/
+    Dashboard/
+    Activity/
+    Saved/
+    Settings/
+  hooks/
+  context/
+  services/
+    api.js
+    agents.js
+    blockchain.js
+    wallet.js
+  utils/
+  data/
+  routes/
+  App.jsx
+
+============================================================
+24. BACKEND FOLDER STRUCTURE
+============================================================
+
+server/
+  controllers/
+    agentController.js
+    searchController.js
+    executionController.js
+    userController.js
+    reviewController.js
+  models/
+    Agent.js
+    User.js
+    Execution.js
+    Review.js
+  routes/
+    agentRoutes.js
+    searchRoutes.js
+    executionRoutes.js
+    userRoutes.js
+    reviewRoutes.js
+  services/
+    agentRegistry.js
+    recommendationService.js
+    trustScoreService.js
+    executionService.js
+    blockchainService.js
+  middleware/
+  utils/
+  server.js
+
+============================================================
+25. AGENT DATA PIPELINE
+============================================================
+
+Concept:
+
+BNB/ERC-8004 ecosystem
+→ Discovery/indexing
+→ Normalize data
+→ MongoDB
+→ AgentHub API
+→ Marketplace
+
+Use authoritative data when possible.
+
+Distinguish:
+- verified/on-chain data
+- external indexed data
+- AgentHub-generated metrics
+- seeded/demo data
+
+Never present fabricated seeded metrics as verified blockchain facts.
+
+For the first implementation, it is acceptable to seed a curated set of agents so the UI can be built quickly, then replace/enrich them with real registry data.
+
+============================================================
+26. TRUST SCORE
+============================================================
+
+Initial formula:
+
+30% Identity
+25% Success Rate
+20% Activity
+15% Reliability
+10% Reviews
+
+Score should be explainable.
+
+If some data is unavailable:
+- show "Not enough data"
+- adjust calculation transparently
+- do not invent metrics
+
+Trust score must never imply an official BNB endorsement.
+
+============================================================
+27. SEARCH AND RECOMMENDATION
+============================================================
+
+Search should match:
+- name
+- description
+- category
+- skills
+- protocols
+- tags
+
+Recommendation should combine:
+- task compatibility
+- skill compatibility
+- trust
+- success rate
+- price
+- activity
+
+Use AI to interpret natural-language intent, but use deterministic backend scoring to rank agents.
+
+============================================================
+28. FLAGSHIP DEMO USE CASES
+============================================================
+
+Target 3 strong use cases:
+
+1. Health Factor Agent
+- Monitor lending position
+- Analyze health factor
+- Return risk
+- Alert/recommendation
+
+2. Yield Agent
+- Find yield opportunities
+- Compare protocols
+- Return recommendation
+
+3. Monitoring Agent
+- Monitor wallet/market/protocol
+- Detect relevant event
+- Return alert
+
+These are primarily demonstration paths. Do not implement risky autonomous trading unless the exact agent/infrastructure is already safe and appropriate.
+
+============================================================
+29. REAL VS SEEDED DATA
+============================================================
+
+Must be real:
+- Wallet connection
+- BNB network detection
+- Agent identity where available
+- Marketplace search
+- Recommendation logic
+- Agent profiles
+- At least 1–3 real or genuinely executable agent flows
+- Transactions where applicable
+- Activity records
+
+Can initially be seeded/curated:
+- Some agent descriptions
+- Marketplace metadata
+- Historical metrics where authoritative data is unavailable
+- Some reviews
+- Some performance visualizations
+
+Clearly label demo/seeded data.
+
+============================================================
+30. UI / DESIGN SYSTEM
+============================================================
+
+Design direction:
+- Premium
+- Dark
+- Technical
+- Clean
+- Modern SaaS + Web3
+- Avoid excessive neon/cyberpunk styling
+
+Suggested visual language:
+- Near-black background
+- White/gray typography
+- BNB yellow as accent
+- Subtle borders
+- Subtle glass effects
+- Strong spacing
+- Clear typography
+- Clean charts
+- Professional dashboards
+
+Do not hard-code excessive colors throughout components. Create reusable design tokens/theme.
+
+Required states:
+- loading
+- skeleton
+- empty
+- error
+- success
+- pending
+- wrong network
+- wallet disconnected
+
+Responsive:
+- Desktop
+- Tablet
+- Mobile
+
+============================================================
+31. COMPONENT SYSTEM
+============================================================
+
+Build reusable components:
+
+Layout:
+- Navbar
+- Sidebar
+- MobileNav
+- PageHeader
+
+Agents:
+- AgentCard
+- AgentAvatar
+- AgentBadge
+- AgentStatus
+- AgentSkills
+- AgentMetrics
+- AgentTrustScore
+- AgentIdentity
+- AgentActivity
+- AgentReview
+- SimilarAgents
+
+Marketplace:
+- SearchBar
+- FilterPanel
+- CategoryTabs
+- SortDropdown
+- AgentGrid
+
+Finder:
+- FinderInput
+- IntentSummary
+- RecommendationCard
+- MatchScore
+
+Comparison:
+- CompareSelector
+- ComparisonTable
+
+Wallet:
+- ConnectWallet
+- WalletButton
+- NetworkSwitcher
+- TransactionStatus
+
+Execution:
+- HireForm
+- CostSummary
+- ExecutionTimeline
+- ExecutionResult
+- AgentAdvantage
+
+Dashboard:
+- StatCard
+- ActivityTable
+- PerformanceChart
+
+============================================================
+32. SECURITY
+============================================================
+
+Never expose:
+- private keys
+- seed phrases
+- API secrets
+- JWT secrets
+
+Use environment variables.
+
+All privileged blockchain actions should be signed by the user's wallet where appropriate.
+
+Validate backend input.
+
+Do not trust wallet address data supplied blindly.
+
+Rate-limit public AI/recommendation endpoints if practical.
+
+Do not allow arbitrary external URLs/endpoints to be executed server-side without validation.
+
+============================================================
+33. 22-DAY IMPLEMENTATION SCHEDULE
+============================================================
+
+Days 1–2:
+Foundation
+- React/Vite
+- Express
+- MongoDB
+- Git
+- env setup
+- Tailwind/design system
+- routing
+- layout
+- navbar
+- mobile navigation
+
+Day 3:
+Database
+- models
+- seed data
+- API foundation
+
+Days 4–5:
+Landing + Discover
+- marketplace
+- cards
+- search
+- filters
+- categories
+- sorting
+
+Days 6–7:
+Agent Profiles
+- details
+- trust
+- metrics
+- identity
+- activity
+- hire CTA
+
+Days 8–9:
+AI Finder
+- natural language input
+- intent classification
+- recommendation endpoint
+- match scoring
+- results
+
+Days 10–11:
+ERC-8004 / real agent data
+- research official/current BNB docs
+- registry/indexing integration
+- identity display
+
+Day 12:
+Wallet
+- connect
+- disconnect
+- network detection
+- wrong network handling
+
+Days 13–14:
+Hire flow
+- configuration
+- wallet
+- cost
+- confirmation
+
+Days 15–16:
+Execution
+- flagship agent flow(s)
+- execution state
+- result
+- transaction status
+
+Day 17:
+Dashboard + Activity + Saved
+
+Days 18–19:
+Tier 2
+- comparison
+- charts
+- reviews
+- advanced recommendations
+- notifications
+
+Day 20:
+Agent Advantage
+- 3 real tasks
+- manual vs agent measurement
+- evidence
+
+Day 21:
+Polish
+- bugs
+- responsive design
+- loading/error states
+- animations
+- UX
+- performance
+
+Day 22:
+Submission
+- demo
+- screenshots
+- README
+- architecture
+- deployment
+- judging materials
+- final QA
+
+Do not wait until Day 22 to discover integration problems. Start blockchain/integration research early.
+
+============================================================
+34. GIT WORKFLOW
+============================================================
+
+Use small commits.
+
+Examples:
+feat: initialize frontend
+feat: add marketplace layout
+feat: add agent cards
+feat: add search
+feat: add filters
+feat: add agent profile
+feat: add trust score
+feat: add agent finder
+feat: integrate ERC-8004
+feat: add wallet connection
+feat: add hire flow
+feat: add agent execution
+feat: add dashboard
+feat: add comparison
+feat: add reviews
+feat: add analytics
+fix: ...
+
+Push regularly.
+
+============================================================
+35. TESTING CHECKLIST
+============================================================
+
+Marketplace:
+[ ] Search
+[ ] Filters
+[ ] Sorting
+[ ] Agent details
+[ ] Invalid agent handling
+
+AI:
+[ ] Agent Finder
+[ ] Natural-language requests
+[ ] Invalid/empty input
+[ ] Recommendations
+[ ] Deterministic ranking
+
+Blockchain:
+[ ] Wallet connects
+[ ] Correct network detected
+[ ] Wrong network handled
+[ ] Transactions work where implemented
+[ ] Transaction links
+[ ] Agent identity resolves where available
+
+Hiring:
+[ ] Hire flow
+[ ] Cost
+[ ] Confirmation
+[ ] Execution
+[ ] Result
+[ ] Failure handling
+
+Dashboard:
+[ ] Activity
+[ ] Saved agents
+[ ] Reviews
+[ ] Charts
+
+UI:
+[ ] Desktop
+[ ] Tablet
+[ ] Mobile
+[ ] Loading
+[ ] Empty
+[ ] Error
+[ ] Success
+[ ] Pending
+
+============================================================
+36. DEMO SCRIPT
+============================================================
+
+Demo scenario:
+
+"I need an agent to monitor my DeFi position."
+
+1. Open AgentHub.
+2. Enter the request in Agent Finder.
+3. Show intent extraction:
+   DeFi
+   Lending
+   Position monitoring
+   Liquidation protection
+4. Show ranked agents.
+5. Open best agent.
+6. Show ERC-8004 identity.
+7. Show Trust Score.
+8. Show performance.
+9. Compare with second agent.
+10. Select best agent.
+11. Click Hire.
+12. Connect wallet.
+13. Configure task.
+14. Confirm.
+15. Show live execution timeline.
+16. Show real result.
+17. Show transaction if applicable.
+18. Show Agent Advantage.
+19. Open Activity.
+20. Show completed task.
+
+The demo should take roughly 2–4 minutes and demonstrate the full value proposition.
+
+============================================================
+37. FINAL PRODUCT STORY
+============================================================
+
+Do not pitch AgentHub as:
+"Just another AI agent directory."
+
+Pitch it as:
+
+"There are thousands of AI agents in the BNB ecosystem, but users still need to figure out which agent actually does what they need, whether it is trustworthy, how it performs, and whether hiring it is worth it.
+
+AgentHub turns the BNB agent ecosystem into a searchable, verifiable marketplace where users can discover, evaluate, compare, hire, and measure agents."
+
+Core message:
+Discover → Evaluate → Compare → Hire → Execute → Verify
+
+Differentiators:
+1. Natural-language agent discovery
+2. Explainable trust score
+3. ERC-8004 identity
+4. Performance/reputation data
+5. One-click hiring
+6. Agent Advantage: measurable benefit vs manual work
+
+============================================================
+38. IMPLEMENTATION RULES FOR CODEX
+============================================================
+
+1. Build incrementally.
+2. Do not attempt the entire application in one generation.
+3. Keep the application runnable after every major milestone.
+4. Do not invent BNB Chain APIs, contract addresses, ERC-8004 endpoints, or x402 implementation details. Verify current official docs first.
+5. Prefer official BNB Chain documentation and SDKs for blockchain integrations.
+6. If an integration is unavailable or too risky for the MVP, create a clean adapter interface and use seeded/demo data behind it.
+7. Keep real and demo data distinguishable.
+8. Do not fabricate on-chain statistics.
+9. Use reusable React components.
+10. Avoid giant monolithic components.
+11. Keep secrets server-side.
+12. Use environment variables.
+13. Add clear error handling.
+14. Add loading and empty states.
+15. Make the UI responsive.
+16. Keep code readable and maintainable.
+17. Add comments only where they provide useful context.
+18. Prefer simple architecture over premature abstraction.
+19. Do not add Tier 3 features unless Tier 1 and Tier 2 are complete and stable.
+20. Do not sacrifice the core user journey for secondary features.
+
+============================================================
+39. CODEX EXECUTION ORDER
+============================================================
+
+Implement in this exact order:
+
+PHASE 1
+Project foundation
+→ frontend
+→ backend
+→ database
+→ environment
+→ routing
+→ design system
+
+PHASE 2
+Marketplace
+→ landing
+→ discover
+→ agent cards
+→ search
+→ filters
+→ categories
+
+PHASE 3
+Agent intelligence
+→ agent profile
+→ trust score
+→ metrics
+→ identity
+→ finder
+→ recommendation
+
+PHASE 4
+Blockchain
+→ wallet
+→ BNB network
+→ ERC-8004
+→ agent registry/data adapter
+
+PHASE 5
+Hiring
+→ hire form
+→ wallet confirmation
+→ execution
+→ result
+
+PHASE 6
+User experience
+→ dashboard
+→ activity
+→ saved
+→ compare
+
+PHASE 7
+Tier 2
+→ analytics
+→ charts
+→ reviews
+→ notifications
+→ advanced recommendations
+
+PHASE 8
+Hackathon differentiation
+→ Agent Advantage
+→ 3 real tasks
+→ measured evidence
+
+PHASE 9
+Polish
+→ responsive
+→ errors
+→ loading
+→ performance
+→ accessibility
+→ visual polish
+
+PHASE 10
+Deployment
+→ frontend
+→ backend
+→ database
+→ production environment
+→ README
+→ demo
+
+============================================================
+40. DEFINITION OF DONE
+============================================================
+
+The MVP is considered complete when:
+
+[ ] User can open AgentHub.
+[ ] User can discover agents.
+[ ] User can search and filter.
+[ ] User can understand an agent.
+[ ] User can see trust/performance information.
+[ ] User can see ERC-8004 identity where available.
+[ ] User can describe a task naturally.
+[ ] AgentHub recommends suitable agents.
+[ ] User can compare agents.
+[ ] User can connect wallet.
+[ ] User can hire an agent.
+[ ] At least one strong agent flow genuinely executes.
+[ ] User sees execution status.
+[ ] User sees a result.
+[ ] User sees transaction information where applicable.
+[ ] Execution appears in activity.
+[ ] User can save an agent.
+[ ] User can review an agent after execution.
+[ ] User can see analytics.
+[ ] User can see Agent Advantage.
+[ ] Three real task measurements exist for the Agent Advantage story.
+[ ] App is responsive.
+[ ] Errors are handled.
+[ ] App is deployed.
+[ ] Demo is reproducible.
+[ ] No secrets are exposed.
+[ ] No fabricated on-chain claims are presented as facts.
+
+============================================================
+END OF SPECIFICATION
+============================================================

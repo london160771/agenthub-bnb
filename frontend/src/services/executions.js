@@ -24,3 +24,17 @@ export function createExecution(body, opts) {
 export function getExecution(executionId, opts) {
   return api.get(`/executions/${encodeURIComponent(executionId)}`, opts);
 }
+
+/**
+ * POST /api/executions/:executionId/run — start (or retry) the agent's work.
+ *
+ * Returns as soon as the run is claimed, not when it finishes, so the caller
+ * polls `getExecution` for progress. `data.started` is false when another
+ * request already owns the run — which is a normal outcome, not an error.
+ *
+ * This still signs nothing: the agent reads public chain data and writes a
+ * result. No transaction is created.
+ */
+export function runExecution(executionId, opts) {
+  return api.post(`/executions/${encodeURIComponent(executionId)}/run`, undefined, opts);
+}

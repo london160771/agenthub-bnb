@@ -6,11 +6,13 @@
  * factories for failures.
  */
 import { isDbConnected } from '../config/db.js';
+import { runExecution } from '../services/executionRunner.js';
 import {
   createExecution,
   findRecentDuplicate,
   getExecutionById,
   getHireableAgent,
+  resetForRetry,
   HIRE_CHAIN_ID,
 } from '../services/executionService.js';
 import { ApiError, sendSuccess, asyncHandler } from '../utils/apiResponse.js';
@@ -127,7 +129,7 @@ export const postExecution = asyncHandler(async (req, res) => {
   const duplicate = await findRecentDuplicate({ userAddress, agentId, task });
   if (duplicate) {
     throw ApiError.conflict(
-      'You just submitted this exact hire. Open the existing one instead of paying twice.',
+      'You just submitted this exact hire. Open the existing one instead of running it twice.',
       { executionId: duplicate.executionId },
     );
   }
@@ -136,6 +138,46 @@ export const postExecution = asyncHandler(async (req, res) => {
   // is ignored — the service derives all of them.
   const execution = await createExecution({ agentId, userAddress, task, input, agent });
   sendSuccess(res, execution, 201);
+});
+
+/**
+ * POST /api/executions/:executionId/run — start (or retry) the agent's work.
+ *
+ * Responds as soon as the run is claimed rather than waiting for it to finish, so
+ * the client can render the timeline while it happens. A `failed` execution is
+ * reset and re-run, which makes this the retry endpoint too — safe because a run
+ * only reads the chain and writes this record. Nothing is charged or broadcast.
+ */
+export const postExecutionRun = asyncHandler(async (req, res) => {
+  ensureDb();
+  const executionId = String(req.params.executionId);
+
+  const existing = await getExecutionById(executionId);
+  if (!existing) {
+    throw ApiError.notFound(`No execution found with id "${executionId}".`);
+  }
+
+  if (existing.status === 'failed') {
+    await resetForRetry(executionId);
+  } else if (existing.status === 'running') {
+    // Already in flight. Not an error — the client should just keep polling.
+    return sendSuccess(res, { executionId, status: 'running', started: false });
+  } else if (existing.status === 'completed') {
+    throw ApiError.conflict(
+      'This task has already completed. Hire the agent again to run a new task.',
+      { executionId },
+    );
+  }
+
+  // Deliberately not awaited: the run persists its own progress, and holding the
+  // response open would leave the user watching a blank page instead of a timeline.
+  runExecution(executionId).catch((err) => {
+    // runExecution handles its own failures; this only catches a crash in the
+    // claim itself, which must not become an unhandled rejection.
+    console.error(`[execution ${executionId}] runner crashed:`, err);
+  });
+
+  sendSuccess(res, { executionId, status: 'running', started: true }, 202);
 });
 
 /** GET /api/executions/:executionId */

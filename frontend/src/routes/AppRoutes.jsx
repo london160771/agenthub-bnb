@@ -5,6 +5,7 @@ import DiscoverPage from '../pages/DiscoverPage.jsx';
 import AgentProfilePage from '../pages/AgentProfilePage.jsx';
 import ComparePage from '../pages/ComparePage.jsx';
 import HirePage from '../pages/HirePage.jsx';
+import ExecutionPage from '../pages/ExecutionPage.jsx';
 import PlaceholderPage from '../pages/PlaceholderPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 
@@ -32,10 +33,7 @@ export function AppRoutes() {
         />
         <Route path="/compare" element={<ComparePage />} />
         <Route path="/hire/:agentId" element={<HirePage />} />
-        <Route
-          path="/execution/:executionId"
-          element={<PlaceholderPage eyebrow="Execution" title="Execution" />}
-        />
+        <Route path="/execution/:executionId" element={<ExecutionPage />} />
         <Route
           path="/dashboard"
           element={<PlaceholderPage eyebrow="Overview" title="Dashboard" />}

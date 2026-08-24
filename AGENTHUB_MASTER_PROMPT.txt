@@ -1,0 +1,1113 @@
+AGENTHUB — CODEX MASTER EXECUTION PROMPT
+
+ROLE
+
+You are the lead software engineer responsible for turning the attached
+AGENTHUB_BNB_HACKATHON_MVP_CODEX_SPEC.txt specification into a working,
+polished, deployable application.
+
+The specification is the source of truth for the product.
+
+Your job is to:
+1. Understand the product before coding.
+2. Build the application incrementally.
+3. Keep the app runnable throughout development.
+4. Prioritize Tier 1 features.
+5. Build Tier 2 only after Tier 1 is stable.
+6. Verify BNB Chain/ERC-8004 integrations against current official
+   documentation instead of guessing.
+7. Make reasonable implementation decisions without constantly asking
+   for approval.
+8. Stop and ask for clarification only when a decision materially
+   changes the product, security, architecture, or hackathon scope.
+
+The final result should feel like a serious Web3 SaaS product, not a
+basic CRUD dashboard.
+
+
+1. FIRST: READ THE SPECIFICATION
+
+Before writing code:
+- Read AGENTHUB_BNB_HACKATHON_MVP_CODEX_SPEC.txt completely.
+- Extract the product requirements.
+- Identify Tier 1 and Tier 2 requirements.
+- Identify all routes.
+- Identify database models.
+- Identify backend APIs.
+- Identify blockchain integrations.
+- Identify the core user journey.
+
+Do not immediately start generating large amounts of code.
+
+First inspect the existing repository.
+
+Determine:
+- Is this an existing project?
+- What framework is already installed?
+- What dependencies exist?
+- What files exist?
+- Is there already a frontend?
+- Is there already a backend?
+- Is there an existing database configuration?
+- Are there existing environment variables?
+- Is there existing authentication or wallet infrastructure?
+
+If the repository is empty, initialize the project according to the
+specification.
+
+If an existing project already contains useful code, preserve and
+improve it rather than unnecessarily rebuilding everything.
+
+
+2. PRODUCT NORTH STAR
+
+The entire application must optimize for this journey:
+
+DISCOVER
+↓
+EVALUATE
+↓
+COMPARE
+↓
+HIRE
+↓
+EXECUTE
+↓
+VERIFY
+
+A user should be able to say:
+
+"I need an agent to monitor my DeFi position."
+
+Then:
+1. AgentHub understands the request.
+2. AgentHub recommends suitable agents.
+3. User examines the agent.
+4. User sees identity and reputation.
+5. User compares alternatives.
+6. User hires the agent.
+7. User connects their wallet.
+8. Agent executes the task.
+9. User sees the result.
+10. User sees the execution in their history.
+11. User sees measurable Agent Advantage.
+
+Every major design and engineering decision should support this journey.
+
+
+3. DO NOT BUILD THE WRONG PRODUCT
+
+AgentHub is NOT:
+- An AI chatbot.
+- An AI agent creation platform.
+- A generic SaaS dashboard.
+- A crypto trading terminal.
+- A portfolio tracker.
+- A collection of fake AI agents.
+- A simple directory.
+
+AgentHub IS:
+
+A marketplace and discovery layer for AI agents on BNB Smart Chain.
+
+The product should make it easy to answer:
+1. What does this agent do?
+2. Can I trust it?
+3. How well has it performed?
+4. How much does it cost?
+5. How is it different from another agent?
+6. Can I hire it?
+7. What happened when it executed?
+
+
+4. IMPLEMENTATION PHILOSOPHY
+
+Build vertically, not horizontally.
+
+Do not build every frontend page first and then discover that the
+backend doesn't support the product.
+
+Instead, build complete vertical slices.
+
+Example:
+Marketplace card → Agent API → Agent database → Agent detail page
+
+Then:
+Finder UI → Finder API → recommendation logic → recommendation results
+
+Then:
+Hire UI → wallet → backend → execution → result
+
+This keeps the product functional throughout development.
+
+
+5. WORK IN PHASES
+
+PHASE 0 — REPOSITORY AUDIT
+
+Before modifying anything:
+- Inspect repository.
+- Inspect package.json.
+- Inspect environment files.
+- Inspect existing source files.
+- Inspect Git status.
+- Determine current architecture.
+
+Then create a short implementation plan.
+
+Do not rewrite a working project unnecessarily.
+
+
+PHASE 1 — FOUNDATION
+
+Build:
+- React/Vite frontend if needed.
+- Node/Express backend.
+- MongoDB integration.
+- Environment configuration.
+- React Router.
+- API service layer.
+- Global layout.
+- Responsive navbar.
+- Mobile navigation.
+- Tailwind/design system.
+- Reusable UI primitives.
+- Error boundary.
+- API error handling.
+
+The application must run before moving on.
+
+
+PHASE 2 — DATABASE + SEEDED AGENTS
+
+Create:
+- Agent model
+- User model
+- Execution model
+- Review model
+
+Create a small curated seed dataset.
+
+Initially seed approximately 10–30 agents.
+
+DO NOT pretend seeded agents are real blockchain agents.
+
+Use a source field such as:
+source: "seeded"
+
+Real agent data should later be marked appropriately.
+
+Create:
+- seed script
+- database connection
+- basic read services
+
+The marketplace must be functional using seed data before blockchain
+integration.
+
+
+PHASE 3 — LANDING PAGE
+
+Build the landing page around:
+
+"Find the right AI agent for the job."
+
+Supporting text:
+"Discover, compare and hire verified AI agents running on BNB Smart Chain."
+
+Primary action:
+Find an Agent.
+
+Include:
+- Featured agents
+- Categories
+- How it works
+- Trust explanation
+- Agent Advantage
+- CTA
+
+Make it visually polished and non-template-like.
+
+
+PHASE 4 — MARKETPLACE
+
+Build:
+/discover
+
+Implement:
+- Search
+- Category filters
+- Chain filters
+- Status filters
+- Trust filters
+- Performance filters
+- Price filters
+- Sorting
+- Agent cards
+- Pagination or infinite scrolling
+- Empty state
+- Loading state
+- Error state
+
+Agent cards should show:
+- Name
+- Category
+- Description
+- Trust score
+- Success rate
+- Execution count
+- Cost
+- Verification
+- Status
+
+Avoid information overload.
+
+
+PHASE 5 — AGENT PROFILE
+
+Build:
+/agents/:agentId
+
+Implement:
+- Overview
+- Skills
+- Protocols
+- Performance
+- Trust score
+- Identity
+- Activity
+- Reviews
+- Similar agents
+- Hire
+- Compare
+- Save
+
+Create reusable:
+- TrustScore
+- AgentMetrics
+- AgentIdentity
+
+The user should be able to make a hiring decision without leaving
+the page.
+
+
+PHASE 6 — TRUST SCORE
+
+Initial scoring:
+30% Identity
+25% Success Rate
+20% Activity
+15% Reliability
+10% Reviews
+
+If data is missing:
+DO NOT invent values.
+
+Instead:
+- mark unavailable,
+- reduce confidence,
+- or calculate using available weighted factors.
+
+Explain:
+"How is this score calculated?"
+
+Do not imply this is an official BNB Chain score.
+It is an AgentHub marketplace score.
+
+
+PHASE 7 — AI AGENT FINDER
+
+Build:
+/find
+
+Example request:
+"I need an agent that monitors my Venus lending position and warns
+me before liquidation."
+
+Backend:
+1. Receive request.
+2. Use an LLM to classify intent if configured.
+3. Extract category, skills, protocol and task type.
+4. Query compatible agents.
+5. Calculate deterministic match scores.
+6. Return ranked agents.
+
+Scoring:
+40% task compatibility
+20% skill compatibility
+15% trust
+10% success
+10% price
+5% activity
+
+AI assists interpretation but does NOT control ranking unrestrictedly.
+
+If no AI API key exists, implement a keyword/rule-based fallback.
+
+The app must not break when the AI provider is unavailable.
+
+
+PHASE 8 — AGENT COMPARISON
+
+Build:
+/compare
+
+Allow comparison of 2–3 agents.
+
+Compare:
+- Trust
+- Success
+- Executions
+- Response time
+- Cost
+- Identity
+- Skills
+- Protocols
+- Reviews
+- Status
+
+Highlight:
+- Best overall
+- Best value
+- Highest trust
+- Fastest
+
+
+PHASE 9 — WALLET
+
+Prefer:
+- wagmi
+- viem
+
+Support BNB Smart Chain.
+
+Implement:
+- Connect
+- Disconnect
+- Address display
+- Network detection
+- Wrong network state
+- Transaction state
+
+Never request:
+- private keys
+- seed phrases
+- wallet passwords
+
+All wallet transactions must be signed by the user's wallet.
+
+Never put private blockchain keys in frontend code.
+
+
+PHASE 10 — ERC-8004
+
+This is a critical integration.
+
+Before implementation, research CURRENT official BNB Chain
+documentation and the current ERC-8004 implementation.
+
+Do not assume:
+- contract addresses
+- RPC URLs
+- API endpoints
+- registry addresses
+- SDK methods
+- ABI details
+
+Verify them.
+
+Create an abstraction such as:
+agentRegistry.js
+
+It should handle:
+- agent identity
+- registration data
+- endpoint information
+- verification/status where supported
+
+Frontend must not contain registry logic.
+
+If live registry data is unavailable or impractical for MVP:
+use a clean adapter interface with seeded fallback data.
+
+Do not fake blockchain data.
+
+Clearly mark the data source.
+
+
+PHASE 11 — HIRING
+
+Build:
+/hire/:agentId
+
+Flow:
+1. Agent summary
+2. Task configuration
+3. Cost
+4. Wallet
+5. Confirmation
+
+Show:
+Agent fee
+Network fee
+Total
+
+Make the network explicit.
+
+Prefer testnet during development.
+
+
+PHASE 12 — EXECUTION
+
+Build:
+/execution/:executionId
+
+Show a live execution timeline:
+
+✓ Agent hired
+✓ Task received
+✓ Wallet verified
+◉ Querying data
+◉ Analyzing
+○ Generating result
+
+Then show:
+- Task completed
+- Result
+- Cost
+- Duration
+- Transaction
+
+Polling is acceptable.
+WebSockets are optional.
+
+Do not over-engineer this.
+
+
+13. FLAGSHIP EXECUTION FLOWS
+
+Prioritize:
+1. Health Factor
+2. Yield
+3. Monitoring
+
+Do not attempt sophisticated autonomous trading unless an existing
+integration is safe and reliable.
+
+The strongest demo is a reliable read/analysis/recommendation task.
+
+Example Health Factor Agent:
+
+Input:
+Wallet / lending position
+
+Output:
+Health factor
+Risk
+Position
+Borrow
+Recommendation
+
+Execution should be deterministic enough for a repeatable demo.
+
+
+14. DASHBOARD
+
+Build:
+/dashboard
+
+Show:
+- Agents hired
+- Tasks completed
+- Total spent
+- Time saved
+- Active agents
+- Recent activity
+- Recommended agents
+
+Only show data belonging to the connected wallet.
+
+
+15. ACTIVITY
+
+Build:
+/activity
+
+Show:
+- Agent
+- Task
+- Status
+- Cost
+- Duration
+- Date
+
+Allow filtering.
+
+Clicking an execution opens execution details.
+
+
+16. SAVED AGENTS
+
+Build:
+/saved
+
+Implement:
+- Save
+- Unsave
+- View
+- Hire
+
+Persist against the wallet/user record.
+
+
+17. REVIEWS
+
+Tier 2.
+
+Only allow a review after an actual execution exists.
+
+A review should reference:
+executionId
+
+Show:
+- rating
+- comment
+- date
+- verified execution indicator
+
+
+18. ANALYTICS
+
+Tier 2.
+
+Agent analytics:
+- Success rate
+- Execution count
+- Average response time
+- Average cost
+- Performance trend
+
+Use clean charts.
+
+Do not create fake historical graphs.
+If historical data is insufficient, label charts appropriately.
+
+
+19. NOTIFICATIONS
+
+Tier 2.
+
+Implement simple in-app notifications:
+- Task completed
+- Task failed
+- Agent alert
+- Recommendation
+
+Do not build email/push infrastructure unless time allows.
+
+
+20. AGENT ADVANTAGE
+
+This is a major differentiator.
+
+Compare:
+
+Manual vs Agent
+
+Metrics:
+- Time
+- Steps
+- Cost
+- Result
+
+Example:
+
+MANUAL
+14 min
+
+AGENT
+2.8 sec
+
+TIME SAVED
+13m 57s
+
+Do not fabricate evidence for the final hackathon submission.
+
+Measure at least three real tasks.
+
+Possible model:
+
+AgentAdvantage:
+{
+  task,
+  manualDuration,
+  agentDuration,
+  manualCost,
+  agentCost,
+  manualSteps,
+  agentSteps,
+  resultQuality,
+  measuredAt
+}
+
+
+21. UI QUALITY BAR
+
+The application should feel:
+- Premium SaaS
+- Professional Web3
+- Modern marketplace
+
+Avoid:
+- excessive gradients
+- excessive neon
+- giant glowing text
+- generic AI illustrations
+- clutter
+- unnecessary animations
+- template-looking cards
+
+Prioritize:
+- typography
+- spacing
+- hierarchy
+- consistent cards
+- useful micro-interactions
+- clear CTAs
+- clean charts
+- responsive layout
+
+Use a consistent design system.
+
+
+22. RESPONSIVENESS
+
+Support:
+- desktop
+- tablet
+- mobile
+
+Test:
+- 1440px
+- 1024px
+- 768px
+- 390px
+
+Do not simply shrink desktop layouts.
+Create proper mobile layouts.
+
+
+23. ACCESSIBILITY
+
+Implement:
+- semantic HTML
+- labels
+- keyboard navigation
+- visible focus states
+- sufficient contrast
+- alt text
+- accessible dialogs
+- accessible buttons
+- meaningful loading/error messages
+
+
+24. ERROR HANDLING
+
+Every API call must have:
+- loading
+- success
+- error
+
+Blockchain actions must handle:
+- rejected transaction
+- wrong network
+- wallet unavailable
+- insufficient testnet balance
+- RPC failure
+- timeout
+
+Agent execution must handle:
+- timeout
+- failed execution
+- unavailable endpoint
+- malformed response
+
+Never leave the user staring at a spinner forever.
+
+
+25. DATA INTEGRITY
+
+Never present fabricated data as real blockchain data.
+
+Every agent should have a source:
+- verified
+- indexed
+- seeded
+- demo
+
+Use appropriate UI labels.
+
+"AgentHub demo data" is acceptable.
+
+Invented statistics presented as verified blockchain facts are NOT
+acceptable.
+
+
+26. BNB INTEGRATION RULE
+
+Before writing BNB-specific blockchain code:
+
+VERIFY CURRENT DOCUMENTATION.
+
+If an API/SDK is unclear:
+1. Research official docs.
+2. Inspect examples.
+3. Verify package versions.
+4. Build a small proof of concept.
+5. Test it.
+6. Integrate it.
+
+Never spend multiple days building against an assumed API.
+
+
+27. ENVIRONMENT VARIABLES
+
+Create:
+.env.example
+
+Possible variables:
+MONGODB_URI=
+PORT=
+CLIENT_URL=
+AI_API_KEY=
+BNB_RPC_URL=
+BNB_TESTNET_RPC_URL=
+
+Only include variables actually needed.
+
+Never commit .env.
+
+Never expose server secrets to the Vite client unless intentionally
+public.
+
+
+28. API DESIGN
+
+Use:
+/api/...
+
+Success:
+{
+  success: true,
+  data: ...
+}
+
+Error:
+{
+  success: false,
+  error: {
+    code: "...",
+    message: "..."
+  }
+}
+
+Use proper HTTP status codes.
+Validate request bodies.
+Do not leak internal errors.
+
+
+29. DATABASE INDEXING
+
+Agent:
+- name
+- category
+- skills
+- chain
+- trustScore
+- status
+
+Execution:
+- agentId
+- userAddress
+- status
+- createdAt
+
+Review:
+- agentId
+- executionId
+
+User:
+- walletAddress
+
+Do not over-index unnecessarily.
+
+
+30. PERFORMANCE
+
+Frontend:
+- lazy-load heavy pages where useful
+- optimize images
+- avoid unnecessary rerenders
+- avoid giant dependencies
+
+Backend:
+- pagination
+- indexed queries
+- avoid N+1 queries
+- cache relatively static registry data where useful
+
+Do not prematurely optimize everything.
+
+
+31. TESTING STRATEGY
+
+At minimum test:
+- API endpoints
+- database models
+- recommendation scoring
+- trust score
+- wallet states
+- agent finder
+- execution state transitions
+
+Manual E2E:
+
+Landing
+→ Finder
+→ Agent
+→ Compare
+→ Hire
+→ Wallet
+→ Execution
+→ Result
+→ Activity
+
+Fix critical bugs before optional features.
+
+
+32. GIT
+
+Commit frequently.
+
+Examples:
+feat: initialize agenthub frontend
+feat: add marketplace
+feat: add agent profile
+feat: add trust score
+feat: add agent finder
+feat: add comparison
+feat: add wallet
+feat: integrate agent registry
+feat: add hire flow
+feat: add execution
+feat: add dashboard
+feat: add reviews
+feat: add analytics
+fix: handle failed execution
+
+Do not make one giant commit containing the entire application.
+
+
+33. DOCUMENTATION
+
+Create a README containing:
+1. Product overview
+2. Problem
+3. Solution
+4. Architecture
+5. Features
+6. Tech stack
+7. Local setup
+8. Environment variables
+9. Database setup
+10. BNB configuration
+11. Testnet setup
+12. Agent data sources
+13. Demo instructions
+14. Known limitations
+15. Future roadmap
+
+
+34. DO NOT OVERBUILD
+
+If a feature is not Tier 1 or Tier 2, do not build it unless there
+is a compelling reason.
+
+Postpone:
+- agent creation
+- agent publishing
+- subscriptions
+- DAO
+- governance
+- multi-chain
+- complex trading automation
+- agent-to-agent communication
+- social feed
+- chat system
+- advanced admin dashboard
+- elaborate authentication
+- email system
+
+A smaller polished product is better than a huge broken one.
+
+
+35. PRIORITY RULE
+
+When forced to choose:
+
+1. Core user journey
+2. Real BNB integration
+3. Agent discovery
+4. Agent identity
+5. Hiring
+6. Execution
+7. Trust
+8. Agent Advantage
+9. Tier 2
+10. Visual polish
+
+Never sacrifice a critical feature for a decorative feature.
+
+
+36. FAILURE / FALLBACK STRATEGY
+
+If a real integration becomes blocked:
+
+Do not spend the entire project fighting it.
+
+Create an adapter.
+
+Example:
+
+AgentRegistryService
+├── LiveAgentRegistryService
+└── SeededAgentRegistryService
+
+Keep the application architecture ready for the real integration.
+
+Clearly label fallback data.
+
+
+37. DEVELOPMENT CHECKPOINTS
+
+After every major phase:
+1. Run the application.
+2. Run lint.
+3. Run tests.
+4. Check console.
+5. Check API.
+6. Check responsive UI.
+7. Commit changes.
+
+Do not stack many broken features before testing.
+
+
+38. WHEN TO ASK THE USER
+
+Do NOT ask for confirmation for ordinary engineering choices.
+
+Ask only when:
+- a secret/API key is required and unavailable
+- a paid service is required
+- a blockchain transaction would spend real money
+- an irreversible architectural decision is required
+- the specification is internally contradictory
+- a security-sensitive decision needs user input
+- the user must choose between materially different product directions
+
+Otherwise proceed.
+
+
+39. FIRST RESPONSE AFTER READING THIS PROMPT
+
+After reading this prompt and the specification:
+
+DO NOT immediately generate the entire app.
+
+First:
+1. Inspect the repository.
+2. Summarize the current state.
+3. Identify what already exists.
+4. Identify missing foundation pieces.
+5. Propose the first implementation phase.
+6. Begin Phase 1 if the repository is ready.
+
+Do not dump thousands of lines of code into one response.
+
+Work incrementally.
+
+
+40. FINAL DEFINITION OF DONE
+
+AgentHub is complete when:
+- Landing page works.
+- Marketplace works.
+- Search works.
+- Filters work.
+- Categories work.
+- Agent profiles work.
+- Trust score works.
+- AI Finder works.
+- Recommendations work.
+- ERC-8004 integration works where available.
+- Wallet connection works.
+- BNB network works.
+- Agent comparison works.
+- Hire flow works.
+- At least one meaningful agent execution works end-to-end.
+- Execution result works.
+- Activity works.
+- Saved agents work.
+- Reviews work.
+- Analytics work.
+- Notifications work at an MVP level.
+- Agent Advantage works.
+- Three real Agent Advantage measurements exist.
+- Application is responsive.
+- Loading/error/empty states exist.
+- No secrets are exposed.
+- No fabricated blockchain claims are presented as facts.
+- Application is deployed.
+- README is complete.
+- Demo can be reproduced reliably.
+
+
+41. FINAL PRODUCT STANDARD
+
+When finished, a judge should understand the product within seconds.
+
+The experience should communicate:
+
+"AgentHub helps me find the right BNB AI agent."
+
+Then:
+
+"I can see why I should trust it."
+
+Then:
+
+"I can compare it with alternatives."
+
+Then:
+
+"I can hire it."
+
+Then:
+
+"It actually did the task."
+
+Then:
+
+"I can see exactly what happened."
+
+Then:
+
+"I can see that using the agent was better than doing it myself."
+
+That is the standard.
+
+Build for that experience above everything else.
+
+============================================================
+END OF CODEX MASTER EXECUTION PROMPT
+============================================================

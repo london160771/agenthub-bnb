@@ -65,9 +65,27 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
                 {free ? 'Free' : formatBnb(price, currency)}
               </span>
             </Row>
+            {/* Spec §12 asks for a fee breakdown. The honest network fee in this
+                build is nothing, because no transaction is broadcast — so it is
+                stated as none rather than filled with a plausible gas estimate. */}
+            <Row label="Network fee (gas)">
+              <span className="text-faint">None — nothing is broadcast</span>
+            </Row>
             <Row label="Pricing model">
               {PRICING_MODEL_LABELS[agent.pricing?.model] || agent.pricing?.model || '—'}
             </Row>
+          </div>
+
+          <div className="py-2">
+            <div className="flex items-baseline justify-between gap-3 py-1.5">
+              <span className="shrink-0 text-sm font-semibold text-fg">Total</span>
+              <span className="text-right font-mono text-base font-bold text-fg">
+                {free ? 'Free' : formatBnb(price, currency)}
+              </span>
+            </div>
+            <p className="text-xs leading-relaxed text-faint">
+              Recorded on the hire, not charged to your wallet.
+            </p>
           </div>
 
           <div className="py-2">
@@ -210,7 +228,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
 
         {DEFAULT_CHAIN.faucet && (
           <p className="mt-4 border-t border-line pt-3 text-xs leading-relaxed text-faint">
-            Need test funds for later phases?{' '}
+            Want test funds in your wallet to see a real balance?{' '}
             <a
               href={DEFAULT_CHAIN.faucet}
               target="_blank"

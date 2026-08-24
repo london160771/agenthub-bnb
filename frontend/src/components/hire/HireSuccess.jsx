@@ -36,7 +36,7 @@ export function HireSuccess({ agent, execution }) {
         <h2 className="mt-4 text-xl font-bold tracking-tight text-fg">Hire recorded</h2>
         <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-muted">
           <span className="font-medium text-fg">{agent.name}</span> has been queued for your task.
-          It hasn&apos;t started running yet.
+          Open it to watch the agent run.
         </p>
 
         <div className="mx-auto mt-5 max-w-md rounded-xl border border-line bg-panel-2 p-4 text-left">
@@ -59,7 +59,7 @@ export function HireSuccess({ agent, execution }) {
             </Detail>
             <Detail label="Recorded fee">
               <span className="font-mono">
-                {formatBnb(execution.cost, DEFAULT_CHAIN.currency)}
+                {formatBnb(execution.cost, execution.currency || DEFAULT_CHAIN.currency)}
               </span>
             </Detail>
             <Detail label="Network">{DEFAULT_CHAIN.name}</Detail>
@@ -78,11 +78,11 @@ export function HireSuccess({ agent, execution }) {
 
         <div className="mx-auto mt-5 flex max-w-md flex-col gap-2 sm:flex-row">
           <ButtonLink
-            to={`/execution/${execution.executionId}`}
+            to={`/execution/${execution.executionId}?new=1`}
             variant="primary"
             className="flex-1"
           >
-            View execution
+            Run the task
           </ButtonLink>
           <ButtonLink to="/discover" variant="secondary" className="flex-1">
             Hire another agent
@@ -104,9 +104,9 @@ export function HireSuccess({ agent, execution }) {
               or broadcast, and no {DEFAULT_CHAIN.currency} moved.
             </li>
             <li>
-              <strong className="text-fg">Not yet built:</strong> running the agent and returning a
-              result. The execution stays <code className="font-mono">pending</code> until the
-              execution phase lands.
+              <strong className="text-fg">Next:</strong> running the task reads live data from{' '}
+              {DEFAULT_CHAIN.name}. Every value in the result is labelled with where it came from,
+              so a reading and an estimate are never confused.
             </li>
           </ul>
         </div>

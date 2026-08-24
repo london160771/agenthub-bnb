@@ -1,8 +1,8 @@
 /**
  * Write + read logic for hire records ("executions").
  *
- * Phase 5 (HIRE) only *creates* the record: every execution starts `pending`
- * with a seeded timeline. Advancing it belongs to Phase 6 (EXECUTE).
+ * Creating a record leaves it `pending`; `executionRunner.js` is what advances it
+ * to `running` and then `completed`/`failed`.
  *
  * Two deliberate safety properties live here rather than in the controller,
  * because they must hold for every caller:
@@ -20,28 +20,45 @@ const PROJECTION = '-__v -_id';
 export const HIRE_CHAIN = 'bnb-testnet';
 /** BNB Smart Chain Testnet, verified against official BNB Chain docs. */
 export const HIRE_CHAIN_ID = 97;
+/**
+ * What the fee is actually denominated in on this network.
+ *
+ * Seeded agents declare their price in "BNB" because that is the chain's asset
+ * name, but the testnet's native token is tBNB — a valueless test token. Storing
+ * "BNB" would have the record disagree with every screen that (correctly) says
+ * tBNB, and would overstate what a hire costs. The chain decides the label.
+ */
+export const HIRE_CURRENCY = 'tBNB';
 
 /** Window in which an identical hire is treated as an accidental double-submit. */
 const DUPLICATE_WINDOW_MS = 15_000;
 
 /**
- * The timeline the execution page will render. At creation only `queued` is
- * done, because queuing is the only thing that has actually happened — the
- * remaining steps are honestly `pending` until Phase 6 runs them.
+ * The timeline the execution page renders, using the step names from the spec.
+ *
+ * The first three are marked `done` the moment the record is created, because
+ * they are genuinely already true: the hire happened, the task was received, and
+ * the wallet address and chain id were validated before we got here. The last
+ * three are the actual work and stay `pending` until the runner does them.
  */
 const STEP_TEMPLATE = [
-  { key: 'queued', label: 'Hire queued' },
-  { key: 'validate', label: 'Validating task input' },
-  { key: 'fetch', label: 'Reading on-chain data' },
-  { key: 'analyse', label: 'Running agent analysis' },
-  { key: 'report', label: 'Preparing result' },
+  { key: 'hired', label: 'Agent hired', atCreate: true },
+  { key: 'received', label: 'Task received', atCreate: true },
+  { key: 'wallet', label: 'Wallet verified', atCreate: true },
+  { key: 'query', label: 'Querying on-chain data' },
+  { key: 'analyse', label: 'Analyzing' },
+  { key: 'report', label: 'Generating result' },
 ];
 
+/** Steps the runner advances, in order. */
+export const RUN_STEP_KEYS = STEP_TEMPLATE.filter((s) => !s.atCreate).map((s) => s.key);
+
 function buildSteps(now) {
-  return STEP_TEMPLATE.map((step, i) => ({
-    ...step,
-    state: i === 0 ? 'done' : 'pending',
-    at: i === 0 ? now : null,
+  return STEP_TEMPLATE.map(({ key, label, atCreate }) => ({
+    key,
+    label,
+    state: atCreate ? 'done' : 'pending',
+    at: atCreate ? now : null,
   }));
 }
 
@@ -64,6 +81,67 @@ export async function getHireableAgent(agentId) {
 
 export async function getExecutionById(executionId) {
   return Execution.findOne({ executionId }).select(PROJECTION).lean();
+}
+
+/**
+ * The mutable Mongoose document (not a lean object) — the runner needs to save
+ * step-by-step progress, so it works on the live document rather than a copy.
+ */
+export async function getExecutionDoc(executionId) {
+  return Execution.findOne({ executionId });
+}
+
+/**
+ * Atomically claim a pending execution for running. Returns the document if this
+ * call won the claim, or null if it was already claimed/finished — so two
+ * concurrent run requests can't execute the same hire twice.
+ */
+export async function claimForRun(executionId) {
+  const now = new Date();
+  return Execution.findOneAndUpdate(
+    { executionId, status: 'pending' },
+    {
+      $set: {
+        status: 'running',
+        'steps.$[query].state': 'active',
+        'steps.$[query].at': now,
+      },
+    },
+    {
+      new: true,
+      arrayFilters: [{ 'query.key': 'query' }],
+    },
+  );
+}
+
+/**
+ * Put a failed execution back to `pending` so it can be run again.
+ *
+ * Retries are safe here precisely because a run has no side effects beyond this
+ * record: it reads the chain and writes a result. Nothing was charged, nothing
+ * was sent, so re-running cannot double-anything.
+ *
+ * Only `failed` is eligible — a `completed` execution keeps its result, and a
+ * `running` one is someone else's in-flight work.
+ */
+export async function resetForRetry(executionId) {
+  const doc = await Execution.findOne({ executionId, status: 'failed' });
+  if (!doc) return null;
+
+  for (const step of doc.steps) {
+    if (RUN_STEP_KEYS.includes(step.key)) {
+      step.state = 'pending';
+      step.at = null;
+    }
+  }
+  doc.markModified('steps');
+  doc.status = 'pending';
+  doc.errorMessage = '';
+  doc.output = null;
+  doc.durationMs = null;
+  doc.completedAt = null;
+  await doc.save();
+  return doc;
 }
 
 /**
@@ -104,7 +182,8 @@ export async function createExecution({ agentId, userAddress, task, input, agent
     status: 'pending',
     // Server-authoritative price: whatever the agent actually charges.
     cost: agent.pricing?.amount ?? 0,
-    currency: agent.pricing?.currency || 'BNB',
+    // Testnet fees are in tBNB regardless of how the agent labels its price.
+    currency: HIRE_CURRENCY,
     chain: HIRE_CHAIN,
     // Nothing is signed or broadcast in this phase, so there is no hash to
     // record. Left empty rather than fabricated.

@@ -1,0 +1,1081 @@
+===============================================================================
+AGENTHUB — BLOCKCHAIN CONCEPTS FROM PHASE 5 (HIRE)
+Written 2026-08-24 · covers commit 0800203
+===============================================================================
+
+This is a plain-English reference for every blockchain concept the HIRE phase
+introduced into AgentHub. It assumes you know how to read JavaScript but no
+blockchain terminology at all.
+
+Each concept has three parts:
+  WHAT IT IS      — in plain English, no jargon
+  WHY WE NEED IT  — what breaks in AgentHub without it
+  IN OUR CODE     — the exact file and line, so you can go and look
+
+A note on trust: every chain ID, RPC host, currency symbol and explorer URL in
+this document was checked against official BNB Chain documentation before it
+was written into the code. Where something is a convention or my inference
+rather than a documented fact, it says so explicitly.
+
+
+===============================================================================
+TABLE OF CONTENTS
+===============================================================================
+
+  PART 1 — THE NETWORK
+    1.  Blockchain
+    2.  BNB Smart Chain
+    3.  BNB Smart Chain Testnet
+    4.  Chain IDs, and why 97 means testnet
+    5.  Native currency: BNB vs tBNB
+    6.  Gas
+    7.  RPC endpoints
+    8.  Block explorers
+
+  PART 2 — WALLETS
+    9.  Wallets
+    10. Wallet addresses
+    11. window.ethereum — the injected provider
+    12. EIP-1193 — the standard every wallet speaks
+
+  PART 3 — THE FIVE METHODS WE ACTUALLY CALL
+    13. eth_accounts
+    14. eth_requestAccounts
+    15. eth_chainId
+    16. wallet_switchEthereumChain
+    17. wallet_addEthereumChain (EIP-3085)
+    18. Provider events: accountsChanged and chainChanged
+    19. Wallet error codes: 4001, 4902, -32002
+
+  PART 4 — THE IMPORTANT DISTINCTION
+    20. Connecting vs signing
+    21. Simulated payment vs a real transaction
+    22. Why Phase 5 spends no BNB at all
+    23. What Phase 6 must change to actually execute a task
+
+  PART 5 — PUTTING IT TOGETHER
+    24. The full flow, hop by hop
+    25. Real vs simulated: the honest table
+    26. Quick glossary
+
+
+===============================================================================
+PART 1 — THE NETWORK
+===============================================================================
+
+-------------------------------------------------------------------------------
+1. BLOCKCHAIN
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    A shared database that thousands of independent computers each keep a full
+    copy of. Nobody owns it and nobody can quietly edit it. New data arrives in
+    batches called "blocks", each block cryptographically referencing the one
+    before it — that chain of references is what makes rewriting history
+    detectable, hence "blockchain".
+
+    The important consequence for a developer: writing costs money and takes
+    time, reading is cheap and fast. That asymmetry shapes every design decision
+    in a Web3 app, including ours.
+
+WHY WE NEED IT
+    AgentHub is a marketplace for AI agents that act on a user's crypto
+    positions — checking a loan's health, watching a whale wallet, scheduling
+    buys. Those positions live on a blockchain, so the agents must be able to
+    read from one, and eventually payments must settle on one.
+
+IN OUR CODE
+    Nothing in Phase 5 writes to a blockchain. Not one byte. Hire records go to
+    MongoDB instead — see backend/services/executionService.js. This is the
+    single most important fact in this document, and concepts 20-23 explain it.
+
+
+-------------------------------------------------------------------------------
+2. BNB SMART CHAIN
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    One specific blockchain, run by the BNB Chain organisation. It is
+    "EVM-compatible", which means it runs the same kind of programs (smart
+    contracts) as Ethereum and uses the same address format, so tools built for
+    Ethereum mostly work on it unchanged. It is generally cheaper and faster
+    than Ethereum itself.
+
+    Often abbreviated BSC. Its native coin is BNB.
+
+WHY WE NEED IT
+    It's the chain the hackathon targets, and the chain the DeFi protocols our
+    agents talk about (Venus, PancakeSwap) actually live on.
+
+IN OUR CODE
+    frontend/src/config.js:51-74 — the CHAINS object holds both BNB networks.
+    The comment block above it, lines 37-50, cites the official doc URL for
+    every value, because AGENTS.md forbids guessing these.
+
+
+-------------------------------------------------------------------------------
+3. BNB SMART CHAIN TESTNET
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    A complete, separate copy of BNB Smart Chain that exists purely for
+    practice. Same software, same rules, same address format — but the coins on
+    it are worthless and given away free. Mistakes cost nothing.
+
+    It is a genuinely different network, not a "test mode" of the main one. An
+    address can hold 5 tBNB on testnet and 0 BNB on mainnet at the same time,
+    and a contract deployed to testnet does not exist on mainnet.
+
+WHY WE NEED IT
+    Because a bug that loses test coins is a lesson and a bug that loses real
+    coins is a disaster. AGENTS.md makes this a hard rule: develop and test on
+    testnet, and mainnet is prohibited without your explicit informed approval.
+
+    AgentHub enforces testnet in two independent places, so a bug in one does
+    not open the other:
+
+      Frontend — the Confirm button only appears when the wallet is on chain 97
+      (frontend/src/components/hire/HireConfirmPanel.jsx:149-171 shows the
+      "switch network" gate instead).
+
+      Backend — the API rejects a request reporting chain 56 with an explicit
+      "testnet-only" message, so even a hand-crafted curl request can't create
+      a mainnet hire.
+
+    That is called defence in depth: never trust the client to enforce a safety
+    rule, because the client is the part an attacker controls.
+
+IN OUR CODE
+    frontend/src/config.js:62-73
+    backend/services/executionService.js:19-22 (HIRE_CHAIN / HIRE_CHAIN_ID)
+
+
+-------------------------------------------------------------------------------
+4. CHAIN IDS, AND WHY 97 MEANS TESTNET
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    Every EVM network has a unique number, its chain ID. It is how software
+    tells networks apart, since they otherwise look identical.
+
+        56  = BNB Smart Chain (mainnet)     — real money
+        97  = BNB Smart Chain Testnet       — free test money
+        1   = Ethereum mainnet
+        137 = Polygon
+
+    There is no pattern to the numbers — 97 isn't testnet for any structural
+    reason, it's simply the number BNB Chain registered for it. You look it up;
+    you never infer it. (This is exactly why AGENTS.md forbids guessing chain
+    IDs: a plausible guess produces code that fails silently or, worse, works
+    against the wrong network.)
+
+    Wallets express chain IDs in hexadecimal, so 97 arrives as the string
+    "0x61" and 56 as "0x38". Converting between the two is a constant chore in
+    Web3 code, which is why we have one helper for each direction.
+
+    Chain IDs also serve a security purpose beyond labelling: a signed
+    transaction includes its chain ID, so a transaction signed for testnet
+    cannot be replayed on mainnet. (That rule comes from EIP-155. AgentHub
+    signs nothing, so it doesn't rely on this — it's useful background.)
+
+WHY WE NEED IT
+    It's the only way to answer "is this user on the right network?" — and the
+    answer decides whether hiring is allowed at all.
+
+IN OUR CODE
+    frontend/src/lib/wallet.js:28-30    toHexChainId(97)  → "0x61"
+    frontend/src/lib/wallet.js:33-37    parseChainId("0x61") → 97
+    frontend/src/context/WalletProvider.jsx:204   isCorrectChain: chainId === 97
+    backend/services/executionService.js:22       HIRE_CHAIN_ID = 97
+
+
+-------------------------------------------------------------------------------
+5. NATIVE CURRENCY: BNB vs tBNB
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    Each chain has one built-in coin used to pay for using it. On BNB Smart
+    Chain that's BNB. On the testnet the same coin is called tBNB ("test BNB")
+    and is worth nothing — you get it free from a faucet, a website that sends
+    you a small amount on request. BNB Chain's faucet caps you at 0.3 tBNB per
+    day, which is plenty for testing.
+
+    Both are quoted with 18 decimal places. Under the hood the chain only deals
+    in whole numbers of the smallest unit, so 1 BNB is stored as
+    1000000000000000000. The 18 is not a style choice — it's what the standard
+    requires for a native currency, and getting it wrong misprices everything
+    by a factor of a thousand or more.
+
+WHY WE NEED IT
+    Honesty in the UI. Displaying "0.5 BNB" while the user is on testnet implies
+    real money is at stake. AgentHub shows tBNB there instead.
+
+    There is one wrinkle worth knowing about, and I'd rather you hear it from
+    me than discover it: the saved hire record stores currency "BNB" — the
+    agent's own declared pricing, copied verbatim from the agent document —
+    while the UI displays tBNB, which is what testnet actually uses. Both
+    values are individually correct and they disagree with each other. It's
+    cosmetic today because no payment happens, but it's the kind of thing that
+    becomes a real bug the moment money moves, and it's on the list for Phase 6.
+
+IN OUR CODE
+    frontend/src/config.js:68-72     currency: 'tBNB', plus the faucet URL
+    frontend/src/lib/format.js       formatBnb(amount, currency)
+    frontend/src/components/hire/HireConfirmPanel.jsx:53-54
+        `const currency = DEFAULT_CHAIN.currency` with a comment explaining
+        precisely why it isn't hardcoded to 'BNB'
+    backend/services/executionService.js:107   the "BNB" wrinkle described above
+
+
+-------------------------------------------------------------------------------
+6. GAS
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    The fee you pay to have a blockchain do work for you. Every operation has a
+    price, you pay in the chain's native coin, and the fee goes to whoever
+    processes your transaction — not to the app you were using.
+
+    Three consequences that surprise newcomers:
+      · Reading is free. Only writing costs gas.
+      · A failed transaction still costs gas. The work was done; it just
+        didn't succeed.
+      · You cannot pay gas with anything but the native coin. Holding a
+        thousand dollars of some token and zero BNB means you can't transact.
+
+WHY WE NEED IT
+    It's why "the user needs testnet funds" is a real onboarding step, and why
+    the hire panel links to the faucet for later phases.
+
+IN OUR CODE
+    Nowhere — and that's the point. AgentHub sends no transaction in Phase 5,
+    so it spends no gas. The faucet link at
+    frontend/src/components/hire/HireConfirmPanel.jsx:211-224 is deliberately
+    worded "Need test funds for later phases?" rather than implying you need
+    them now.
+
+
+-------------------------------------------------------------------------------
+7. RPC ENDPOINTS
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    A blockchain is a network of computers ("nodes"). To read from it or submit
+    to it you send an HTTP request to one of those nodes. An RPC endpoint is
+    that node's URL. RPC means Remote Procedure Call — you're calling a function
+    on someone else's machine.
+
+        Testnet: https://bsc-testnet-dataseed.bnbchain.org
+        Mainnet: https://bsc-dataseed.bnbchain.org
+
+    These are BNB Chain's free public endpoints. Production apps usually pay a
+    provider for a private one, because public endpoints are rate-limited and
+    shared with the whole world. A private endpoint's URL often embeds an API
+    key, which makes it a secret — which is why AGENTS.md classes RPC
+    credentials alongside private keys as something never to commit or log.
+
+WHY WE NEED IT
+    Two reasons, and only the second applies today:
+      1. So our own server can read chain data directly (Phase 6+).
+      2. So we can tell a wallet how to reach a network it doesn't know about
+         yet — see concept 17.
+
+    Note that when a wallet is connected, the browser doesn't need its own RPC
+    endpoint: the wallet already has one, and our requests ride on it. That's
+    why the frontend can do everything in Phase 5 without ever making an HTTP
+    request to a blockchain node.
+
+IN OUR CODE
+    frontend/src/config.js:59, 69   rpcUrls, used only for the "add network" call
+    backend/.env.example:18-23      BNB_RPC_URL and BNB_TESTNET_RPC_URL, present
+                                    but read by nothing yet — the comment says so
+
+
+-------------------------------------------------------------------------------
+8. BLOCK EXPLORERS
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    A website that lets you browse a blockchain like a database: look up an
+    address, see its balance and history, inspect a transaction, read a
+    contract's code. BscScan does this for BNB Smart Chain, and testnet has its
+    own separate instance.
+
+        Testnet: https://testnet.bscscan.com
+        Mainnet: https://bscscan.com
+
+WHY WE NEED IT
+    From Phase 6 onward, any claim AgentHub makes about on-chain activity needs
+    to be independently checkable. A link to an explorer is how a user verifies
+    us without trusting us.
+
+IN OUR CODE
+    frontend/src/config.js:57, 67 — stored per chain, and passed to the wallet
+    as blockExplorerUrls in frontend/src/lib/wallet.js:49 so the wallet can
+    build its own links.
+
+    There is no explorer link in the Phase 5 UI, on purpose: there's no
+    transaction to link to, and a link that resolves to nothing would suggest
+    something happened on-chain when nothing did.
+
+
+===============================================================================
+PART 2 — WALLETS
+===============================================================================
+
+-------------------------------------------------------------------------------
+9. WALLETS
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    Software that stores your private key and uses it on your behalf. MetaMask,
+    Trust Wallet, Rabby are wallets. A browser wallet is typically an extension.
+
+    The name is a bit misleading — a wallet holds no coins. Your coins are
+    recorded on the chain. The wallet holds the key that proves you control
+    them. Losing the wallet doesn't lose the coins; losing the key does.
+
+    Two things live inside, and the difference matters enormously:
+      · Private key / seed phrase — the secret that IS your ownership.
+        Anybody who learns it owns everything the key controls, permanently and
+        irreversibly. It never leaves the wallet.
+      · Public address — derived from the key, safe to share with anyone. This
+        is the only part a website ever sees.
+
+    A legitimate website NEVER asks for a private key or seed phrase. Not to
+    "verify" you, not to "restore" anything, not for support. Any site that
+    asks is stealing from you. AGENTS.md forbids AgentHub from ever requesting
+    them, and grep across the whole repo confirms the only mentions are comments
+    saying we don't.
+
+WHY WE NEED IT
+    A hire record has to belong to somebody. The wallet address is that
+    identity — no signup form, no password, no email.
+
+IN OUR CODE
+    frontend/src/context/WalletProvider.jsx:6-25 — the file's header comment
+    states what it does and, just as explicitly, what it refuses to do.
+
+
+-------------------------------------------------------------------------------
+10. WALLET ADDRESSES
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    A public identifier: 0x followed by 40 hexadecimal characters, 42 total.
+
+        0x742d35Cc6634C0532925a3b844Bc454e4438f44e
+
+    Safe to publish. Case-insensitive for correctness, but the mixed case you
+    usually see isn't decorative — it's a checksum (EIP-55) that encodes a hash
+    of the address into the pattern of capitals, so a typo can be detected. An
+    all-lowercase address is equally valid and simply carries no checksum.
+
+WHY WE NEED IT
+    It's the "who" on every hire, and the prefill value for form fields that
+    ask about a wallet.
+
+IN OUR CODE
+    frontend/src/lib/wallet.js:17-19   isAddress() — a shape check, 0x + 40 hex.
+        The comment is careful to say this is NOT checksum validation: a
+        mixed-case address that fails EIP-55 still passes here. It catches
+        typos and truncated pastes, which is what a form needs. Claiming more
+        would overstate the guarantee.
+    frontend/src/lib/wallet.js:22-25   shortAddress() → 0x742d…f44e for display
+    backend/controllers/executionController.js — same regex server-side, then
+        stored lowercase so the same wallet always matches itself
+
+    One design detail worth studying, because it's the kind of thing that only
+    shows up when you use your own product: the "use my wallet" shortcut is
+    gated on an explicit `wallet: true` flag in frontend/src/lib/hire.js, not on
+    the field's type. A token contract address is also `type: 'address'`, and
+    offering to fill your own wallet in there would be actively bad advice.
+    Same data type, completely different meaning. See
+    frontend/src/components/hire/TaskConfigForm.jsx for the gate.
+
+
+-------------------------------------------------------------------------------
+11. window.ethereum — THE INJECTED PROVIDER
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    When a wallet extension is installed, it adds an object to every page's
+    JavaScript environment at window.ethereum. "Injected" means the extension
+    put it there — your app didn't create it and can't create it.
+
+    That object is your entire connection to the wallet. If it's missing, no
+    wallet is installed, and there is no workaround: a website cannot reach into
+    a browser and produce one.
+
+    Two behaviours that cost me real debugging time in this phase:
+
+      It appears at page load, not on demand. Install a wallet while the page
+      is already open and window.ethereum stays undefined until something looks
+      again. Most sites make you reload. AgentHub instead offers an "Already
+      installed? Check again" button, which re-probes — a better answer than
+      telling a user to reload, and it's in both wallet surfaces.
+
+      Multiple wallets fight over it. Install two extensions and they race to
+      own the same property; whichever wins is arbitrary. (EIP-6963 exists to
+      fix this properly by letting wallets announce themselves instead. We
+      don't implement it — worth knowing it exists.)
+
+WHY WE NEED IT
+    It's the only door. Everything else in Part 3 is a message sent through it.
+
+IN OUR CODE
+    frontend/src/context/WalletProvider.jsx:28-30   getProvider() — one place
+        reads window.ethereum, so every other line of the app is testable and
+        consistent
+    frontend/src/context/WalletProvider.jsx:33-36   the read-once-at-mount
+        comment explaining why the re-probe affordance exists
+    frontend/src/components/hire/HireConfirmPanel.jsx:116-127  the button
+    frontend/src/components/wallet/ConnectWalletButton.jsx:89-99  and again here
+
+
+-------------------------------------------------------------------------------
+12. EIP-1193 — THE STANDARD EVERY WALLET SPEAKS
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    An agreed contract for what window.ethereum looks like, so that a website
+    written for MetaMask also works with Rabby, Trust Wallet and the rest.
+
+    It's remarkably small. Essentially:
+
+        provider.request({ method: 'some_method', params: [...] })
+            → returns a Promise
+
+        provider.on('someEvent', handler)
+            → wallet tells you when something changes
+
+    That's the whole interface. Every wallet interaction in AgentHub — reading
+    an address, checking the network, switching networks — is one request()
+    call with a different method name. The method names are strings; there's no
+    type system stopping you from inventing one, which is exactly why the
+    official method list is something to look up rather than guess.
+
+    "EIP" is Ethereum Improvement Proposal. BNB Smart Chain being
+    EVM-compatible means these Ethereum standards apply to it unchanged, which
+    is why the code says `ethereum` while talking to a BNB network.
+
+WHY WE NEED IT
+    It's what makes "connect your wallet" a feature we can build once instead of
+    once per wallet brand. And it needs no SDK, no dependency, no API key — one
+    reason this phase added zero packages.
+
+IN OUR CODE
+    Every provider.request() call in
+    frontend/src/context/WalletProvider.jsx — lines 44, 60, 126, 155 and 164.
+    Five calls. That's the complete list of ways AgentHub can talk to a wallet,
+    and it's short enough to audit by eye, which is the point.
+
+
+===============================================================================
+PART 3 — THE FIVE METHODS WE ACTUALLY CALL
+===============================================================================
+
+Read this part as a set. The five methods split cleanly into three that only
+read and two that ask the wallet to change something — and crucially, none of
+the five can move money. There is no sixth method, and concept 20 explains what
+the missing one would have been.
+
+-------------------------------------------------------------------------------
+13. eth_accounts
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    "Which address, if any, has this site already been allowed to see?"
+
+    Returns an array — one address if the user authorised us on an earlier
+    visit, empty if not. The critical property: it NEVER opens a popup. It only
+    reports permission that already exists.
+
+WHY WE NEED IT
+    So a returning user is already connected when the page loads, without
+    AgentHub nagging every visitor with a wallet popup they didn't ask for.
+    Sites that call eth_requestAccounts on load are the reason wallet popups
+    feel hostile.
+
+IN OUR CODE
+    frontend/src/context/WalletProvider.jsx:53-74 — the "silent restore" effect.
+    Note the `cancelled` flag: if the component unmounts mid-request we throw
+    the answer away rather than calling setState on something that no longer
+    exists. Note also that a failure here is deliberately swallowed — the user
+    hasn't asked for anything yet, so an error message would be noise.
+
+
+-------------------------------------------------------------------------------
+14. eth_requestAccounts
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    "Please ask the user to let this site see their address."
+
+    This one DOES open the wallet popup. The user picks an account and approves,
+    or dismisses it. Approving grants a permission the wallet remembers, which
+    is what makes eth_accounts work next time.
+
+    What the user is agreeing to is narrower than most people assume: the site
+    may see the public address. Nothing else. Not spending, not signing, not
+    reading balances of other addresses.
+
+WHY WE NEED IT
+    It's the connect button.
+
+IN OUR CODE
+    frontend/src/context/WalletProvider.jsx:115-141 — inside connect(), which is
+    only ever called from a click handler. Never on mount, never on a timer,
+    never in an effect. That's a deliberate rule, and the comment on line 114
+    says so: "Explicit user action only — this is what opens the wallet popup."
+
+
+-------------------------------------------------------------------------------
+15. eth_chainId
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    "Which network is the wallet currently pointed at?" Returns a hex string
+    like "0x61". Read-only, no popup.
+
+WHY WE NEED IT
+    It's the entire wrong-network safeguard. Without it, a user on Ethereum
+    mainnet would sail through the hire flow and produce a record that claims a
+    network they were never on.
+
+IN OUR CODE
+    frontend/src/context/WalletProvider.jsx:43-46 — readChain(), which wraps the
+    call and normalises hex to a number so the rest of the app compares plain
+    integers.
+
+    Called in four places, and the fourth is a bug I found during verification
+    and want you to see, because it's a good example of how event-driven APIs
+    trip you up. When the user re-grants an account — unlocks the wallet, or
+    switches accounts — the wallet fires accountsChanged but NOT chainChanged.
+    We were clearing chainId on disconnect, so the app came back connected with
+    chainId null and rendered "Your wallet is on ." with a blank network name.
+    The fix is at lines 91-99: when an account arrives, re-read the chain rather
+    than trusting a value that may be stale or cleared. It's safe to do
+    unprompted because eth_chainId opens no popup.
+
+    It was caught by a screenshot at 390px, not by a test. Worth remembering.
+
+
+-------------------------------------------------------------------------------
+16. wallet_switchEthereumChain
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    "Please switch to network X." The wallet asks the user; they accept or
+    decline. Your site cannot switch networks unilaterally.
+
+    Takes the chain ID in hex: [{ chainId: "0x61" }].
+
+    If the wallet has never heard of that network, it fails with error code
+    4902 — which is not really a failure so much as a prompt to try concept 17.
+
+WHY WE NEED IT
+    Because "you're on the wrong network" is a useless error message if the user
+    then has to go and find the network dropdown themselves. One button is the
+    difference between a dead end and a fix.
+
+IN OUR CODE
+    frontend/src/context/WalletProvider.jsx:148-179 — switchToDefaultChain().
+    Note that setChainId is called optimistically on success (line 158) and the
+    chainChanged event confirms it moments later; both paths agree, so the UI
+    doesn't flicker.
+
+
+-------------------------------------------------------------------------------
+17. wallet_addEthereumChain (EIP-3085)
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    "Here are the details of a network — please add it, then switch to it."
+
+    This is the 4902 fallback. A fresh MetaMask install knows Ethereum and not
+    much else; BNB testnet usually has to be added. You supply everything the
+    wallet needs to reach and label the network:
+
+        chainId            "0x61"
+        chainName          "BNB Smart Chain Testnet"
+        nativeCurrency     { name, symbol: "tBNB", decimals: 18 }
+        rpcUrls            ["https://bsc-testnet-dataseed.bnbchain.org"]
+        blockExplorerUrls  ["https://testnet.bscscan.com"]
+
+    Every one of those values is a fact about a real network. Get one wrong and
+    you have persuaded a user's wallet to store a broken or — worse — a
+    misleading network definition. This is the single strongest reason AGENTS.md
+    forbids guessing chain parameters, and why config.js carries doc URLs in a
+    comment beside the values.
+
+WHY WE NEED IT
+    Without it, "switch to testnet" fails for exactly the users who need it
+    most: the ones who've never used BNB testnet before.
+
+IN OUR CODE
+    frontend/src/context/WalletProvider.jsx:160-173 — the `err.code === 4902`
+    branch inside switchToDefaultChain().
+    frontend/src/lib/wallet.js:43-51 — chainParamsFor() builds the parameter
+    object FROM the CHAINS entry, so the verified values in config.js stay the
+    single source of truth and can't drift out of sync with what we send.
+
+
+-------------------------------------------------------------------------------
+18. PROVIDER EVENTS: accountsChanged AND chainChanged
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    Wallets push changes at you rather than expecting you to poll:
+
+        accountsChanged  — user switched accounts, locked the wallet, or
+                           revoked the site's permission. Payload is an array;
+                           empty means "you no longer have an address".
+        chainChanged     — user switched networks. Payload is a hex chain ID.
+
+    Both can fire at any moment, including mid-form, because the user is in
+    control of the wallet, not you.
+
+WHY WE NEED IT
+    A user who switches from testnet to Ethereum mid-hire must see the UI change
+    under them immediately. A stale "connected to testnet" chip would be a lie,
+    and in a later phase a dangerous one.
+
+IN OUR CODE
+    frontend/src/context/WalletProvider.jsx:79-112.
+
+    Three details worth internalising:
+      · Listeners are removed on unmount (lines 108-111), so a hot reload can't
+        stack duplicates. Leaked listeners are the classic Web3 memory bug.
+      · The dependency array is [hasProvider, readChain], not [] — so a wallet
+        discovered AFTER mount (concept 11's re-probe button) actually gets
+        listeners attached. With [] it silently wouldn't.
+      · An empty accounts array clears chainId too (line 88), since we no longer
+        have a wallet to be on a network with.
+
+
+-------------------------------------------------------------------------------
+19. WALLET ERROR CODES: 4001, 4902, -32002
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    Wallet rejections arrive as numeric codes, not readable sentences. The three
+    you'll meet constantly:
+
+        4001    The user dismissed the popup. Not an error — a decision.
+        4902    The wallet doesn't recognise that network. Add it (concept 17).
+        -32002  A request is already pending. The popup is open, probably behind
+                the browser window, and the user hasn't noticed it.
+
+    Precision about provenance, since it matters when you go looking for docs:
+    4001 is defined in EIP-1193 itself. 4902 and -32002 are MetaMask's
+    documented codes rather than part of the EIP — widely supported in practice,
+    but not guaranteed by the standard.
+
+WHY WE NEED IT
+    "Error 4001" tells a user nothing. "You dismissed the wallet request.
+    Nothing was changed." tells them what happened AND that they're safe — and
+    that second half is what stops a confused user from panicking.
+
+IN OUR CODE
+    frontend/src/lib/wallet.js:57-68 — walletErrorMessage(), one switch,
+    translating each code into a sentence that says what happened and what to do
+    next. The default case falls back to the wallet's own message rather than
+    inventing one.
+
+
+===============================================================================
+PART 4 — THE IMPORTANT DISTINCTION
+===============================================================================
+
+If you remember one section of this document, make it this one.
+
+-------------------------------------------------------------------------------
+20. CONNECTING vs SIGNING
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    Two completely different things that both involve "the wallet popped up",
+    which is why they get conflated.
+
+    CONNECTING (eth_requestAccounts) — the user reveals their public address.
+        Nothing else. It is closer to telling someone your email address than to
+        giving them your bank card. It cannot move funds, cannot approve
+        anything, cannot be used against you later. Revoke it whenever you like
+        from the wallet's connected-sites screen.
+
+    SIGNING — the user's private key authorises a specific action, inside the
+        wallet, without the key ever leaving it. That signature is the actual
+        instrument of power. Depending on what was signed it can transfer coins,
+        grant a contract permission to spend your tokens indefinitely, or prove
+        your identity.
+
+    The asymmetry is the whole point. Connecting is cheap and reversible.
+    Signing can be irreversible, and a signature you didn't read is how people
+    lose everything. "Connect wallet" is safe; "sign this" deserves your full
+    attention.
+
+WHY WE NEED IT
+    AgentHub Phase 5 connects and never signs. That's a deliberate boundary, and
+    the UI states it rather than leaving the user to wonder.
+
+IN OUR CODE
+    The clearest evidence is what ISN'T there. There is no eth_sendTransaction,
+    no eth_sign, no personal_sign, no eth_signTypedData_v4 anywhere in the
+    codebase. Five methods exist, all listed in concept 12, and none of them can
+    move a coin.
+
+    You can verify that claim yourself rather than taking my word for it:
+
+        grep -rn "eth_sendTransaction\|personal_sign\|eth_signTypedData" \
+          frontend/src backend
+
+    The only matches are comments stating we don't use them. That's a property
+    worth re-checking after every future phase, and it's the kind of check that
+    takes ten seconds and catches a category of disaster.
+
+    Stated for the user at:
+      frontend/src/components/hire/HireConfirmPanel.jsx:184-187
+          "No signature request will appear."
+      frontend/src/components/hire/HireConfirmPanel.jsx:144-147
+          "Connecting only shares your public address. It gives AgentHub no
+          ability to move funds."
+
+
+-------------------------------------------------------------------------------
+21. SIMULATED PAYMENT vs A REAL TRANSACTION
+-------------------------------------------------------------------------------
+
+WHAT IT IS
+    A real payment on a blockchain means: build a transaction, have the user
+    sign it, broadcast it to the network, wait for it to be included in a block,
+    get a transaction hash, then wait for confirmations. It costs gas, it's
+    public forever, and it cannot be undone.
+
+    AgentHub's Phase 5 "payment" does none of that. Confirming a hire writes a
+    row to MongoDB recording what the agent WOULD charge. No transaction is
+    built, nothing is signed, nothing is broadcast, no gas is spent, no balance
+    changes anywhere.
+
+    The trap this avoids is a specific one: a fake transaction hash. It would
+    have been easy to generate a random 0x… string, store it, and render a
+    BscScan link — the UI would look finished. It would also be a lie that a
+    user could only detect by clicking the link and finding nothing. So
+    transactionHash is stored as an empty string, deliberately, with a comment
+    saying why. AGENTS.md puts this plainly: never present fabricated data as
+    real blockchain data.
+
+WHY WE NEED IT
+    Because Phase 5's job is the hire flow, and building real payments requires
+    contracts, audits and real value at risk. Simulating first is the correct
+    engineering order. Pretending to have done it is not.
+
+IN OUR CODE
+    backend/services/executionService.js:109-111 — empty transactionHash, with
+        the reasoning in a comment
+    frontend/src/components/hire/HireConfirmPanel.jsx:89-101 — the "Simulated
+        payment" notice. It's a full bordered panel, not a footnote, and the
+        comment above it reads "Honesty notice — deliberately prominent, not a
+        footnote." A disclaimer nobody reads isn't a disclaimer.
+
+
+-------------------------------------------------------------------------------
+22. WHY PHASE 5 SPENDS NO BNB AT ALL
+-------------------------------------------------------------------------------
+
+Four independent reasons, each sufficient on its own:
+
+    1. No transaction is ever built. Gas is only charged for transactions, and
+       we don't create one.
+
+    2. No signing method is called. Even if a transaction existed, broadcasting
+       it needs a signature, and we never ask for one.
+
+    3. There's no recipient. No payment contract is deployed and no treasury
+       address is configured, so there is literally nowhere for a fee to go.
+
+    4. Testnet coins are free anyway. Even in a later phase that does transact,
+       the funds are faucet tBNB worth nothing.
+
+The practical upshot: you can click "Confirm hire" as many times as you like,
+with any wallet, and your balance will not move by a single wei. Try it — that's
+a better way to believe it than reading this.
+
+
+-------------------------------------------------------------------------------
+23. WHAT PHASE 6 MUST CHANGE TO ACTUALLY EXECUTE A TASK
+-------------------------------------------------------------------------------
+
+Phase 5 ends at a persisted execution with status "pending" and a five-step
+timeline in which only "queued" is marked done. Nothing advances it. That is the
+phase boundary, not an oversight.
+
+To make an execution real, Phase 6 has to supply:
+
+    Something that runs. A worker or service that picks up a pending execution,
+    walks the steps (validate → fetch → analyse → report), and records genuine
+    results. Today those four steps are honest placeholders.
+
+    Real chain reads. "Reading on-chain data" means actually calling an RPC
+    endpoint for the user's position — the first time our own backend talks to
+    a blockchain. Note this reads only, so it still needs no gas and no
+    signature.
+
+    Live progress in the UI. /execution/:executionId is currently a
+    PlaceholderPage in frontend/src/routes/AppRoutes.jsx.
+
+    Honest failure. A step can fail — RPC timeout, address holds no position,
+    protocol unreachable. A failed execution must say so, not silently stay
+    pending.
+
+And a warning for when you get there: the "Simulated payment" copy in
+HireConfirmPanel.jsx and HireSuccess.jsx describes today's truth. If Phase 6
+changes what actually happens, that copy has to change in the same commit.
+Honesty copy that has drifted out of date is worse than no copy at all, because
+users have learned to believe it.
+
+Real payment is further out still — a contract, an audit, and your explicit
+informed approval before anything touches mainnet.
+
+
+===============================================================================
+PART 5 — PUTTING IT TOGETHER
+===============================================================================
+
+-------------------------------------------------------------------------------
+24. THE FULL FLOW, HOP BY HOP
+-------------------------------------------------------------------------------
+
+What follows is one hire, start to finish, with every hop labelled by WHERE it
+happens. Watch how far you get before the blockchain is mentioned.
+
+
+ [BROWSER]  You open /hire/venus-health-guardian
+            React renders. WalletProvider mounts and calls getProvider() to see
+            whether window.ethereum exists.
+            → frontend/src/context/WalletProvider.jsx:28-36
+
+ [BROWSER]  Silent restore
+            eth_accounts asks "do I already have permission?" No popup. If yes,
+            you're connected instantly and eth_chainId follows.
+            → WalletProvider.jsx:53-74
+
+ [BROWSER]  You click "Connect wallet to continue"
+            connect() calls eth_requestAccounts.
+            → WalletProvider.jsx:115-141
+
+ [WALLET]   MetaMask opens its own window
+            This is OUTSIDE the page. Our JavaScript cannot see it, cannot
+            prefill it, cannot click it. Only you can approve. Your private key
+            stays in here for the entire flow and never crosses this boundary.
+
+ [BROWSER]  The address comes back
+            A public 0x… address. That's all we receive.
+
+ [BROWSER]  Which network?
+            eth_chainId returns "0x61". parseChainId gives 97. 97 === 97, so
+            isCorrectChain is true.
+            → WalletProvider.jsx:43-46, 204
+
+            If it returned "0x1" (Ethereum), the flow stops here: the panel
+            shows a warning and a switch button instead of Confirm.
+            → HireConfirmPanel.jsx:149-171
+
+ [WALLET]   (Wrong network only) wallet_switchEthereumChain
+            You approve the switch. If MetaMask has never heard of chain 0x61
+            it returns 4902, and we follow with wallet_addEthereumChain carrying
+            the verified parameters from config.js — which MetaMask shows you in
+            full before adding.
+            → WalletProvider.jsx:148-179
+
+ [BROWSER]  You fill in the task
+            Position wallet (prefilled from your connected address), protocol,
+            warn-below threshold. Validation is local and instant.
+            → frontend/src/lib/hire.js, TaskConfigForm.jsx
+
+ [BROWSER]  You click "Confirm hire"
+            POST /api/executions — an ordinary HTTPS request to our own server,
+            carrying the address, chainId, task summary and structured input.
+            No wallet involvement. No popup. Nothing to sign.
+            → frontend/src/services/executions.js
+
+ [BACKEND]  Validation
+            Address matches /^0x[a-fA-F0-9]{40}$/, or 400.
+            chainId is 97, or 400 "testnet-only" — this is where a hand-crafted
+            request claiming mainnet dies.
+            task ≤ 300 chars, input structurally sane.
+            → backend/controllers/executionController.js
+
+ [BACKEND]  Duplicate check
+            An identical pending hire from the same wallet in the last 15
+            seconds → 409 carrying the existing executionId, so a double-click
+            gets you the hire you already made instead of a second one.
+            → executionService.js:73-83
+
+ [BACKEND]  Price lookup
+            cost and currency are read from the AGENT DOCUMENT, never from the
+            request body. Send "cost": 999 and it is ignored. A price the client
+            can set isn't a price.
+            → executionService.js:105-107
+
+ [DATABASE] The record is written
+            executionId "exe_" + 12 hex, status "pending", chain "bnb-testnet",
+            transactionHash "" (empty, not fabricated), five steps with only
+            "queued" done.
+            → executionService.js:95-124
+
+ [BROWSER]  Success view
+            Your execution id, what happens next, a link to
+            /execution/:executionId — still a placeholder until Phase 6.
+            → frontend/src/components/hire/HireSuccess.jsx
+
+
+ [ON THE BLOCKCHAIN]  ── nothing happened. ──
+
+            No transaction. No gas. No signature. No balance change. Not one
+            byte was written to BNB Smart Chain or its testnet.
+
+            The blockchain's ONLY role in this entire flow was as a source of
+            two facts we read from your wallet: your address, and which network
+            you're on. That's it. Everything else was ordinary web development
+            — React, HTTP, Express, MongoDB.
+
+            That is worth sitting with, because it is the most useful thing in
+            this document. "Web3 app" does not mean everything happens on
+            chain. It means a small, carefully chosen part does. Most of a good
+            Web3 app is just a good app. Knowing which part is which is the
+            skill.
+
+
+-------------------------------------------------------------------------------
+25. REAL vs SIMULATED: THE HONEST TABLE
+-------------------------------------------------------------------------------
+
+  REAL — actually works, verified
+  ---------------------------------------------------------------------------
+  Wallet connection            Genuine EIP-1193 to window.ethereum
+  Your wallet address          Read from the wallet, not invented
+  Network detection            Real eth_chainId
+  Network switching            Real wallet_switchEthereumChain, with the
+                               4902 → wallet_addEthereumChain fallback
+  Wallet event handling        Real accountsChanged / chainChanged
+  Testnet enforcement          Enforced on client AND server
+  The hire record              Really persisted, really retrievable by id
+  Server-side pricing          Really authoritative; client values ignored
+  Duplicate protection         Really returns 409 with the existing id
+
+  SIMULATED — does not happen
+  ---------------------------------------------------------------------------
+  Payment                      No transaction, no signature, no gas, no
+                               balance change. The fee shown is what the
+                               agent WOULD charge.
+  Agent execution              Nothing runs. Status stays "pending".
+  Transaction hash             Empty string. Deliberately not fabricated.
+  Execution result             Doesn't exist yet. Phase 6.
+  Step timeline                Real shape, but only "queued" is done — the
+                               other four are honest placeholders.
+
+  NOT VERIFIED — flagged, not hidden
+  ---------------------------------------------------------------------------
+  Real MetaMask on BSC testnet
+        The wallet path was driven end to end with a labelled EIP-1193 test
+        double, because the preview browser has no extension. The stub
+        behaved correctly at every step — but a stub agreeing with me is not
+        evidence that MetaMask does. This needs your manual check, and until
+        you do it, "wallet integration verified" is not a claim I'll make.
+
+  The paused-agent block
+        Code refuses to hire a paused agent; no seeded agent has
+        status "paused", so the path never executed. All 17 are live or beta.
+
+
+-------------------------------------------------------------------------------
+26. QUICK GLOSSARY
+-------------------------------------------------------------------------------
+
+  ABI               Description of a contract's functions, so code knows how
+                    to call it. Not used yet — Phase 6+.
+  Address           0x + 40 hex. Public. Safe to share.
+  BNB               Native coin of BNB Smart Chain.
+  BSC               BNB Smart Chain.
+  Chain ID          Number identifying a network. 56 mainnet, 97 testnet.
+  Confirmation      A block added after yours, making it harder to reverse.
+                    More confirmations, more certainty.
+  EIP               Ethereum Improvement Proposal — a standard.
+  EIP-1193          The window.ethereum provider interface.
+  EIP-3085          wallet_addEthereumChain.
+  EIP-55            Mixed-case address checksum.
+  EIP-6963          Multi-wallet discovery. Not implemented here.
+  EVM               Ethereum Virtual Machine. BSC is EVM-compatible.
+  Faucet            Website giving away free testnet coins.
+  Gas               Fee for making a blockchain do work. Native coin only.
+  Injected provider window.ethereum, placed there by a wallet extension.
+  Mainnet           The real network. Real money.
+  Node              A computer holding a copy of the chain.
+  Private key       The secret that IS ownership. Never leaves the wallet.
+                    Never share it. Nobody legitimate will ask.
+  RPC               Remote Procedure Call — the HTTP API of a chain node.
+  Seed phrase       12-24 words that regenerate a private key. Same rules.
+  Signing           Authorising an action with the private key. Powerful.
+                    AgentHub does not do this.
+  tBNB              Testnet BNB. Free. Worthless.
+  Testnet           Practice copy of a network.
+  Transaction       A write to the blockchain. Costs gas, public forever.
+  Transaction hash  Unique id of a transaction. Ours is deliberately empty.
+  wei               Smallest unit. 1 BNB = 10^18 wei.
+
+
+===============================================================================
+FIVE THINGS TO REMEMBER
+===============================================================================
+
+  1. Connecting a wallet only reveals a public address. It cannot move funds.
+     Signing is the dangerous one, and AgentHub never asks for it.
+
+  2. Never share a private key or seed phrase. No legitimate site asks.
+
+  3. Chain IDs are looked up, never guessed. 97 is testnet because BNB Chain
+     says so, not because of any pattern.
+
+  4. Never fabricate blockchain data. An empty transactionHash is honest; a
+     random one that looks right is a lie a user can't easily catch.
+
+  5. Most of a Web3 app is just an app. In this entire phase the chain's only
+     role was telling us an address and a network number.
+
+
+===============================================================================
+WHERE TO LOOK IN THE CODE
+===============================================================================
+
+  Start here, in this order:
+
+    frontend/src/lib/wallet.js               Small, pure, no React. Read first.
+    frontend/src/context/WalletProvider.jsx  The whole wallet integration.
+                                             All five RPC calls live here.
+    frontend/src/components/hire/HireConfirmPanel.jsx
+                                             The four-rung gate and the
+                                             honesty notice.
+    frontend/src/lib/hire.js                 Declarative per-category fields.
+    backend/services/executionService.js     Server-authoritative pricing,
+                                             the empty transactionHash.
+    backend/controllers/executionController.js
+                                             Validation, incl. the mainnet
+                                             rejection.
+
+  Official docs, in case you want to check any fact in this document:
+
+    BNB Chain RPC endpoints and chain IDs
+      https://docs.bnbchain.org/bnb-smart-chain/developers/json_rpc/json-rpc-endpoint/
+    BNB testnet faucet
+      https://www.bnbchain.org/en/testnet-faucet
+    EIP-1193 (provider interface)
+      https://eips.ethereum.org/EIPS/eip-1193
+    EIP-3085 (wallet_addEthereumChain)
+      https://eips.ethereum.org/EIPS/eip-3085
+    MetaMask JSON-RPC API reference
+      https://docs.metamask.io/wallet/reference/json-rpc-methods/
+
+===============================================================================
+End of document.
+===============================================================================
