@@ -1,0 +1,818 @@
+================================================================================
+AGENTHUB — CATEGORY IMPLEMENTATION PLAN
+Four hackathon categories: Rebalancing · Grid Trading · Yield Optimisation ·
+Health Factor Monitoring
+================================================================================
+Status: PLAN ONLY. No Phase 7 code has been written.
+Audit date: 2026-08-26
+Supersedes the pessimistic verdicts in CATEGORY_GAP_REPORT.md — see "WHAT
+CHANGED" below.
+
+--------------------------------------------------------------------------------
+0. WHAT CHANGED SINCE CATEGORY_GAP_REPORT.md
+--------------------------------------------------------------------------------
+That report concluded all four categories were unsupported, with one root cause:
+"AgentHub has no verified BNB testnet contract addresses for any protocol."
+
+That root cause is now RESOLVED. Venus Protocol publishes an explicitly
+testnet-labelled deployment list, and I verified those addresses by reading BNB
+Smart Chain testnet (chain 97) directly. Real on-chain data now exists for all
+four categories. The plan below is built on verified reads, not assumptions.
+
+--------------------------------------------------------------------------------
+1. VERIFIED EXTERNAL FACTS (clearly separated from repository findings)
+--------------------------------------------------------------------------------
+SOURCE: https://docs-v4.venus.io/deployed-contracts/markets.md
+        section headed "BNB Chain Testnet" (a section distinct from
+        "BNB Chain Mainnet"), with links pointing at testnet.bscscan.com.
+CAVEAT: that page says "BNB Chain Testnet"; it does not print the chain ID. The
+        mapping to chain 97 is an inference, but the on-chain verification below
+        was performed against chain 97 and passed, which settles it empirically.
+
+Addresses quoted from that page:
+  PoolRegistry           0xC85491616Fa949E048F3aAc39fbf5b0703800667
+  Core Pool Comptroller  0x94d1820b2D1c7c7452A163983Dc888CEC546b77D
+  Comptroller Lens       0xACbc75C2D0438722c75D9BD20844b5aFda4155ea
+  vBNB                   0x2E7222e51c0f6e98610A1543Aa3836E092CDe62c
+  vUSDT                  0xb7526572FFE56AB9D7489838Bf2E18e3323b441A
+
+TOOLING NOTE: WebSearch is UNAVAILABLE in this environment (the tool errors with
+"Tool 'web_search' not found"). WebFetch works. PancakeSwap's developer docs
+returned HTTP 403 to WebFetch, so NO DEX router, factory, or pair address has
+been verified. Nothing in this plan depends on one.
+
+--------------------------------------------------------------------------------
+2. ON-CHAIN VERIFICATION I PERFORMED MYSELF (read-only, chain 97)
+--------------------------------------------------------------------------------
+Method: two throwaway read-only probes against
+https://bsc-testnet-dataseed.bnbchain.org, at blocks 127,334,373 / 127,334,563 /
+127,334,773. Both probe files were deleted after running. No signing, no
+transaction, no key material. 122 RPC calls total.
+
+Why probes were necessary: the repo has no keccak256 (backend/package.json has no
+ethers/web3), so function selectors could not be COMPUTED. They were recalled and
+then validated EMPIRICALLY — a call returning well-formed, plausible data is the
+evidence. Anything that reverted is excluded from this plan.
+
+2a. CODE EXISTS at every documented address:
+  Comptroller   1,508 bytes  (small => proxy; eth_call still delegates correctly)
+  PoolRegistry  2,739 bytes
+  vBNB         19,842 bytes
+  vUSDT         4,744 bytes
+  WBNB          3,124 bytes  (0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd,
+                              already verified in an earlier phase; used as a
+                              control)
+
+2b. SELECTORS CONFIRMED WORKING (validated by response shape + plausible values):
+  Comptroller:
+    0xb0772d0b getAllMarkets()            -> 49 markets on the testnet core pool
+    0x7dc0d1d0 oracle()                   -> 0x3cd69251d04a28d887ac14cbe2e14c52f3d57823
+    0x8e8f294b markets(address)           -> 7 words; isListed=1,
+                                             collateralFactorMantissa=0.75e18
+                                             (vUSDC) and 0.70e18 (vBNB)
+    0x5ec88c79 getAccountLiquidity(addr)  -> 3 words (error, liquidity, shortfall)
+    0xabfceffc getAssetsIn(address)       -> dynamic address[]
+  vToken:
+    0x313ce567 decimals()                 -> 8 for every vToken (confirmed)
+    0x95d89b41 symbol()                   -> vBNB, vUSDT, vETH, vBTC, ...
+    0x6f307dc3 underlying()               -> underlying token; REVERTS on vBNB by
+                                             design (native BNB has no ERC-20)
+    0x182df0f5 exchangeRateStored()       -> e.g. 212182314328159
+    0xae9d70b0 supplyRatePerBlock()       -> real nonzero values
+    0xf8f9da28 borrowRatePerBlock()       -> real nonzero values
+    0x18160ddd totalSupply()
+    0xc37f68e2 getAccountSnapshot(addr)   -> RESPONDS, but returns 6 words, not
+                                             the 4 of stock Compound. THE TUPLE
+                                             LAYOUT IS UNCONFIRMED. Do not decode
+                                             it until the layout is confirmed
+                                             against the verified source on
+                                             testnet.bscscan.com.
+  Oracle (address obtained BY READING the Comptroller, never hardcoded):
+    0xfc57d4df getUnderlyingPrice(vToken) -> real USD prices
+  BEP-20 (control, on WBNB):
+    0x70a08231 balanceOf(address), 0x313ce567 decimals() -> 18, 0x95d89b41 symbol()
+
+  NOT TESTED, because no verified address exists to test against:
+    0x0902f1ac getReserves()  — no verified DEX pair address on file.
+
+2c. ORACLE PRICE SCALING — verified, and it is a trap:
+  Venus/Compound scale prices as 1e(36 - underlyingDecimals). Confirmed across
+  three different decimal values, which is why this is stated as fact:
+    vUSDC  underlying 6 decimals  -> $1.00
+    vDOGE  underlying 8 decimals  -> $0.0865
+    vBUSD  underlying 18 decimals -> $1.0012
+  Reading the raw word without normalising by the UNDERLYING token's decimals
+  produces $1,000,000,000,000 for USDC. Any implementation must read
+  underlying() -> decimals() first.
+
+2d. *** THE MOST IMPORTANT HONESTY FINDING IN THIS AUDIT ***
+  Testnet oracle prices are REAL CHAIN READS but they are NOT MARKET PRICES:
+    vBNB   $600.00
+    vBTC   $2,100,000.00      <-- roughly 20x any real BTC price
+    vUSDT  $0.50              <-- a stablecoin, priced at fifty cents
+    vETH   $2,464.94
+    vXVS   $3.06
+  These are testnet oracle values. They are genuinely read from chain 97 and are
+  correctly labelled `chain` for provenance, but presenting them as market prices
+  would be a fabrication of a different kind — technically sourced, materially
+  false. Every USD figure derived from them MUST carry an explicit
+  "testnet oracle price, not a market price" caveat in the UI, not just a
+  provenance badge.
+  Also: getUnderlyingPrice FAILED for vMATIC. Per-market price failure is a
+  normal case and must degrade to `unavailable` for that row, not abort the run.
+
+2e. RATES -> APY is DERIVED, never `chain`:
+  Turning supplyRatePerBlock into an APY requires a blocks-per-year assumption.
+  BSC targets ~3s blocks => 10,512,000 blocks/yr. That is an assumption, so the
+  APY is `derived` and the assumption must be printed. Simple (non-compounding)
+  APR from live testnet rates:
+    vETH   supply 15.72%   borrow 16.69%
+    vBNB   supply  5.28%   borrow  7.54%
+    vSXP   supply  1.73%   borrow  1.85%
+    vXVS   supply  0.48%   borrow  3.11%
+    vBUSD  supply  0.00%   borrow  0.29%
+    vUSDT  supply  0.00%   borrow  0.00%
+  Real, differentiated, rankable data. This is what makes Yield genuinely
+  implementable.
+
+--------------------------------------------------------------------------------
+3. REPOSITORY FINDINGS (the audit the user requested)
+--------------------------------------------------------------------------------
+Files inspected: AGENTS.md · AGENTHUB_SPEC.txt · backend/models/Agent.js ·
+backend/models/Execution.js · backend/data/seedAgents.js ·
+backend/services/agentExecutors.js · blockchainService.js · executionRunner.js ·
+executionService.js · agentService.js · lendingProtocolAdapter.js ·
+backend/controllers/{agent,execution}Controller.js · backend/config/env.js ·
+frontend/src/config.js · frontend/src/lib/hire.js · AppRoutes.jsx ·
+components/execution/ExecutionResult.jsx · both .env.example files ·
+AGENT_ADVANTAGE.md · CATEGORY_GAP_REPORT.md
+
+F1. blockchainService.js HAS NO eth_call AND NO ABI ENCODING.
+    Existing reads are all "free" JSON-RPC: eth_chainId, eth_blockNumber,
+    eth_gasPrice, eth_getBlockByNumber, eth_getBalance, eth_getTransactionCount,
+    eth_getCode. This is THE single biggest gap and it blocks all four
+    categories. It is also the highest-leverage thing to build, because one
+    correct implementation serves everything.
+
+F2. NO ABI DECODING EITHER. Needed: uint256, address, bool, dynamic address[],
+    and solidity `string` (offset/length/bytes — vToken symbol() needs it).
+    BigInt-only arithmetic throughout; blockchainService already sets this
+    precedent with weiToDecimalString to avoid float rounding.
+
+F3. frontend/src/lib/hire.js HAS NO REPEATABLE/LIST FIELD TYPE.
+    Types are only: address | number | select | text | textarea. Rebalancing
+    needs N rows of (asset -> target %). This is a real UI gap.
+
+F4. backend/controllers/executionController.js CAPS INPUT AT MAX_INPUT_KEYS = 12,
+    and parseInput accepts only string/number/boolean primitives — no arrays, no
+    nested objects. A repeatable allocation list cannot currently be submitted.
+    Workaround that needs no schema change: encode allocations as a single
+    delimited string (e.g. "BNB:40,USDT:35,ETH:25") and parse server-side.
+
+F5. ExecutionResult.jsx RENDERS A FLAT <dl> ONLY.
+    output.fields[] -> key/value rows with a per-field provenance Badge. There is
+    NO table/rows renderer. Rebalancing's trade list, Grid Trading's ladder, and
+    Yield's ranked pools all need one. output.fields, output.recommendation,
+    output.hasSimulated, output.provenance and output.reads[] are the whole
+    contract today.
+
+F6. CATEGORY WIRING IS SIX PLACES, NOT FIVE (the gap report says five):
+      backend/models/Agent.js          AGENT_CATEGORIES
+      frontend/src/config.js           CATEGORIES
+      frontend/src/lib/hire.js         HIRE_FIELDS
+      backend/services/agentExecutors.js  EXECUTORS + ADDRESS_INPUTS
+      backend/data/seedAgents.js
+      frontend/src/pages/LandingPage.jsx  CATEGORY_ICONS   <-- the missed one
+    CATEGORY_ICONS falls back to `Compass`, so it degrades gracefully rather than
+    crashing. Category FILTERING and COUNTING are fully generic off
+    AGENT_CATEGORIES and need no change at all.
+
+F7. Execution model uses an exclusion projection ('-__v -_id'), so any new schema
+    field is automatically exposed by the API. No serialiser changes needed.
+
+F8. lendingProtocolAdapter.js is already written as the correct seam:
+    DEPLOYMENTS = {} (deliberately empty), hasVerifiedDeployment(), and a
+    simulated readHealthFactor tagged source:'simulated'. Its file header states
+    the exact remaining work — fill a verified deployment, add the selector,
+    switch to eth_call, and only `source` changes. Section 2 above supplies
+    exactly what that header asks for.
+
+F9. SPEC MISALIGNMENT — material to prioritisation.
+    AGENTHUB_SPEC.txt's own category list is: Monitoring / Trading /
+    Health Factor / Yield / Portfolio / Research. It does NOT contain
+    "Rebalancing" or "Grid Trading".
+    Meanwhile three SPEC-TIER-1 (mandatory) items are still unbuilt:
+      #6  AI Agent Finder     -> /find     is a PlaceholderPage
+      #12 Activity dashboard  -> /activity is a PlaceholderPage
+      #8  ERC-8004 integration-> no real data anywhere
+    /dashboard, /saved, /settings are also PlaceholderPage.
+    So two of the user's four categories are NOT spec requirements, while three
+    spec requirements are missing. Flagged, not decided — see Section 9.
+
+F10. env.js says "Never import process.env directly elsewhere", but
+     blockchainService.rpcUrl() reads process.env.BNB_TESTNET_RPC_URL directly.
+     Minor inconsistency, worth fixing while touching that file.
+
+--------------------------------------------------------------------------------
+4. SHARED INFRASTRUCTURE (the architectural rule: build once, not four times)
+--------------------------------------------------------------------------------
+All four categories reduce to the same five primitives. Build these FIRST; the
+four agents then become thin, mostly-arithmetic layers on top.
+
+S1. backend/services/abi.js  [NEW]
+    Minimal encode/decode. encodeCall(selector, args), decodeUint, decodeAddress,
+    decodeBool, decodeAddressArray, decodeString, and a fixed-point helper
+    (BigInt only). ~120 lines, no dependency. Selectors stored as verified
+    CONSTANTS with a comment recording that they were empirically validated
+    (Section 2b) — never computed at runtime, since there is no keccak.
+
+S2. blockchainService.ethCall(to, data)  [ADD to existing file]
+    One function. Goes through the existing rpcCall, so it is automatically
+    counted by the AsyncLocalStorage RPC meter from Phase 6.5 and appears in
+    output.reads[] and rpcCallCount for free. This is why Phase 6.5's
+    instrumentation was worth doing first.
+
+S3. backend/services/venusAdapter.js  [NEW — the single biggest win]
+    Wraps the verified deployment. Exposes:
+      listMarkets()            -> the 49 vTokens, cached per run
+      marketInfo(vToken)       -> symbol, vDecimals, underlying, uDecimals,
+                                  collateralFactor, isListed
+      oracleAddress()          -> READ from the Comptroller, never hardcoded
+      priceUsd(vToken)         -> normalised by 1e(36-uDecimals); returns
+                                  {value, source:'chain', caveat:'testnet oracle
+                                  price, not a market price'} or null on failure
+      accountLiquidity(addr)   -> {error, liquidity, shortfall}
+      assetsIn(addr)           -> vTokens the wallet has entered
+      ratesFor(vToken)         -> supply/borrow per-block rates
+    Serves Health Factor, Yield, Rebalancing (prices) and Grid (reference price).
+    ONE adapter, FOUR categories. This is the answer to the architectural rule.
+
+S4. backend/services/tokenService.js  [NEW]
+    BEP-20 balanceOf / decimals / symbol via S1+S2. Unblocks the
+    long-standing "token positions unavailable" gap in portfolio AND supplies
+    Rebalancing's current holdings.
+
+S5. backend/services/calc.js  [NEW]
+    Pure, unit-tested arithmetic, no I/O: driftVsTarget, gridLevels,
+    ratePerBlockToApr(rate, blocksPerYear), usdValue(amount, decimals, price),
+    healthFactorFrom(...). Pure functions are the only part of this plan that can
+    be tested without a network.
+
+S6. output schema extension  [ExecutionResult.jsx + executors]
+    Add ONE optional key: output.tables = [{ title, columns[], rows[],
+    rowSources[] }]. Backwards compatible — existing executors emit no tables
+    and render unchanged. Per-cell/per-row provenance preserved. Serves the trade
+    list, the grid ladder, and the ranked pool list.
+
+S7. provenance
+    Reuse SOURCES / field() / buildProvenance() from agentExecutors.js unchanged.
+    ADD one new source value: 'oracle' — or keep 'chain' plus a mandatory
+    `caveat` string. Recommendation: 'chain' + caveat, because the read genuinely
+    is a chain read and inventing a source class understates that; the caveat
+    carries the "not a market price" warning. Decide before coding.
+
+--------------------------------------------------------------------------------
+5. CATEGORY 1 — HEALTH FACTOR MONITORING
+--------------------------------------------------------------------------------
+1. CURRENT STATE
+   Complete product flow already exists: 2 seeded agents
+   (venus-health-guardian protocols['Venus'], radiant-liquidation-shield
+   protocols['Radiant']), HIRE_FIELDS (position wallet, protocol, warn-below
+   threshold), runHealthFactor executor, result page with risk bands
+   (CRITICAL<1.1, HIGH<1.35, MEDIUM<1.8, LOW). Real: wallet native balance,
+   block, gas price, threshold arithmetic. SIMULATED: the health factor,
+   collateral, borrow — i.e. the answer.
+
+2. WHAT IS MISSING
+   Only the data source. lendingProtocolAdapter.DEPLOYMENTS is empty, so
+   readHealthFactor returns a deterministic FNV-1a hash of the address.
+
+3. REAL DATA REQUIREMENTS
+   Available now (already in the app): wallet native balance, block, gas price.
+   Available with current testnet RPC + eth_call: Comptroller getAssetsIn,
+     getAccountLiquidity, markets(vToken)->collateralFactor; vToken
+     getAccountSnapshot (LAYOUT UNCONFIRMED), exchangeRateStored, decimals,
+     symbol, underlying.
+   Requires eth_call: all of the above. THIS IS THE ONLY BLOCKER.
+   Requires a verified protocol address: SATISFIED for Venus (Section 1+2).
+     NOT satisfied for Radiant — no verified Radiant testnet address exists on
+     file, and I did not verify one.
+   Requires a price feed: yes for a USD-denominated health factor — SATISFIED via
+     Comptroller->oracle->getUnderlyingPrice, with the 2d caveat.
+   Unavailable on testnet: nothing material.
+   NO ADDRESSES INVENTED. Radiant stays unsupported until verified.
+
+4. EXISTING CODE WE CAN REUSE
+   Everything. lendingProtocolAdapter.js is the seam; riskBand() unchanged;
+   both agents' hire forms unchanged; ExecutionResult unchanged (flat fields
+   suffice); provenance unchanged. Only `source` flips simulated -> chain.
+
+5. AGENT REQUIREMENTS
+   venus-health-guardian must genuinely read the wallet's Venus position. If the
+   wallet has NO Venus position (the common case on testnet), it must say
+   "no position found on Venus core pool at block N" — a real, useful,
+   verifiable answer — NOT a modelled number.
+   radiant-liquidation-shield MUST be paused or relabelled. Leaving it `live`
+   claiming Radiant coverage with no verified Radiant address is exactly the
+   dishonesty this project has been avoiding.
+
+6. HIRE FLOW
+   Required: position wallet (address, prefills from connected wallet).
+   Optional: protocol (from agent.protocols — restrict to Venus), warn-below
+   threshold (default 1.5, min 1.0, max 10).
+   Validation: unchanged. Defaults: unchanged.
+   Output expectation: real health factor, or an explicit "no position" result.
+   Fits the existing architecture with ZERO hire-flow changes.
+
+7. EXECUTION FLOW
+   input -> validate address -> assertTestnet -> getAssetsIn(wallet) ->
+   if empty: emit "no position" result and stop (cheap, honest) ->
+   else per asset: markets()->collateralFactor, getAccountSnapshot,
+   oracle price, underlying decimals -> compute collateral USD and borrow USD ->
+   healthFactor = (sum collateralUsd * cf) / sum borrowUsd -> risk band ->
+   threshold comparison -> result + provenance. RPC count is metered
+   automatically (S2).
+
+8. OUTPUT
+   healthFactor            derived  (from chain reads; formula printed)
+   collateralUsd           derived  + testnet-oracle caveat
+   borrowUsd               derived  + testnet-oracle caveat
+   per-asset table         chain    (S6 table; amounts chain, USD derived)
+   collateralFactor        chain
+   liquidity / shortfall   chain
+   riskBand                derived
+   thresholdBreached       derived
+   warnThreshold           input
+   walletNativeBalance     chain
+   block / rpcHost / time  chain    (buildProvenance)
+   Radiant, if requested   unavailable
+
+9. AGENT ADVANTAGE COMPATIBILITY
+   YES — and this UNBLOCKS a category AGENT_ADVANTAGE.md §7 currently lists as
+   ineligible. Once the health factor is a chain read it scores properly on the
+   Provenance dimension.
+   Proposed experiment: for a testnet wallet with a real Venus position,
+   determine its health factor and whether it breaches 1.5. Manual method: open
+   the Venus testnet app / testnet.bscscan.com, read each entered market's
+   supplied and borrowed balance, read each collateral factor, read each oracle
+   price, and compute the ratio by hand. That is a genuinely laborious manual
+   task across many contract reads, which is exactly the shape that makes the
+   comparison meaningful.
+   NO BENCHMARK NUMBERS ARE STATED HERE. Nothing is measured until a human runs
+   both halves and records evidence per AGENT_ADVANTAGE.md §6.
+   PREREQUISITE: a testnet wallet that actually holds a Venus position. If none
+   is available the experiment cannot run, and that must be reported, not faked.
+
+10. DIFFICULTY / TIME
+    MEDIUM. Needs S1+S2+S3. The one genuine unknown is the 6-word
+    getAccountSnapshot layout, which must be confirmed on testnet.bscscan.com
+    before decoding. Highest value per unit of effort in the whole plan, because
+    it removes the ONLY simulated data in the entire system.
+
+11. HACKATHON VALUE
+    HIGHEST. It is a spec Tier-1 category, a required hackathon category, and it
+    converts the project's single biggest honesty liability into its strongest
+    proof point. Also the best Agent Advantage candidate.
+
+--------------------------------------------------------------------------------
+6. CATEGORY 2 — YIELD OPTIMISATION
+--------------------------------------------------------------------------------
+1. CURRENT STATE
+   3 seeded agents (yield-route-optimizer, stable-yield-scanner,
+   farm-reward-harvester), hire form (allocation, risk level, minimum APY),
+   runYield executor, result page. Real: wallet balance, gas price, entry-cost
+   estimate, fundability. The one thing the category exists for — ranked pool
+   candidates — returns `unavailable`. ADDRESS_INPUTS.yield is [].
+
+2. WHAT IS MISSING
+   The optimisation itself. No pool list, no rates, no ranking.
+
+3. REAL DATA REQUIREMENTS
+   Available now: wallet balance, gas price, entry cost, fundability.
+   Available with current RPC + eth_call: getAllMarkets() (49 markets),
+     supplyRatePerBlock, borrowRatePerBlock, symbol, decimals, underlying,
+     totalSupply, collateralFactor. ALL VERIFIED WORKING (2b, 2e).
+   Requires eth_call: yes.
+   Requires a verified protocol address: SATISFIED (Venus core pool).
+   Requires an external API or indexer: NO — this is the important result. Rates
+     come straight off chain, so no off-chain APY API and no new provenance class
+     is needed.
+   Requires a price feed: only to express TVL/allocation in USD. Available, with
+     the 2d caveat.
+   Unavailable on testnet: real market APYs. Testnet rates are real chain values
+     but reflect testnet activity, not mainnet yields. Must be labelled.
+   Scope honesty: this is "best supply rate among Venus core-pool markets on BNB
+     testnet", NOT "best yield across BNB Chain". Name it that way in the UI.
+
+4. EXISTING CODE WE CAN REUSE
+   Hire form unchanged. Executor scaffold, entry-cost and fundability arithmetic,
+   the `unavailable` labelling, provenance — all unchanged. Needs S6 for the
+   ranked table.
+
+5. AGENT REQUIREMENTS
+   stable-yield-scanner must actually scan and RANK, returning a real ordered
+   list with real rates — not a portfolio report. Rename/re-scope
+   yield-route-optimizer: it cannot do multi-hop routing (no verified DEX), so
+   the name overpromises. farm-reward-harvester has no verified farm contract and
+   should be paused or re-scoped; harvesting is a WRITE operation, which this
+   build does not do at all.
+
+6. HIRE FLOW
+   Required: amount to allocate (number, > 0).
+   Optional: risk level (conservative/balanced/aggressive), minimum net APY,
+     asset filter (e.g. stablecoins only) — a plain select, no new field type.
+   Validation: amount finite and positive; min APY 0-100.
+   Defaults: risk = balanced.
+   Output: ranked markets meeting the filter, each with a real supply rate, plus
+     the stated ranking rule.
+   Fits existing HIRE architecture with no changes.
+
+7. EXECUTION FLOW
+   input -> validate -> assertTestnet -> getAllMarkets() -> per market:
+   symbol, decimals, underlying, supplyRatePerBlock, collateralFactor, price ->
+   ratePerBlockToApr with the printed blocks/year assumption -> filter by
+   min APY / asset class -> rank by supply APR (rule stated in output) ->
+   entry-cost + fundability from wallet balance -> result + provenance.
+   COST CONTROL: 49 markets x ~6 reads = ~300 RPC calls. Cap the candidate set
+   (e.g. top 10 by a cheap first pass) and LOG WHAT WAS DROPPED — silent
+   truncation would read as full coverage.
+
+8. OUTPUT
+   ranked markets table   chain (rates, symbols, collateral factors)
+   supplyApr / borrowApr  derived + printed blocks/year assumption
+   rankingRule            derived (stated in words)
+   marketsConsidered / marketsDropped  derived  <-- no silent caps
+   allocationUsd          derived + testnet-oracle caveat
+   entryCostEstimate      derived (gas units assumption stated)
+   fundable               derived
+   walletBalance          chain
+   requestedAmount, riskLevel, minApy   input
+   impermanent loss / LP / farm APRs    unavailable
+   block / rpcHost / time chain
+
+9. AGENT ADVANTAGE COMPATIBILITY
+   YES — also currently listed ineligible in AGENT_ADVANTAGE.md §7, and this
+   fixes it. Proposed experiment: "find the highest supply APY among Venus
+   testnet core-pool markets for a stablecoin, and state the rate." Manual
+   method: open the Venus testnet market list, read each market's supply rate,
+   compare, record the block. Genuinely tedious across many markets — a good
+   comparison shape.
+   NO NUMBERS FABRICATED. Unmeasured until a human runs it.
+
+10. DIFFICULTY / TIME
+    MEDIUM. Arithmetic is easy; the work is the read volume and the honest
+    scoping of the claim. Depends on S1+S2+S3+S5+S6.
+
+11. HACKATHON VALUE
+    HIGH. A required hackathon category AND a spec Tier-1 category, moving from
+    "returns nothing" to a real ranked answer. Strong Agent Advantage candidate.
+
+--------------------------------------------------------------------------------
+7. CATEGORY 3 — REBALANCING
+--------------------------------------------------------------------------------
+1. CURRENT STATE
+   An agent named rebalance-advisor exists: category 'portfolio', subcategory
+   'Rebalancing', status 'live', tagline "Tells you what to trade to hit your
+   target allocation." It runs runPortfolio and returns native balance, nonce and
+   gas runway. There is NO target-allocation input, NO drift calculation and NO
+   trade list. CATEGORY_GAP_REPORT.md correctly calls this the most serious
+   honesty problem in the build, because nothing signals the mismatch to the user.
+
+2. WHAT IS MISSING
+   Target allocation input; per-asset holdings (needs BEP-20 balanceOf); a common
+   valuation unit; drift arithmetic; a buy/sell list; per-trade gas.
+
+3. REAL DATA REQUIREMENTS
+   Available now: native balance, nonce, gas price.
+   Available with current RPC + eth_call: BEP-20 balanceOf / decimals / symbol
+     (verified on WBHB control, 2b).
+   Requires eth_call: yes.
+   Requires a verified token address per asset: the USER SUPPLIES these as input
+     (provenance `input`), and the agent VERIFIES each with eth_getCode before
+     using it. This is the honest resolution — AgentHub does not need a token
+     allowlist it cannot verify. Venus underlying addresses are additionally
+     available as verified suggestions via S3.
+   Requires a price feed: for USD-valued drift, yes. Available for
+     Venus-listed assets only, with the 2d caveat. For any asset Venus does not
+     list, USD valuation is `unavailable`.
+   Unavailable on testnet: meaningful market prices (2d).
+   RECOMMENDATION: ship TOKEN-UNIT drift as the primary output and USD drift as a
+     clearly-caveated secondary. Token-unit drift needs no price at all, so it is
+     unimpeachable; USD drift is a bonus that degrades gracefully.
+
+4. EXISTING CODE WE CAN REUSE
+   Gas estimation (SWAP_GAS_UNITS = 150,000), affordability, the `input`
+   provenance class, the field renderer, and runTrading's contract-verification
+   step. Needs S4 (token balances) and S6 (trade table).
+
+5. AGENT REQUIREMENTS
+   rebalance-advisor must return an actual trade list: per asset, current weight,
+   target weight, drift, and a BUY/SELL action with a size. A portfolio report is
+   not a rebalancing plan. PLAN-ONLY — it computes trades, never submits them,
+   consistent with how `trading` already behaves.
+   IMMEDIATE ACTION REGARDLESS OF SCHEDULING: this agent must not stay `live`
+   with a rebalancing tagline while returning a portfolio report. Build it or
+   relabel it.
+
+6. HIRE FLOW
+   Required: wallet to rebalance (address, prefills); target allocation.
+   ALLOCATION INPUT — the one real UI decision. F3/F4 mean there is no repeatable
+   field type and no array support in the backend. Two options:
+     (a) NEW repeatable field type in hire.js + array support in parseInput.
+         Correct long-term, more work, touches validated request-handling code.
+     (b) A single `text` field holding "0xToken:40,0xToken:35,0xToken:25",
+         parsed and validated server-side. Zero schema change, zero new field
+         type, fits MAX_INPUT_KEYS = 12 immediately.
+   RECOMMENDATION: (b) for the hackathon, with a clear placeholder, inline help
+   and precise parse errors. (a) is the post-hackathon refactor.
+   Optional: drift tolerance % (default 5), include-native toggle, notes.
+   Validation: each address matches ADDRESS_RE and has bytecode; weights are
+     numbers; weights sum to 100 +/- 0.01; at least 2 assets; at most 8 (bounds
+     the read count).
+   Output: drift + trade list in token units; USD where a price exists.
+
+7. EXECUTION FLOW
+   input -> parse allocation string -> validate addresses and weights ->
+   assertTestnet -> per asset: eth_getCode (reject non-contracts), decimals,
+   symbol, balanceOf -> native balance -> compute current weights (token-unit
+   basis, and USD basis where every asset has a price) -> drift vs target ->
+   trades needed, sized -> gas per trade at live gas price -> total gas ->
+   result + provenance.
+
+8. OUTPUT
+   holdings table          chain (balances, decimals, symbols)
+   currentWeights          derived
+   targetWeights           input
+   drift per asset         derived
+   trade list table        derived (action, asset, size in token units)
+   usdValues               derived + testnet-oracle caveat, or unavailable
+   gasPerTrade / totalGas  derived (150,000-unit assumption stated)
+   gasPrice                chain
+   walletNativeBalance     chain
+   driftTolerance          input
+   slippage / actual execution price / routing   unavailable
+   block / rpcHost / time  chain
+
+9. AGENT ADVANTAGE COMPATIBILITY
+   YES, but WEAKER than Health Factor or Yield, and it should not be one of the
+   three experiments. Reason: the target allocation is user input, so much of the
+   "work" is arithmetic on numbers the human already supplied, which flatters the
+   agent. The genuinely laborious part (reading N token balances and decimals) is
+   real but thin. If a fourth experiment were ever run, it would be this.
+   NO NUMBERS FABRICATED.
+
+10. DIFFICULTY / TIME
+    MEDIUM-HARD — the hardest of the four, because it is the only one needing UI
+    and request-validation changes (F3/F4), not just backend reads. Option (b)
+    reduces it to MEDIUM.
+
+11. HACKATHON VALUE
+    HIGH as a required hackathon category, but note F9: Rebalancing is NOT in
+    AGENTHUB_SPEC.txt's category list. Its largest value is removing the build's
+    worst honesty defect, which matters regardless of scheduling.
+
+--------------------------------------------------------------------------------
+8. CATEGORY 4 — GRID TRADING
+--------------------------------------------------------------------------------
+1. CURRENT STATE
+   NOTHING EXISTS. No category, no agent, no executor, no hire fields, no UI, no
+   icon. Absent from all six wiring points (F6) and from all 17 seeded agents.
+
+2. WHAT IS MISSING
+   All of it: category enum entry, icon, HIRE_FIELDS, executor, seeded agent(s),
+   and a ladder renderer.
+
+3. REAL DATA REQUIREMENTS
+   Available now: wallet native balance, gas price.
+   Available with current RPC + eth_call: token decimals/symbol/balanceOf;
+     eth_getCode contract verification.
+   Requires eth_call: yes.
+   Requires a verified DEX router/pair address: NO verified PancakeSwap testnet
+     address is on file. PancakeSwap docs returned HTTP 403 to WebFetch (Section
+     1). getReserves() is therefore UNTESTED and NOT used in this plan. NO
+     ADDRESS INVENTED.
+   Requires a price feed: yes, to centre the grid. TWO honest options:
+     (i) Venus oracle price for a Venus-listed asset — provenance `chain`, with
+         the mandatory 2d "testnet oracle price, not a market price" caveat. This
+         is the better option and it is available today.
+     (ii) A user-supplied reference price — provenance `input`.
+     RECOMMENDATION: support BOTH; default to (i) when the asset is Venus-listed,
+     fall back to (ii) otherwise, and always state which was used.
+   Unavailable on testnet: real order books, DEX routing, liquidity depth,
+     slippage, fill probability.
+
+4. EXISTING CODE WE CAN REUSE
+   A LOT — this is the cheapest of the four. runTrading already verifies a token
+   contract, reads a balance, and estimates swap gas at a live gas price. The
+   grid executor is that plus level arithmetic. Address validation, provenance,
+   the field renderer, TaskInputError and assertRunnableInput all apply
+   unchanged. Needs S6 for the ladder table.
+
+5. AGENT REQUIREMENTS
+   A new grid-strategy-planner agent that returns an actual GRID: every price
+   level, the order size at each level, the side (buy below reference, sell
+   above), total capital committed, and total estimated gas. Not a generic
+   trading report.
+   PLAN-ONLY, stated prominently: AgentHub prepares the grid and never places,
+   signs or submits an order. This is consistent with existing `trading`
+   behaviour and with the spec's explicit "do NOT spend time on full trading
+   automation / high-risk financial execution".
+
+6. HIRE FLOW
+   Required: token address; upper bound; lower bound; grid levels (int);
+     capital per level.
+   Optional: reference price (blank => read from Venus oracle if listed);
+     side bias; notes.
+   Validation: address shape + has bytecode; lower > 0; upper > lower; levels
+     between 2 and 50 (bounds output size and read count); capital > 0;
+     reference price, if given, must sit between lower and upper — otherwise the
+     grid is entirely one-sided, which is a user error worth catching.
+   Defaults: levels = 10.
+   Output: the full ladder plus capital and gas totals.
+
+7. EXECUTION FLOW
+   input -> validate bounds and levels -> assertTestnet -> eth_getCode on the
+   token -> decimals, symbol -> balanceOf -> reference price (oracle or input;
+   record WHICH) -> compute evenly-spaced levels between lower and upper ->
+   assign side per level relative to reference -> size per level -> total capital
+   -> gas per level at live gas price -> total gas -> fundability vs balance ->
+   result + provenance.
+
+8. OUTPUT
+   grid ladder table       derived (level price, side, size)
+   referencePrice          chain + testnet-oracle caveat, OR input — labelled
+   priceSource             derived (says explicitly which of the two was used)
+   levels / spacing        derived
+   totalCapital            derived
+   gasPerOrder / totalGas  derived (150,000-unit assumption stated)
+   gasPrice                chain
+   tokenSymbol / decimals  chain
+   walletBalance           chain
+   bounds, levels, capital input
+   fill probability / slippage / liquidity depth / actual execution
+                           unavailable
+   block / rpcHost / time  chain
+
+9. AGENT ADVANTAGE COMPATIBILITY
+   NO — and it should be excluded. The grid is arithmetic on user-supplied bounds
+   and level count. A human with a spreadsheet reproduces it quickly and exactly,
+   so a favourable time comparison would be measuring "we wrote a loop", not a
+   research advantage. AGENT_ADVANTAGE.md already excludes categories whose core
+   value is not a real research finding; this belongs in that group. Excluding it
+   is the honest call and is itself worth stating in the submission.
+
+10. DIFFICULTY / TIME
+    EASY-MEDIUM. Highest coverage gain per unit of work: it is the only one of
+    the four that currently scores zero, and it needs no data source that is not
+    already verified. Cost is mostly the six-point category wiring (F6).
+
+11. HACKATHON VALUE
+    HIGH for coverage — it takes the build from 3/4 to 4/4 on the required
+    categories. Note F9: Grid Trading is NOT in AGENTHUB_SPEC.txt's category
+    list. Zero Agent Advantage value by design (see 9).
+
+--------------------------------------------------------------------------------
+9. PRIORITISATION — RUTHLESS
+--------------------------------------------------------------------------------
+Stated preference being honoured: "four categories that are simple but genuinely
+functional" over "four impressive-looking categories backed by
+simulated/fabricated results".
+
+THE UNAVOIDABLE TENSION (F9): two of the four required categories (Rebalancing,
+Grid Trading) are not in AGENTHUB_SPEC.txt's category list, while three
+SPEC-TIER-1 MANDATORY items are still placeholders (/find AI Agent Finder,
+/activity Activity dashboard, ERC-8004 integration). I am flagging this rather
+than resolving it, because which document governs the submission is the user's
+call, not mine. Everything below assumes the four categories win.
+
+TIER 1 — MUST HAVE FOR SUBMISSION
+  T1.1  S1 abi.js + S2 ethCall            [gates literally everything]
+  T1.2  S3 venusAdapter.js                [one adapter, four categories]
+  T1.3  Health Factor -> real chain data; delete the simulated path
+  T1.4  PAUSE OR RELABEL the three agents that overpromise:
+          radiant-liquidation-shield (no verified Radiant address)
+          rebalance-advisor          (portfolio report, rebalancing tagline)
+          farm-reward-harvester      (no verified farm; harvest is a write)
+        This is a ~30-minute honesty fix with the highest value-per-minute in
+        the entire plan, and it is NOT optional.
+  T1.5  The 2d caveat surfaced in the UI wherever a USD figure appears
+  T1.6  S6 output.tables + ExecutionResult table renderer
+  T1.7  Grid Trading as a new plan-only category (six-point wiring, F6)
+  T1.8  Yield -> real ranked markets from live Venus rates
+  T1.9  Rebalancing via allocation-string option (b): real token-unit drift and
+        a real trade list
+
+TIER 2 — IMPORTANT IF TIME ALLOWS
+  T2.1  S4 tokenService -> fixes portfolio's long-standing "tokens unavailable"
+  T2.2  USD-valued rebalancing drift as a caveated secondary output
+  T2.3  Grid reference price from the Venus oracle (vs input-only)
+  T2.4  Confirm the 6-word getAccountSnapshot layout on testnet.bscscan.com and
+        use the richer per-market decode
+  T2.5  Run the two newly-unblocked Agent Advantage experiments (health factor,
+        yield) per AGENT_ADVANTAGE.md
+  T2.6  Fix F10 (blockchainService bypassing config/env.js)
+
+TIER 3 — NICE TO HAVE
+  T3.1  Proper repeatable allocation field type (option (a)) + array support in
+        parseInput
+  T3.2  Multi-pool Venus support beyond the core pool (PoolRegistry is verified)
+  T3.3  Per-market caching to cut the ~300-call Yield sweep
+  T3.4  Radiant support IF AND ONLY IF a testnet address is verified
+  T3.5  DEX-derived prices IF AND ONLY IF a pair address is verified
+
+EXPLICITLY OUT OF SCOPE: any write/transaction/signing; mainnet; harvesting;
+order submission; invented addresses; invented prices; invented benchmarks.
+
+--------------------------------------------------------------------------------
+10. REAL BSC AGENTS INVESTIGATION (repository evidence only — NOT implemented)
+--------------------------------------------------------------------------------
+WHICH AGENTS ARE SEEDED/MOCK — ALL 17.
+  backend/data/seedAgents.js defines 17 agents across 6 categories
+  (health-factor 2, monitoring 3, yield 3, trading 3, portfolio 3, research 3).
+  None sets `source:` explicitly, so all inherit the Agent schema default
+  'seeded'. AGENT_SOURCES = ['verified','indexed','seeded','demo'].
+  Every one has erc8004Id: null, ownerAddress: '' and endpoint: ''.
+  There is NO off-AgentHub agent in the system, and no code path that would
+  execute one — agentExecutors.js dispatches on CATEGORY to six local functions.
+
+WHICH ARE INTENDED TO REPRESENT REAL BSC AGENTS.
+  None, currently and deliberately. seedAgents.js's own header states that
+  erc8004Id/ownerAddress are left empty on purpose, and that `verified: true`
+  means "AgentHub-reviewed listing" — a MARKETPLACE concept — not on-chain
+  ERC-8004 verification. frontend/src/config.js SOURCE_LABELS renders
+  'seeded' as "AgentHub demo data" (warn tone) and reserves "Verified on-chain"
+  for 'verified'. So the honesty plumbing already exists and is correctly wired;
+  what is missing is real data to put through it.
+
+8004SCAN STATUS — HONEST ANSWER.
+  There is NO 8004scan integration in the repository: no client, no service, no
+  route, no env var, no registry address. A repo-wide grep for
+  8004/erc8004/registry matches 14 files, but they are UI copy, trust-score
+  weighting, the schema field, docs, and package-lock noise — not an integration.
+  I did NOT verify 8004scan externally. WebSearch is unavailable in this
+  environment (Section 1) and I did not fetch an 8004scan endpoint, so I can
+  state nothing about its API shape, availability, coverage of BNB testnet, or
+  whether it exposes the fields AgentHub's Agent schema expects. Anything more
+  specific would be invention. THIS MUST BE VERIFIED BEFORE ANY WORK IS SCHEDULED.
+
+WHAT WOULD NEED TO CHANGE FOR REAL 8004scan-BACKED DISCOVERY.
+  (Conditional on the verification above.)
+  1. A verified ERC-8004 registry address for the target network, plus its ABI
+     and event names — none of which are on file, and none of which may be
+     guessed (AGENTS.md).
+  2. A new backend/services/erc8004Service.js reading identities via the same
+     S1/S2 primitives, so its reads are metered like every other read.
+  3. An indexer/importer writing Agent documents with source 'indexed' or
+     'verified' and a populated erc8004Id.
+  4. Trust score handling for externally-sourced agents — trustScoreService.js
+     currently scores AgentHub-shaped metrics that an external agent will not have.
+  5. Provenance: SOURCE_LABELS already distinguishes the classes; the seeded set
+     must remain visibly 'seeded' rather than being silently upgraded.
+
+CAN THE ARCHITECTURE SUPPORT BOTH EXTERNAL AND OWN AGENTS? YES, mostly.
+  Supports it already: AGENT_SOURCES has 'verified'/'indexed' alongside
+  'seeded'/'demo'; erc8004Id, ownerAddress and endpoint fields exist; the
+  exclusion projection auto-exposes new fields; category filtering/counting is
+  fully generic.
+  Blocks it: agentExecutors.executeForAgent dispatches on category to a LOCAL
+  function and THROWS on an unknown category. A real external agent would need to
+  be called at its `endpoint` instead. That is a genuine architectural addition —
+  an execution-strategy branch (local executor vs remote endpoint) — not a config
+  change. The field exists; the code path does not.
+
+MINIMUM REAL AGENTS TO AIM FOR PER CATEGORY.
+  I cannot responsibly give a number, because it depends entirely on how many
+  real BNB agents the ERC-8004 registry actually contains — which is exactly what
+  is unverified. What I can say from the repo: AGENTHUB_SPEC.txt states "Do NOT
+  build dozens of new AI agents. Use existing BNB/ERC-8004 agents wherever
+  practical." Read against the current state (0 real agents, 17 seeded), the
+  defensible target is: ONE genuinely real, verifiably-identified agent
+  end-to-end is worth more than a large imported set, because it proves the
+  integration path while the seeded catalogue stays honestly labelled 'seeded'.
+  Set the real target only after the registry is verified.
+
+--------------------------------------------------------------------------------
+11. RISKS
+--------------------------------------------------------------------------------
+R1. getAccountSnapshot returns 6 words, not the expected 4. Decoding it on an
+    assumed layout would silently produce WRONG health factors — worse than a
+    labelled simulation. Confirm on testnet.bscscan.com first.
+R2. Testnet oracle prices are not market prices (2d). The mitigation is a
+    mandatory caveat everywhere a USD figure appears. If that caveat is skipped,
+    this plan makes the honesty problem worse, not better.
+R3. Yield's ~300-call sweep is slow and rate-limitable. Cap the candidate set and
+    log what was dropped.
+R4. Most testnet wallets hold no Venus position, so the honest "no position
+    found" path is the COMMON path, not the edge case. Build and demo it first.
+R5. getUnderlyingPrice already fails for vMATIC. Per-market failure must degrade
+    to `unavailable` for that row, never abort the run.
+R6. Selectors are recalled and empirically validated, not computed. Any selector
+    not in the confirmed list (2b) must be validated the same way before use.
+    getReserves() specifically is UNTESTED.
+R7. Scope. Nine Tier-1 items is a lot. T1.4 (the honesty relabel) is ~30 minutes
+    and must land even if nothing else does.
+R8. F9 remains unresolved by design and is the user's decision.
+
+================================================================================
+END OF PLAN — no code written, no addresses invented, no benchmarks fabricated.
+================================================================================

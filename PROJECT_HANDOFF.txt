@@ -1,0 +1,563 @@
+================================================================================
+AGENTHUB — PROJECT HANDOFF
+For transferring this project to another Claude account, Codex, or any other AI.
+================================================================================
+Written: 2026-08-26
+Repo: C:\Users\uk\OneDrive\Desktop\agentgub III
+Remote: https://github.com/london160771/agenthub-bnb.git  (branch: main)
+
+*** READ AGENTS.md IN FULL BEFORE WRITING ANY CODE. ***
+It is the binding working contract for this project, not a style guide. It
+governs phase discipline, blockchain honesty, secret handling and git rules.
+Everything in this handoff is subordinate to it.
+
+--------------------------------------------------------------------------------
+1. PROJECT OVERVIEW AND PURPOSE
+--------------------------------------------------------------------------------
+AgentHub is a marketplace for AI agents on BNB Smart Chain, built for a BNB
+hackathon as a polished, deployable Web3 SaaS MVP.
+
+The product is organised as a six-step user journey, and the phases follow it:
+  DISCOVER -> EVALUATE -> COMPARE -> HIRE -> EXECUTE -> VERIFY
+
+The differentiator is HONESTY ABOUT DATA PROVENANCE. Every value shown to a user
+carries a per-field badge saying where it came from: `chain` (read live from BNB
+testnet), `derived` (arithmetic on chain data, with the assumption stated),
+`input` (the user supplied it), `simulated` (modelled — currently one file only),
+or `unavailable` (deliberately withheld rather than invented). This is the
+project's core claim and its main defence; do not weaken it.
+
+Secondary theme: "Agent Advantage" — proving that hiring an agent beats doing the
+task by hand, using measured numbers only.
+
+--------------------------------------------------------------------------------
+2. TECH STACK
+--------------------------------------------------------------------------------
+frontend/  React 19 + Vite + Tailwind v4 (config-less) + React Router 7
+backend/   Node + Express 5 + Mongoose 9
+Node v22.20.0
+Monorepo, two separate package.json files, no workspace tooling.
+
+IMPORTANT LAYOUT NOTE: backend files are NOT under backend/src/. They are at
+backend/services/, backend/controllers/, backend/routes/, backend/models/,
+backend/data/, backend/config/, backend/utils/.
+
+Backend dependencies are deliberately minimal: cors, dotenv, express, helmet,
+mongoose, morgan. THERE IS NO ethers AND NO web3. Do not add dependencies unless
+genuinely necessary (AGENTS.md). One consequence matters a lot: there is no
+keccak256, so contract function selectors CANNOT be computed at runtime — see §8.
+
+--------------------------------------------------------------------------------
+3. COMPLETED PHASES
+--------------------------------------------------------------------------------
+Phases 1-6 are committed AND pushed. HEAD == origin/main == bd8c086.
+
+  bd8c086  EXECUTE phase — real BNB testnet reads with per-field provenance
+  0800203  HIRE — wallet connection + persisted hire records
+  40a71aa  COMPARE — agent comparison matrix
+  b715f6b  EVALUATE — agent profile page
+  f791733  DISCOVER — marketplace page
+  fd27d9f  backend minPrice range filter
+  181da23  initialize AgentHub
+  e597a39  AGENTS.md working contract
+
+--------------------------------------------------------------------------------
+4. CURRENT PHASE / STATUS
+--------------------------------------------------------------------------------
+PHASE 6.5 (instrumentation + Agent Advantage foundation) is COMPLETE, VERIFIED,
+and APPROVED BY THE USER — but NOT COMMITTED. The working tree currently holds:
+
+  Modified:
+    backend/models/Execution.js
+    backend/services/agentExecutors.js
+    backend/services/blockchainService.js
+    backend/services/executionRunner.js
+    backend/services/executionService.js
+    frontend/src/pages/LandingPage.jsx
+  Untracked (new):
+    AGENT_ADVANTAGE.md
+    CATEGORY_GAP_REPORT.md
+    CATEGORY_IMPLEMENTATION_PLAN.txt
+    PROJECT_HANDOFF.txt
+
+>>> FIRST ACTION FOR THE NEXT AI: ask the user whether to commit and push the
+    approved Phase 6.5 work. The user approved the PHASE, not explicitly a
+    commit. The user's standing preference is that an approved commit is followed
+    by `git push origin main`. Never use `git add -A` — explicit paths only.
+    Commit messages end with:
+      Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+PHASE 7 IS PLANNED BUT NOT STARTED AND NOT APPROVED. The plan is
+CATEGORY_IMPLEMENTATION_PLAN.txt. Do not begin coding it without explicit
+approval.
+
+--------------------------------------------------------------------------------
+5. WHAT IS CURRENTLY WORKING
+--------------------------------------------------------------------------------
+Real, verified end to end:
+- Marketplace browse/search/filter over 17 seeded agents; category counts.
+- Agent profile pages; side-by-side comparison matrix.
+- Wallet connection via raw EIP-1193 (window.ethereum). No dependency added.
+  Chain 97 enforced client-side AND rejected server-side if a client reports 56.
+- Hire flow -> persisted Execution record. Cost is read server-side from the
+  agent document, never from the request body.
+- Execution run against real BNB testnet: 7 live RPC reads, per-field provenance
+  badges, RPC call log rendered in the UI, retry path for failed runs.
+  Verified example: durationMs 4515 == completedAt - startedAt, rpcCallCount 7,
+  against real WBNB testnet contract 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd
+  at block ~127,325,106.
+- Phase 6.5 measurement: startedAt persisted; per-run RPC metering via
+  AsyncLocalStorage (chosen over a module counter because two runs can be in
+  flight at once); failure path records reads issued before it gave up.
+- Lint clean; vite build succeeds (1875 modules, ~382 kB JS / 116 kB gzip).
+
+SIMULATED PAYMENT — be precise about this: no transaction is ever signed or
+broadcast. transactionHash stays ''. `cost` is the agent's LISTED price recorded
+against the hire; nothing is charged. Chain reads are free.
+
+--------------------------------------------------------------------------------
+6. WHAT IS INCOMPLETE
+--------------------------------------------------------------------------------
+Routes still rendering PlaceholderPage (frontend/src/routes/AppRoutes.jsx):
+  /find       <-- AI Agent Finder — SPEC TIER 1 (MANDATORY)
+  /activity   <-- Activity dashboard — SPEC TIER 1 (MANDATORY)
+  /dashboard
+  /saved
+  /settings
+Real routes: / · /discover · /agents/:agentId · /compare · /hire/:agentId ·
+/execution/:executionId
+
+Also incomplete:
+- ERC-8004 integration — SPEC TIER 1 (MANDATORY) — has no real data (§10).
+- The four hackathon categories are not genuinely functional yet (§11).
+- No Agent Advantage measurement has been taken (§12).
+- BEP-20 token positions are honestly reported `unavailable` everywhere.
+
+--------------------------------------------------------------------------------
+7. IMPORTANT ARCHITECTURE / TECHNICAL DECISIONS
+--------------------------------------------------------------------------------
+A1. PER-FIELD PROVENANCE, NOT PAGE-LEVEL FOOTNOTES. Every output value carries
+    its own badge. A simulated headline number also gets a dotted warn-coloured
+    underline. Do not replace this with a single page disclaimer.
+
+A2. output SHAPE (the contract between executors and the UI):
+      { fields[], recommendation, hasSimulated, provenance, reads[] }
+    Each field: { key, label, value, source }. Rendered by
+    frontend/src/components/execution/ExecutionResult.jsx as a FLAT <dl>.
+    THERE IS NO TABLE RENDERER. Adding one is planned as `output.tables`.
+
+A3. CATEGORY COUPLING IS SIX PLACES, and all must change together to add one:
+      backend/models/Agent.js             AGENT_CATEGORIES
+      frontend/src/config.js              CATEGORIES
+      frontend/src/lib/hire.js            HIRE_FIELDS
+      backend/services/agentExecutors.js  EXECUTORS + ADDRESS_INPUTS
+      backend/data/seedAgents.js
+      frontend/src/pages/LandingPage.jsx  CATEGORY_ICONS  (easy to miss;
+                                          falls back to `Compass`)
+    Category FILTERING and COUNTING are fully generic off AGENT_CATEGORIES and
+    need no change.
+
+A4. Mongoose exclusion projection PROJECTION = '-__v -_id' means any new schema
+    field is AUTOMATICALLY exposed by the API. Convenient, but it also means a
+    half-finished field leaks. Be deliberate.
+
+A5. SUB-DOCUMENT DEFAULTS HAZARD. Execution.advantage MUST keep `default: null`
+    and MUST NOT have subfield defaults. A sub-document default makes Mongoose
+    materialise an empty object on every hire, which reads downstream as "a
+    measurement was taken and came back zero". This is load-bearing.
+
+A6. AdvantageSchema enforces three rules on purpose: no defaults on any field;
+    provenance (manualMethod, evidenceRef, measuredBy, measuredAt) required if
+    the object exists at all; a metric cannot appear without its definition
+    (stepDefinition with step counts, qualityRubric with quality scores).
+
+A7. BigInt-only arithmetic for chain values (see weiToDecimalString in
+    blockchainService.js). Never use floats for token amounts or wei.
+
+A8. Backend input validation is STRUCTURAL ONLY, by deliberate trade-off.
+    executionController.js: MAX_INPUT_KEYS = 12, MAX_INPUT_VALUE_LENGTH = 500,
+    MAX_TASK_LENGTH = 300, and parseInput accepts ONLY string/number/boolean
+    primitives — no arrays, no nested objects. Category-specific rules live in
+    the frontend where the field schema is, because duplicating them server-side
+    would guarantee drift.
+
+A9. Retry is folded into POST /api/executions/:id/run. THERE IS NO /retry ROUTE.
+    `failed` -> resetForRetry then re-run; `running` -> started:false;
+    `completed` -> 409.
+
+A10. config/env.js is the single place to read process.env. Known violation:
+     blockchainService.rpcUrl() reads process.env.BNB_TESTNET_RPC_URL directly.
+     Worth fixing when next touching that file.
+
+A11. provenanceHost exposes only the RPC HOSTNAME, never the full URL, because a
+     configured RPC URL can carry an API key.
+
+--------------------------------------------------------------------------------
+8. BNB / TESTNET / BLOCKCHAIN STATUS
+--------------------------------------------------------------------------------
+TESTNET ONLY. No mainnet, no real funds, no signing, no broadcasting.
+
+Verified chain facts (already in frontend/src/config.js with citations):
+  Testnet  chain 97 / 0x61 · "BNB Smart Chain Testnet" · native tBNB
+           explorer https://testnet.bscscan.com
+           RPC      https://bsc-testnet-dataseed.bnbchain.org
+           faucet   https://www.bnbchain.org/en/testnet-faucet (0.3 tBNB/day)
+  Mainnet  chain 56 / 0x38  — PROHIBITED in this build.
+
+What blockchainService.js can do TODAY: eth_chainId, eth_blockNumber,
+eth_gasPrice, eth_getBlockByNumber, eth_getBalance, eth_getTransactionCount,
+eth_getCode. Plus assertTestnet, estimateFee, buildProvenance, and the
+withRpcLog per-run metering. RPC_TIMEOUT_MS = 8000.
+
+*** BIGGEST TECHNICAL GAP: THERE IS NO eth_call AND NO ABI ENCODING/DECODING. ***
+This single gap blocks all four hackathon categories. Building it is Tier 1 in
+CATEGORY_IMPLEMENTATION_PLAN.txt. Because there is no keccak256 in the repo,
+function selectors must be stored as VERIFIED CONSTANTS and validated
+empirically against the chain — never computed, never guessed.
+
+VERIFIED VENUS TESTNET DEPLOYMENT (this is new and important):
+Source: https://docs-v4.venus.io/deployed-contracts/markets.md, section
+"BNB Chain Testnet". I then verified these MYSELF with read-only calls against
+chain 97 (blocks ~127,334,373-127,334,773) and every one holds contract code:
+  Core Pool Comptroller  0x94d1820b2D1c7c7452A163983Dc888CEC546b77D
+  PoolRegistry           0xC85491616Fa949E048F3aAc39fbf5b0703800667
+  Comptroller Lens       0xACbc75C2D0438722c75D9BD20844b5aFda4155ea
+  vBNB                   0x2E7222e51c0f6e98610A1543Aa3836E092CDe62c
+  vUSDT                  0xb7526572FFE56AB9D7489838Bf2E18e3323b441A
+  Price oracle           0x3cd69251d04a28d887ac14cbe2e14c52f3d57823
+                         <-- READ FROM the Comptroller via oracle(), NOT
+                             hardcoded. Keep obtaining it that way.
+getAllMarkets() returns 49 markets on the testnet core pool. Live supply/borrow
+rates are real and differentiated. Full details, confirmed selectors, and the
+price-scaling rule are in CATEGORY_IMPLEMENTATION_PLAN.txt §2.
+
+*** CRITICAL HONESTY WARNING — TESTNET ORACLE PRICES ARE NOT MARKET PRICES. ***
+Real chain reads, materially false as prices: vBTC $2,100,000 · vBNB $600 ·
+vUSDT $0.50 · vETH $2,464.94. Every USD figure derived from them MUST carry an
+explicit "testnet oracle price, not a market price" caveat in the UI — a
+provenance badge alone is NOT enough. Getting this wrong would make the project's
+honesty story worse, not better.
+
+NO VERIFIED DEX ADDRESS EXISTS. PancakeSwap's developer docs returned HTTP 403,
+so no router/factory/pair address is on file and getReserves() is untested. Do
+not invent one.
+
+TOOLING: WebSearch is UNAVAILABLE in this environment (errors with "Tool
+'web_search' not found"). WebFetch WORKS and is how the Venus docs were read.
+
+--------------------------------------------------------------------------------
+9. 8004SCAN STATUS
+--------------------------------------------------------------------------------
+NOT INTEGRATED, AND NOT VERIFIED. Be careful here, because it is easy to
+overstate.
+
+Repository facts:
+- There is NO 8004scan client, service, route, env var, or registry address.
+- A repo-wide grep for 8004/erc8004/registry matches 14 files, but they are UI
+  copy, trust-score weighting, the Agent schema field, docs, and package-lock
+  noise — NOT an integration.
+- Agent.js has `erc8004Id: { type: String, default: null }`. All 17 seeded agents
+  have erc8004Id null, ownerAddress '' and endpoint ''.
+- AGENT_SOURCES = ['verified','indexed','seeded','demo']. All 17 seeded agents
+  inherit the schema default 'seeded' (none sets `source:` explicitly).
+- seedAgents.js's header states this is deliberate, and that `verified: true`
+  means "AgentHub-reviewed listing" — a MARKETPLACE concept — NOT on-chain
+  ERC-8004 verification. config.js SOURCE_LABELS renders 'seeded' as
+  "AgentHub demo data" (warn tone) and reserves "Verified on-chain" for
+  'verified'. The honesty plumbing is correct; only real data is missing.
+
+What I do NOT know and did not verify: 8004scan's API shape, availability,
+whether it covers BNB testnet, or whether it exposes the fields the Agent schema
+expects. WebSearch was unavailable and I did not fetch an 8004scan endpoint.
+DO NOT ASSUME ANY OF IT. Verify before scheduling work.
+
+Architectural note: the schema supports external agents, but
+agentExecutors.executeForAgent dispatches on CATEGORY to a LOCAL function and
+throws on an unknown category. Executing a real external agent would require a
+new execution-strategy branch (local executor vs remote `endpoint`). The field
+exists; the code path does not.
+
+--------------------------------------------------------------------------------
+10. AGENT ADVANTAGE STATUS
+--------------------------------------------------------------------------------
+FOUNDATION COMPLETE. ZERO MEASUREMENTS TAKEN. Every manual/comparison field in
+the database is null, and NOTHING in the running application writes one — by
+design. Read AGENT_ADVANTAGE.md (290 lines) before touching this.
+
+Captured automatically today: createdAt, startedAt, completedAt, durationMs,
+rpcCallCount, output.reads[], output.provenance, cost/currency, task/input,
+output.fields[].
+
+Defined but not yet collected: manualDurationMs, manualSteps, manualCost (+
+required manualCostBasis and manualCurrency), agentOperatorDurationMs,
+agentSteps, agentQuality/manualQuality (0-20 via a 4x0-5 rubric named
+`agenthub-v1`), plus four REQUIRED provenance fields.
+
+Key definitions you must not redefine casually:
+- The headline time comparison is agentOperatorDurationMs vs manualDurationMs.
+  NOT durationMs vs a human's wall-clock — that would omit the part of the agent
+  path a human actually performs (choosing an agent, filling the form).
+- agentSteps is counted BY A HUMAN. It is explicitly NOT the six internal
+  timeline steps (hired/received/wallet/query/analyse/report), which are constant
+  at 6 and measure our pipeline, not human work.
+- Records are written ONLY by a deliberate one-off maintenance script run by a
+  human after an experiment. That script does not exist yet. No request path,
+  executor, or runner may EVER write an advantage field.
+
+Three experiments are specified but NOT RUN (research, trading, portfolio).
+Eligibility per AGENT_ADVANTAGE.md §7: research/monitoring/portfolio/trading
+eligible; health-factor and yield NOT eligible, because their core value is
+currently simulated or unavailable. NOTE: Phase 7 as planned would make both
+health-factor and yield eligible — update §7 if that lands.
+
+The landing page previously showed invented figures ("~14 min / 6 steps" vs
+"2.8 sec / 1 request"). They were REMOVED and replaced with visible "—"
+placeholders and a "Not yet measured" badge. DO NOT REINTRODUCE ILLUSTRATIVE
+NUMBERS ANYWHERE.
+
+--------------------------------------------------------------------------------
+11. THE FOUR HACKATHON CATEGORIES AND THEIR CURRENT GAPS
+--------------------------------------------------------------------------------
+None is genuinely functional yet. Full 11-section analysis per category, shared
+infrastructure design, and a Tier 1/2/3 ranking are in
+CATEGORY_IMPLEMENTATION_PLAN.txt. Summary:
+
+1. HEALTH FACTOR MONITORING — complete product flow exists (2 agents, hire form,
+   executor, risk bands), but THE ANSWER IS SIMULATED. Health factor, collateral
+   and borrow come from a deterministic FNV-1a hash of the address in
+   backend/services/lendingProtocolAdapter.js (DEPLOYMENTS = {} is empty). This
+   is the ONLY simulated data in the whole system. Now unblockable — Venus is
+   verified (§8). Highest value fix in the project.
+
+2. YIELD OPTIMISATION — 3 agents, hire form, executor exist, but ranked pool
+   candidates return `unavailable`, i.e. the one thing the category is for.
+   Now unblockable: 49 Venus markets with real live supply/borrow rates.
+   APY requires a blocks-per-year assumption (~10,512,000 at 3s blocks), so APY
+   is `derived`, never `chain`, and the assumption must be printed.
+
+3. REBALANCING — THE WORST HONESTY DEFECT IN THE BUILD. Agent
+   `rebalance-advisor` is status 'live' with tagline "Tells you what to trade to
+   hit your target allocation", but it runs runPortfolio and returns native
+   balance, nonce and gas runway. No target-allocation input, no drift
+   calculation, no trade list, and nothing signals the mismatch to the user.
+   Blockers: no repeatable field type in hire.js, and no array support in
+   parseInput (A8). Recommended workaround: a delimited allocation string parsed
+   server-side. Recommended output: token-unit drift primary, USD secondary and
+   caveated.
+
+4. GRID TRADING — NOTHING EXISTS. No category, no agent, no executor, no hire
+   fields, no icon. Absent from all six wiring points (A3). Cheapest of the four
+   and needs no unverified data source: reuse runTrading's real reads plus level
+   arithmetic, centred on either the Venus oracle price (caveated) or a
+   user-supplied reference price. PLAN-ONLY — never place or sign an order.
+
+SPEC MISALIGNMENT YOU MUST SURFACE TO THE USER, NOT SILENTLY RESOLVE:
+AGENTHUB_SPEC.txt's own category list is Monitoring/Trading/Health Factor/Yield/
+Portfolio/Research. It does NOT contain Rebalancing or Grid Trading. Meanwhile
+three SPEC-TIER-1 MANDATORY items are still placeholders: AI Agent Finder
+(/find), Activity dashboard (/activity), and ERC-8004 integration. Which document
+governs the submission is the USER'S DECISION.
+
+--------------------------------------------------------------------------------
+12. IMPORTANT SAFETY / HONESTY RULES (from AGENTS.md — read the original)
+--------------------------------------------------------------------------------
+- Never guess chain IDs, RPC endpoints, contract addresses, ABI methods, event
+  names, or standards behaviour. Verify against current official documentation.
+- Never fabricate blockchain data. Clearly distinguish real on-chain, derived,
+  simulated, unavailable, and user-input data.
+- Testnet first. Mainnet and real funds are PROHIBITED without explicit,
+  informed, specific approval.
+- Never send, sign or broadcast a real transaction without showing network, chain
+  ID, contract, recipient, amount, gas implications and expected effect, and
+  receiving explicit confirmation.
+- Never request, print, store in source, commit, or expose private keys, seed
+  phrases, wallet secrets, signed payloads, API tokens or RPC credentials. Not in
+  logs, screenshots, error reports or phase summaries.
+- Keep secrets in ignored local env files. Never commit .env. Maintain a safe
+  .env.example with names and non-secret examples only.
+- Do not claim blockchain integration works until the testnet flow is verified
+  end to end. Label mocked, local, partially wired and verified behaviour.
+- Do not weaken authentication, authorization, validation, transaction checks or
+  security controls to make a phase pass.
+- If a required env var, secret or contract address is missing: STOP THERE. Do
+  not invent it, bypass it, hardcode it, substitute a credential, silently
+  disable the integration, or pretend the phase is complete.
+- Do not add dependencies unless genuinely necessary.
+- A number is either measured or absent. No defaults, estimates, "typical"
+  values, or illustrative figures anywhere in Agent Advantage data.
+
+--------------------------------------------------------------------------------
+13. IMPORTANT FILES / DIRECTORIES TO INSPECT
+--------------------------------------------------------------------------------
+READ FIRST, IN THIS ORDER:
+  AGENTS.md                      the binding contract — MANDATORY
+  AGENTHUB_SPEC.txt              1510 lines; product spec, Tier 1/2 requirements
+  CATEGORY_IMPLEMENTATION_PLAN.txt  the Phase 7 plan (verified addresses inside)
+  CATEGORY_GAP_REPORT.md         earlier audit; its "no verified addresses" root
+                                 cause is now RESOLVED — read the plan's §0
+  AGENT_ADVANTAGE.md             measurement definitions + experiment protocol
+  AGENTHUB_MASTER_PROMPT.txt     original project framing
+
+BACKEND:
+  services/blockchainService.js  all RPC; withRpcLog metering; NO eth_call yet
+  services/agentExecutors.js     6 executors, SOURCES, field(), EXECUTORS map
+  services/lendingProtocolAdapter.js  the ONLY simulated data; a ready-made seam
+  services/executionRunner.js    runs a hire, measures it
+  services/executionService.js   claimForRun, resetForRetry, hire creation
+  services/agentService.js       generic category filtering + counts
+  services/trustScoreService.js
+  models/Agent.js                AGENT_CATEGORIES, AGENT_SOURCES, erc8004Id
+  models/Execution.js            startedAt, rpcCallCount, AdvantageSchema
+  controllers/executionController.js  input caps; chain-97 enforcement; retry
+  data/seedAgents.js             17 agents; read the header comment
+  config/env.js                  the only place to read process.env
+
+FRONTEND:
+  src/config.js                  CATEGORIES, CHAINS (cited), SOURCE_LABELS
+  src/lib/hire.js                HIRE_FIELDS per category (388 lines)
+  src/routes/AppRoutes.jsx       which routes are real vs PlaceholderPage
+  src/components/execution/ExecutionResult.jsx  provenance rendering
+  src/pages/LandingPage.jsx      CATEGORY_ICONS (6th wiring point) + the
+                                 deliberately-empty Agent Advantage card
+
+--------------------------------------------------------------------------------
+14. ENVIRONMENT / SETUP
+--------------------------------------------------------------------------------
+Backend (backend/.env, from backend/.env.example):
+  BNB_RPC_URL             mainnet RPC (unused in this build)
+  BNB_TESTNET_RPC_URL     defaults to https://bsc-testnet-dataseed.bnbchain.org
+  AI_API_KEY              PRESENT BUT EMPTY — gates the /find Agent Finder.
+  AI_MODEL                PRESENT BUT EMPTY — same.
+                          Without them /find falls back to deterministic keyword
+                          matching. THE USER MUST SUPPLY THESE; do not invent,
+                          substitute, or hardcode them.
+  MongoDB: an in-memory Mongo is used in development and seeds 17 agents on boot,
+  so no external database is required to run locally.
+
+Frontend (frontend/.env, from frontend/.env.example):
+  VITE_API_URL
+  VITE_DEFAULT_CHAIN=testnet
+  VITE_WALLETCONNECT_PROJECT_ID   explicitly NOT required — the build uses raw
+                                  injected EIP-1193 (window.ethereum) only.
+
+Run:
+  backend:   npm start  --prefix backend      -> http://localhost:3001
+  frontend:  npm run dev --prefix frontend    -> http://localhost:5173
+Checks:
+  npm run lint --prefix frontend
+  npx vite build   (run inside frontend/)
+  node --check <file>   for backend syntax
+
+A real wallet extension is needed to test the wallet flow for real. The preview
+browser has none; a stub EIP-1193 provider can be injected for testing, but stub
+evidence must be LABELLED AS SUCH and never presented as verified wallet
+integration.
+
+--------------------------------------------------------------------------------
+15. WHAT SHOULD BE BUILT NEXT
+--------------------------------------------------------------------------------
+0. Ask about committing/pushing the approved Phase 6.5 work (§4).
+1. Ask the user to resolve the spec misalignment in §11 — four categories vs the
+   three missing spec-mandatory items (/find, /activity, ERC-8004).
+2. Then, if the four categories win, follow CATEGORY_IMPLEMENTATION_PLAN.txt
+   Tier 1, in order:
+     T1.1  abi.js (minimal encode/decode) + blockchainService.ethCall()
+           — routing it through the existing rpcCall means the Phase 6.5 RPC
+             metering counts it for free
+     T1.2  venusAdapter.js — ONE adapter serving all four categories
+     T1.3  Health Factor -> real chain data; delete the simulated path
+     T1.4  PAUSE OR RELABEL the three overpromising agents:
+             radiant-liquidation-shield · rebalance-advisor · farm-reward-harvester
+           ~30 minutes, highest value-per-minute in the plan, NOT OPTIONAL
+     T1.5  Surface the testnet-oracle-price caveat wherever USD appears
+     T1.6  output.tables + a table renderer in ExecutionResult.jsx
+     T1.7  Grid Trading as a new plan-only category (all six wiring points)
+     T1.8  Yield -> real ranked markets from live Venus rates
+     T1.9  Rebalancing -> real token-unit drift + a real trade list
+
+ARCHITECTURAL RULE THE USER SET, AND IT IS RIGHT: do not build four independent
+implementations. Build the shared primitives (ABI codec, eth_call, Venus adapter,
+token reads, calculation utilities, output-table schema, reused provenance) and
+put four thin agents on top.
+
+--------------------------------------------------------------------------------
+16. KNOWN BUGS, BLOCKERS AND RISKS
+--------------------------------------------------------------------------------
+BLOCKERS
+B1. No eth_call / no ABI codec. Blocks all four categories. Highest priority.
+B2. No keccak256 in the repo, so selectors must be verified constants validated
+    empirically, never computed.
+B3. hire.js has no repeatable/list field type AND parseInput rejects arrays (A8).
+    Blocks a proper Rebalancing allocation input.
+B4. ExecutionResult.jsx has no table renderer. Blocks trade lists, grid ladders
+    and ranked pool lists.
+B5. AI_API_KEY / AI_MODEL are empty, so /find cannot be built as specified.
+    USER MUST SUPPLY.
+B6. No verified DEX address. getReserves() untested. Do not invent one.
+B7. 8004scan entirely unverified (§9), and WebSearch is unavailable here.
+
+RISKS
+R1. Venus getAccountSnapshot returns 6 words, NOT the 4 of stock Compound. THE
+    TUPLE LAYOUT IS UNCONFIRMED. Decoding it on an assumed layout would silently
+    produce WRONG health factors — worse than a labelled simulation. Confirm
+    against the verified source on testnet.bscscan.com FIRST.
+R2. Testnet oracle prices are not market prices (§8). If the caveat is skipped,
+    Phase 7 makes the honesty story worse, not better.
+R3. A full Yield sweep is ~49 markets x ~6 reads = ~300 RPC calls: slow and
+    rate-limitable. Cap the candidate set AND LOG WHAT WAS DROPPED — a silent cap
+    reads as full coverage.
+R4. Most testnet wallets hold NO Venus position, so the honest "no position
+    found at block N" path is the COMMON path, not an edge case. Build and demo
+    it first.
+R5. getUnderlyingPrice already FAILS for vMATIC. Per-market failure must degrade
+    that row to `unavailable`, never abort the run.
+R6. `verified: true` on seeded agents means "AgentHub-reviewed listing", not
+    on-chain verification. Keep the UI from implying otherwise.
+R7. Nine Tier-1 items is a lot for the remaining time. T1.4 must land regardless.
+R8. Adding a category means SIX edits (A3), and CATEGORY_ICONS is the one that
+    gets forgotten (it fails soft, so the omission is easy to miss).
+
+NO KNOWN FUNCTIONAL BUGS in shipped phases. One cosmetic note: ERR_ABORTED
+entries in the browser network panel are React StrictMode double-mount
+AbortController cancellations — each is immediately followed by a 200 for the
+same URL. Not failures.
+
+--------------------------------------------------------------------------------
+17. DEVELOPMENT WORKFLOW (follow this exactly)
+--------------------------------------------------------------------------------
+ONE PHASE AT A TIME. Before coding, state: goal · acceptance criteria · expected
+files · dependencies · required env vars · verification plan. Then implement ONLY
+that phase, and keep the app runnable after it.
+
+The loop the user works in:
+  1. BUILD the phase.
+  2. EXPLAIN what was built.
+  3. LAUNCH backend (:3001) and frontend (:5173) for preview.
+  4. USER REVIEWS in VS Code and Chrome.
+  5. TEACH the user what they just learned — beginner-friendly, assuming no
+     prior terminology. This user is newer to blockchain development and the
+     teaching section is a real deliverable, not a courtesy.
+  6. WAIT FOR EXPLICIT APPROVAL. Silence or a vague acknowledgment is NOT
+     approval. Do not start the next phase without it.
+
+Required 7-part end-of-phase handoff:
+  (1) what was built
+  (2) verification actually performed (with real output — if tests fail, say so)
+  (3) VS Code review reminder naming the most important files
+  (4) how to run and preview: commands, ports, URLs
+  (5) beginner-friendly learning section
+  (6) environment check listing EVERY missing variable by its exact name
+  (7) the approval gate
+
+Re-read AGENTS.md before every phase.
+
+Git: trunk-based on main. NEVER `git add -A` — explicit paths only. After an
+approved commit, also `git push origin main`. End commit messages with:
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+================================================================================
+END OF HANDOFF
+The next AI should: read AGENTS.md -> read CATEGORY_IMPLEMENTATION_PLAN.txt ->
+ask about committing Phase 6.5 -> ask the user to resolve the §11 spec
+misalignment -> then propose Phase 7 and WAIT FOR APPROVAL.
+================================================================================
