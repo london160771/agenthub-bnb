@@ -86,8 +86,16 @@ function recordRpcCall(method, params) {
   if (!log) return;
   // The first param is an address for the account/code reads and a block tag for
   // the block read, so it is only reported when it actually looks like one.
+  // For eth_call it is a transaction object, whose `to` is the contract read —
+  // extracted so a run's audit trail names the contracts it touched rather than
+  // showing a row of anonymous "eth_call" entries.
   const first = params?.[0];
-  const target = typeof first === 'string' && ADDRESS_PARAM_RE.test(first) ? first : undefined;
+  let target;
+  if (typeof first === 'string' && ADDRESS_PARAM_RE.test(first)) {
+    target = first;
+  } else if (first && typeof first === 'object' && ADDRESS_PARAM_RE.test(String(first.to))) {
+    target = first.to;
+  }
   log.push(target ? { method, target } : { method });
 }
 
@@ -269,6 +277,38 @@ export async function readContractInfo(address) {
     isContract,
     bytecodeBytes: isContract ? hex.length / 2 : 0,
   };
+}
+
+/**
+ * A read-only contract call: `eth_call` against `to` with pre-encoded `data`.
+ *
+ * WHY THIS IS STILL SAFE UNDER THE NO-WRITE RULE: `eth_call` executes contract
+ * code on the node and throws the result away. It is signed by nobody, costs
+ * nothing, changes no state, and cannot be included in a block. It is the read
+ * side of a contract, exactly as `eth_getBalance` is the read side of an account.
+ * There is still no signing, no key and no transaction anywhere in this module.
+ *
+ * Routed through `rpcCall` rather than issuing its own fetch, so contract reads
+ * land in the per-run RPC log for free — the metering added in Phase 6.5 counts
+ * them without any change to the meter.
+ *
+ * Reverts surface as a ChainReadError naming the contract, because "the call
+ * reverted" is a legitimate and informative answer on-chain (an unlisted market,
+ * a token with no `underlying()`) and callers need to distinguish it from a node
+ * failure. `eth_call` always runs against `latest`; a pinned block would be more
+ * reproducible but would report stale prices as current.
+ */
+export async function ethCall(to, data) {
+  const result = await rpcCall('eth_call', [{ to, data }, 'latest']);
+  if (typeof result !== 'string' || !result.startsWith('0x')) {
+    throw new ChainReadError(`The contract at ${to} returned a malformed result.`);
+  }
+  // '0x' means the call ran but produced no return data — typically a revert
+  // without a reason string, or a function that does not exist on this contract.
+  if (result === '0x') {
+    throw new ChainReadError(`The contract at ${to} returned no data for this call (reverted).`);
+  }
+  return result;
 }
 
 /**

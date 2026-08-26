@@ -1,62 +1,57 @@
 /**
- * Lending-protocol adapter (health factor).
+ * Lending-protocol adapter (liquidation risk).
  *
- * WHY THIS FILE EXISTS AS AN ADAPTER: a health factor is not a native chain
- * value. It comes from a specific lending protocol's contracts — Venus's
- * Comptroller, Radiant's LendingPool — read through their ABIs at their deployed
- * addresses. AgentHub currently has **no verified testnet addresses** for those
- * protocols, and AGENTS.md forbids guessing contract addresses. So instead of
- * quietly inventing a plausible-looking contract call, this module:
+ * WHY THIS LAYER STILL EXISTS NOW THAT VENUS IS REAL: seeded agents advertise more
+ * than one protocol, and only Venus has a verified BNB-testnet deployment and a
+ * validated read path. This module is the honest boundary — it routes Venus to a
+ * real on-chain read and tells the truth about everything else, instead of letting
+ * an executor imply that any lending protocol can be read.
  *
- *   1. Declares a per-protocol slot for a verified testnet deployment.
- *   2. Reports `verified: false` while that slot is empty.
- *   3. Returns a clearly-labelled MODELLED health factor so the product flow can
- *      be demonstrated end to end.
+ * WHAT CHANGED: this file used to return a deterministic MODELLED health factor,
+ * derived from a hash of the wallet address, because no verified contract address
+ * was on file. That path is gone. There is no longer any simulated position
+ * anywhere in the lending flow: either Venus is read on-chain, or the caller is
+ * told plainly that the protocol is unsupported. A hash-derived number that looked
+ * like a health factor was the single most misleading thing in the codebase, and
+ * deleting it — rather than keeping it as a fallback — is the point of this change.
  *
- * Nothing downstream may present a modelled value as an on-chain reading — every
- * field this module returns carries `source: 'simulated'`, and the execution page
- * renders that label next to the number.
- *
- * TO MAKE THIS REAL: fill in a deployment below with an address verified on
- * https://testnet.bscscan.com (confirm the contract is the protocol's, not a
- * lookalike), add its ABI selector, and switch `readHealthFactor` to an
- * `eth_call`. The output contract stays identical; only `source` changes to
- * 'chain'. That is the whole remaining gap.
+ * An unsupported protocol is NOT an error. It is a result with a reason, so the
+ * execution page can explain it rather than show a failure.
  */
+import { readVenusPosition, supportsProtocol, VENUS_CORE_POOL } from './venusAdapter.js';
 
 /**
- * Verified testnet deployments, keyed by the protocol names seeded agents use.
- * Deliberately empty: an unverified address here would be worse than none.
+ * Protocols with a verified testnet deployment and a validated read path.
+ * Adding one means verifying its addresses and reconciling its arithmetic against
+ * the protocol's own figures — not just appending a name here.
  */
-const DEPLOYMENTS = {
-  // 'Venus':  { comptroller: '0x…', verifiedAt: 'https://testnet.bscscan.com/address/0x…' },
-  // 'Radiant': { lendingPool: '0x…', verifiedAt: '…' },
-};
+export const SUPPORTED_PROTOCOLS = [
+  {
+    name: VENUS_CORE_POOL.protocol,
+    pool: VENUS_CORE_POOL.pool,
+    comptroller: VENUS_CORE_POOL.comptroller,
+    docs: VENUS_CORE_POOL.docs,
+    explorer: VENUS_CORE_POOL.explorer,
+  },
+];
 
 export function hasVerifiedDeployment(protocol) {
-  return Boolean(DEPLOYMENTS[protocol]);
+  return supportsProtocol(protocol);
 }
 
 /**
- * Deterministic 32-bit hash. Used so a given wallet always models to the SAME
- * health factor: a number that changed on every refresh would both look like
- * noise and imply live monitoring that isn't happening.
+ * Risk band for a numeric health factor.
+ *
+ * The thresholds are anchored to a real meaning now that the number is real: 1.0 is
+ * the liquidation point, because the health factor is liquidation-weighted
+ * collateral divided by debt, and Venus liquidates exactly when that ratio falls
+ * below 1. So `< 1.1` is "within 10% of liquidation", not an arbitrary cutoff.
+ *
+ * `LIQUIDATABLE` is separate from `CRITICAL` because it is a different statement:
+ * not "this could be liquidated soon" but "this can be liquidated right now".
  */
-function stableHash(input) {
-  let h = 0x811c9dc5; // FNV-1a offset basis
-  for (let i = 0; i < input.length; i += 1) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h;
-}
-
-/** 0..1, stable per (address, protocol). */
-function stableUnit(address, protocol) {
-  return stableHash(`${String(address).toLowerCase()}:${protocol}`) / 0xffffffff;
-}
-
 export function riskBand(healthFactor) {
+  if (healthFactor < 1) return { level: 'LIQUIDATABLE', tone: 'bad' };
   if (healthFactor < 1.1) return { level: 'CRITICAL', tone: 'bad' };
   if (healthFactor < 1.35) return { level: 'HIGH', tone: 'bad' };
   if (healthFactor < 1.8) return { level: 'MEDIUM', tone: 'warn' };
@@ -64,40 +59,56 @@ export function riskBand(healthFactor) {
 }
 
 /**
- * A health factor for `address` on `protocol`.
+ * Overall risk level for a position, preferring the protocol's own verdict.
  *
- * @returns {{ verified: boolean, source: 'chain'|'simulated', healthFactor: number,
- *   collateralUsd: number, borrowUsd: number, liquidationThreshold: number,
- *   note: string }}
+ * Venus's `shortfall > 0` is authoritative: it is the protocol saying this account
+ * is liquidatable, and it outranks any ratio we derive. Only when there is no
+ * shortfall does the derived health factor decide the band, and `basis` records
+ * which of the two answered so the UI can attribute it.
  */
-export function readHealthFactor({ address, protocol }) {
-  if (hasVerifiedDeployment(protocol)) {
-    // Unreachable while DEPLOYMENTS is empty. Left as the explicit seam so the
-    // real path is obvious to whoever fills it in.
-    throw new Error(`Deployment configured for ${protocol} but no on-chain read implemented yet.`);
+export function positionRiskLevel(position) {
+  if (position?.venus?.liquidatable) {
+    return { level: 'LIQUIDATABLE', tone: 'bad', basis: 'protocol' };
+  }
+  if (typeof position?.healthFactor === 'number') {
+    return { ...riskBand(position.healthFactor), basis: 'derived' };
+  }
+  if (position && position.hasPosition === false) {
+    return { level: 'NO POSITION', tone: 'ok', basis: 'protocol' };
+  }
+  return { level: 'UNKNOWN', tone: 'warn', basis: 'none' };
+}
+
+/**
+ * Read `address`'s liquidation risk on `protocol`.
+ *
+ * Renamed from `readHealthFactor` deliberately. The old name promised a single
+ * number that Compound-family protocols do not store; this returns a position,
+ * whose health factor may legitimately be absent (no debt, or an unpriced market)
+ * without that being a failure. A caller forced to notice the rename is a caller
+ * that will not silently mistake the new return value for the old one.
+ *
+ * @returns {Promise<{ supported: boolean, protocol: string, position: object|null,
+ *   reason: string|null }>}
+ */
+export async function readLendingPosition({ address, protocol }) {
+  if (!hasVerifiedDeployment(protocol)) {
+    return {
+      supported: false,
+      protocol,
+      position: null,
+      reason:
+        `AgentHub has no verified ${protocol} deployment on BNB testnet on file. ` +
+        'Guessing a contract address could read the wrong contract entirely, so no ' +
+        'position is reported rather than an invented one. Supported today: ' +
+        `${SUPPORTED_PROTOCOLS.map((p) => `${p.name} ${p.pool}`).join(', ')}.`,
+    };
   }
 
-  const u = stableUnit(address, protocol);
-  // 1.05 … 3.05 — spans every risk band, so demos can show a warning as well as
-  // an all-clear depending on the wallet.
-  const healthFactor = Number((1.05 + u * 2).toFixed(2));
-  // Position sizes scale off a second, independent hash so they don't correlate
-  // suspiciously with the health factor.
-  const v = stableUnit(`${address}#size`, protocol);
-  const collateralUsd = Math.round((500 + v * 24_500) / 10) * 10;
-  const borrowUsd = Math.round((collateralUsd * 0.8) / healthFactor / 10) * 10;
-
   return {
-    verified: false,
-    source: 'simulated',
-    protocol,
-    healthFactor,
-    collateralUsd,
-    borrowUsd,
-    liquidationThreshold: 0.8,
-    note:
-      `AgentHub has no verified ${protocol} testnet contract address on file, and ` +
-      `guessing one would risk reading the wrong contract. This position is a ` +
-      `deterministic model, not an on-chain reading.`,
+    supported: true,
+    protocol: VENUS_CORE_POOL.protocol,
+    position: await readVenusPosition(address),
+    reason: null,
   };
 }

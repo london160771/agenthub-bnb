@@ -21,12 +21,23 @@ export const seedAgents = [
   {
     agentId: 'venus-health-guardian',
     name: 'Venus Health Guardian',
-    tagline: 'Watches your Venus lending position and warns before liquidation.',
+    // RELABELLED in Phase 7 alongside the three overpromising listings. This is
+    // the one agent whose reads are now fully real, which makes the two words it
+    // got wrong matter more, not less: "continuously" and "alerts you". There is
+    // no scheduler and no notification channel in this build — a run happens when
+    // you hire it, once. The rest of the claim is now literally true, so the
+    // description says exactly which contract calls produce the answer.
+    tagline: 'Reads your Venus position live and derives a reconciled health factor.',
     description:
-      'Continuously reads your Venus Protocol lending position, computes the health factor, and alerts you before you approach the liquidation threshold. Returns a clear risk level and a concrete recommendation.',
+      "Reads your Venus Core Pool position directly from BNB testnet: which markets you have entered, your supply and debt in each, each market's liquidation weight, and the Comptroller's own liquidity verdict. Reports that verdict first — a non-zero shortfall means Venus can liquidate you right now — then derives a health factor, which is only shown when re-deriving Venus's own liquidity figure from our per-market reads matches it to the wei. One reading per run: there is no background scheduler and no alerting in this build, so re-run it to take a fresh reading.",
     category: 'health-factor',
-    subcategory: 'Liquidation protection',
-    skills: ['Health factor analysis', 'Liquidation alerts', 'Risk scoring', 'Position monitoring'],
+    subcategory: 'Liquidation risk (Venus Core Pool)',
+    skills: [
+      'Health factor analysis',
+      'Liquidation risk scoring',
+      'Venus market reads',
+      'On-chain reconciliation',
+    ],
     protocols: ['Venus'],
     tags: ['defi', 'lending', 'risk', 'liquidation'],
     pricing: { amount: 0.004, currency: 'BNB', model: 'per-task' },
@@ -40,12 +51,19 @@ export const seedAgents = [
   {
     agentId: 'radiant-liquidation-shield',
     name: 'Radiant Liquidation Shield',
-    tagline: 'Cross-checks Radiant borrows and flags unsafe collateral ratios.',
+    // RELABELLED in Phase 7. This listing used to promise Radiant position
+    // monitoring, which the code cannot do: `hasVerifiedDeployment('Radiant')` is
+    // false, because no verified Radiant contract address for BNB testnet is on
+    // file and guessing one could read a stranger's position as the user's own.
+    // Running it now returns exactly that answer, with the wallet's real balance.
+    // The listing has to say so up front — the tagline is truncated on cards, so
+    // the caveat comes first rather than after a promise.
+    tagline: 'Radiant reads unsupported — no verified testnet deployment.',
     description:
-      'Monitors Radiant Capital positions on BNB Chain, tracks collateral ratios across assets, and raises an alert with a suggested top-up amount when your position drifts toward liquidation.',
+      'Reads the wallet itself live on BNB testnet, then reports plainly that AgentHub has no verified Radiant Capital deployment on file for this chain — so no position, collateral ratio or liquidation warning is produced. Nothing is estimated in place of the missing data. For a real, reconciled liquidation reading today, use Venus Health Guardian.',
     category: 'health-factor',
-    subcategory: 'Collateral monitoring',
-    skills: ['Collateral ratio tracking', 'Liquidation alerts', 'Multi-asset analysis'],
+    subcategory: 'Unsupported protocol — read blocked',
+    skills: ['Wallet balance read', 'Unsupported-protocol disclosure'],
     protocols: ['Radiant'],
     tags: ['defi', 'lending', 'risk'],
     pricing: { amount: 0.005, currency: 'BNB', model: 'per-task' },
@@ -158,12 +176,18 @@ export const seedAgents = [
   {
     agentId: 'farm-reward-harvester',
     name: 'Farm Reward Harvester',
-    tagline: 'Spots when compounding your farm rewards is worth the gas.',
+    // RELABELLED in Phase 7. The old tagline promised to spot when compounding is
+    // "worth the gas", which needs BOTH sides of the comparison. The yield
+    // executor reads the gas side for real and reports the reward side as
+    // unavailable, because pending rewards need a verified MasterChef address per
+    // farm and none is on file. Half a comparison advertised as a whole one is
+    // the overpromise, so the tagline now names which half is missing.
+    tagline: 'Prices the gas cost of compounding. Pending rewards not read.',
     description:
-      'Estimates pending farm rewards versus the gas cost to harvest and compound, and recommends the optimal moment to act. Analysis-only; execution stays with you.',
+      "Reads your wallet balance and the live BNB testnet gas price, then prices what a compound or deposit transaction would cost at this block. It does NOT read your pending farm rewards: that needs a verified MasterChef contract address for each farm, which this build does not have, so the reward side of the comparison is reported as unavailable rather than estimated. You get the real cost, and an explicit gap where the reward figure would go.",
     category: 'yield',
-    subcategory: 'Auto-compounding advice',
-    skills: ['Reward estimation', 'Gas-vs-reward analysis', 'Compounding timing'],
+    subcategory: 'Gas-cost analysis',
+    skills: ['Gas cost of compounding', 'Wallet funding check'],
     protocols: ['PancakeSwap', 'Biswap'],
     tags: ['defi', 'yield', 'farming'],
     pricing: { amount: 0.002, currency: 'BNB', model: 'per-task' },
@@ -257,12 +281,18 @@ export const seedAgents = [
   {
     agentId: 'rebalance-advisor',
     name: 'Rebalance Advisor',
-    tagline: 'Tells you what to trade to hit your target allocation.',
+    // RELABELLED in Phase 7. A rebalancing plan requires the wallet's BEP-20
+    // token positions, and the portfolio executor reports those as unavailable —
+    // enumerating them needs a verified token registry or an indexer, neither of
+    // which is configured. So "tells you what to trade" described a capability
+    // that does not exist. What the run genuinely produces is a native-balance
+    // read and gas headroom, and that is now what the listing claims.
+    tagline: 'Reads native balance only — no token allocations or swap plans.',
     description:
-      'Compares your current wallet allocation to a target you define and outputs the specific swaps needed to rebalance, with estimated cost. You approve and sign each trade.',
+      "Reads the wallet's native tBNB balance and transaction count live from BNB testnet and works out how much gas headroom it has at the current gas price. It does NOT produce a rebalancing plan or size any swaps: that needs your BEP-20 token positions, which require a verified token registry or an indexer this build does not have, so token holdings come back marked unavailable rather than guessed. Nothing is proposed, signed or sent.",
     category: 'portfolio',
-    subcategory: 'Rebalancing',
-    skills: ['Rebalancing plans', 'Allocation targeting', 'Trade sizing'],
+    subcategory: 'Balance read — no rebalancing plan',
+    skills: ['Native balance read', 'Gas headroom analysis'],
     protocols: ['PancakeSwap'],
     tags: ['portfolio', 'rebalance'],
     pricing: { amount: 0.004, currency: 'BNB', model: 'per-task' },

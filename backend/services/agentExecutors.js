@@ -22,7 +22,7 @@ import {
   readAddressState,
   readContractInfo,
 } from './blockchainService.js';
-import { readHealthFactor, riskBand } from './lendingProtocolAdapter.js';
+import { positionRiskLevel, readLendingPosition } from './lendingProtocolAdapter.js';
 
 export const SOURCES = {
   chain: 'chain',
@@ -48,7 +48,6 @@ function bnb(decimalString, places = 4) {
   return `${n.toFixed(places).replace(/\.?0+$/, '')} ${CURRENCY}`;
 }
 
-const usd = (n) => `$${Math.round(n).toLocaleString('en-US')}`;
 const pct = (n) => `${Number(n).toFixed(2).replace(/\.?0+$/, '')}%`;
 
 /** Gas units for a typical BEP-20 → BEP-20 swap. An assumption, labelled as one. */
@@ -175,46 +174,374 @@ async function runPortfolio({ input, chain }) {
 /* ------------------------------------------------------------------ *
  * health-factor — liquidation risk on a lending position
  * ------------------------------------------------------------------ */
-async function runHealthFactor({ input, chain }) {
+
+/**
+ * Carried by every USD figure that came through Venus's price oracle.
+ *
+ * The testnet oracle is a real contract returning real values, but it quotes BNB
+ * at $600 and BTC at $2,100,000. So the numbers below are honest chain reads of a
+ * test feed, and each one says so on its own row rather than relying on a single
+ * disclaimer the reader may not connect to the figure they care about.
+ */
+const TESTNET_PRICE_NOTE = 'Testnet oracle price, not a market price.';
+
+/**
+ * USD from a decimal STRING, unrounded.
+ *
+ * A string in, not a Number: a 1e18-scaled USD value exceeds
+ * Number.MAX_SAFE_INTEGER, so the adapter formats it in BigInt and hands over the
+ * exact decimal. Rounding here would turn an input to the health factor into an
+ * approximation — a real testnet position can be worth $3.54. Cents are kept
+ * below $1,000 and dropped above it, where they are noise.
+ */
+function usd(decimalString) {
+  const n = Number(decimalString);
+  if (!Number.isFinite(n)) return `$${decimalString}`;
+  return n >= 1000
+    ? `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+    : `$${n.toFixed(2)}`;
+}
+
+/** Which provenance tag a risk level earns, based on who actually decided it. */
+const RISK_SOURCE = {
+  protocol: SOURCES.chain,
+  derived: SOURCES.derived,
+  none: SOURCES.unavailable,
+};
+
+async function runHealthFactor({ input, chain, agent }) {
   const target = input.positionWallet;
-  const protocol = input.protocol || 'the selected protocol';
-  const state = await readAddressState(target);
-  const position = readHealthFactor({ address: target, protocol });
-  const band = riskBand(position.healthFactor);
-  const warnBelow = Number(input.warnBelow ?? 1.5);
-  const breached = position.healthFactor < warnBelow;
+  // The form offers only protocols the agent advertises, but a hire can be posted
+  // straight at the API, so fall back to what the agent itself claims rather than
+  // assuming Venus.
+  const protocol = input.protocol || agent?.protocols?.[0] || 'the selected protocol';
+  const warnBelowRaw = Number(input.warnBelow);
+  const warnBelow = Number.isFinite(warnBelowRaw) ? warnBelowRaw : 1.5;
+
+  const [state, lending] = await Promise.all([
+    readAddressState(target),
+    readLendingPosition({ address: target, protocol }),
+  ]);
+
+  const walletField = field('walletBalance', 'Wallet native balance', bnb(state.balance), {
+    note: 'What this wallet could use to top up collateral or repay a borrow.',
+  });
+
+  /* --- The protocol cannot be read at all ------------------------------- */
+  // Not a failure: a definite answer about what we do and do not have on file.
+  // The alternative — reading a guessed contract address — is how you report a
+  // stranger's position as the user's own.
+  if (!lending.supported) {
+    return {
+      headline: `${protocol} positions cannot be read — no verified deployment on file`,
+      summary:
+        `The wallet itself was read live on BNB testnet at block ` +
+        `#${chain.blockNumber.toLocaleString('en-US')}. The ${protocol} position was not, ` +
+        `because AgentHub has no verified ${protocol} contract address for this chain and ` +
+        `will not guess one.`,
+      fields: [
+        field('protocol', 'Protocol requested', protocol, { source: SOURCES.input }),
+        field('healthFactor', 'Health factor', 'Not available', {
+          source: SOURCES.unavailable,
+          note: lending.reason,
+        }),
+        field('risk', 'Risk level', 'Unknown', { source: SOURCES.unavailable }),
+        walletField,
+        ...networkFields(chain),
+      ],
+      recommendation:
+        `No position was invented for ${protocol}. To see a real, reconciled health factor, ` +
+        `run a Venus Core Pool agent against a wallet that has supplied collateral on Venus ` +
+        `BNB testnet.`,
+    };
+  }
+
+  const position = lending.position;
+  const risk = positionRiskLevel(position);
+  const protocolLabel = `${position.protocol} ${position.pool}`;
+  const protocolField = field('protocol', 'Protocol read', protocolLabel, {
+    source: SOURCES.input,
+    note: `Comptroller ${position.comptroller} — address from Venus's official deployment docs, confirmed live this run.`,
+  });
+
+  /* --- Supported, but this wallet has no position ----------------------- */
+  // A first-class outcome. Venus's own account market list is empty, which is a
+  // read result, not an error and not a position full of zeroes.
+  if (!position.hasPosition) {
+    return {
+      headline: `No Venus position found for this wallet`,
+      summary:
+        `Venus's Comptroller was asked which markets this wallet has entered, live at block ` +
+        `#${chain.blockNumber.toLocaleString('en-US')}. The answer was none — so there is no ` +
+        `collateral and no debt here, and nothing that can be liquidated.`,
+      fields: [
+        field('risk', 'Risk level', risk.level, {
+          tone: risk.tone,
+          note: "Venus's own account market list for this wallet is empty.",
+        }),
+        field('healthFactor', 'Health factor', 'Not applicable', {
+          source: SOURCES.unavailable,
+          note: position.healthFactorUnavailableReason,
+        }),
+        field('marketsEntered', 'Venus markets entered', '0', {
+          note: 'Read with getAssetsIn(). Only entered markets count as collateral or debt.',
+        }),
+        protocolField,
+        walletField,
+        ...networkFields(chain),
+      ],
+      recommendation:
+        `Nothing to protect yet. Supply an asset to Venus on BNB testnet and enter that market, ` +
+        `then re-run this agent to get a real health factor. If you expected a position here, ` +
+        `check the address: this reads Venus Core Pool on chain 97 only, so a position on ` +
+        `another protocol, another Venus pool, or mainnet will not appear.`,
+    };
+  }
+
+  /* --- A real position ------------------------------------------------- */
+  const hf = typeof position.healthFactor === 'number' ? position.healthFactor.toFixed(2) : null;
+  const breached = hf !== null && position.healthFactor < warnBelow;
+  const liquidatable = position.venus.liquidatable;
+  // Venus's liquidity/shortfall pair is only meaningful when the Comptroller
+  // reports errorCode 0. On a non-zero code the adapter already withholds
+  // everything derived, but the raw pair still comes back — and quoting it as a
+  // [chain] fact would be the worst possible version of this row: a real number,
+  // read from the real contract, that the contract itself is disclaiming.
+  const venusVerdictUsable = position.venus.errorCode === 0;
+
+  const fields = [
+    field('risk', 'Risk level', risk.level, {
+      source: RISK_SOURCE[risk.basis] || SOURCES.unavailable,
+      tone: risk.tone,
+      note:
+        risk.basis === 'protocol'
+          ? "Venus's own getAccountLiquidity() decided this — the protocol's verdict, not our arithmetic."
+          : risk.basis === 'derived'
+            ? 'Banded from the health factor below. 1.00 is the liquidation point, so these bands measure distance from it.'
+            : 'Neither Venus nor our own arithmetic could produce a risk level for this position.',
+    }),
+    hf !== null
+      ? field('healthFactor', 'Health factor', hf, {
+          source: SOURCES.derived,
+          tone: risk.tone,
+          note:
+            `Liquidation-weighted collateral ÷ debt, from per-market reads, cross-checked to the ` +
+            `wei against Venus's own liquidity figure. Venus liquidates at 1.00. ${TESTNET_PRICE_NOTE}`,
+        })
+      : field('healthFactor', 'Health factor', 'Not available', {
+          source: SOURCES.unavailable,
+          note: position.healthFactorUnavailableReason,
+        }),
+    venusVerdictUsable
+      ? field(
+          'venusLiquidity',
+          liquidatable ? 'Venus shortfall (liquidatable now)' : 'Venus liquidity buffer',
+          usd(liquidatable ? position.venus.shortfallUsd : position.venus.liquidityUsd),
+          {
+            note: liquidatable
+              ? `Venus reports a NON-ZERO SHORTFALL, which means this account can be liquidated right now. ` +
+                `This is the Comptroller's own figure. ${TESTNET_PRICE_NOTE}`
+              : `How much collateral value could still be borrowed against, or lost, before Venus ` +
+                `would allow a liquidation. The Comptroller's own figure. ${TESTNET_PRICE_NOTE}`,
+          },
+        )
+      : field('venusLiquidity', "Venus's own verdict", 'Not usable', {
+          source: SOURCES.unavailable,
+          note:
+            `The Comptroller returned error code ${position.venus.errorCode} for this account, so it ` +
+            `is disclaiming its own liquidity and shortfall figures. They are not shown, because a ` +
+            `number the contract will not stand behind is worse than no number on a liquidation screen.`,
+        }),
+    field('marketsEntered', 'Venus markets entered', String(position.marketsEntered), {
+      note: position.truncated
+        ? `Read with getAssetsIn(). Only the first ${position.marketsAnalysed} were valued this run — see the health-factor note.`
+        : 'Read with getAssetsIn(). Only entered markets count as collateral or debt.',
+    }),
+  ];
+
+  // Per-market rows. Every market that failed appears, because a failure is the
+  // thing most worth seeing; markets with no balance are counted instead of
+  // listed, so an entered-but-empty market doesn't bury the ones that matter.
+  let emptyMarkets = 0;
+  for (const market of position.markets) {
+    const label = market.symbol || `${market.vToken.slice(0, 8)}…${market.vToken.slice(-4)}`;
+    if (!market.available) {
+      fields.push(
+        field(`market-${market.vToken}`, `${label} market`, 'Could not be valued', {
+          source: SOURCES.unavailable,
+          note: `${market.reason} This market is therefore excluded from the totals below, which is why no health factor is derived.`,
+        }),
+      );
+      continue;
+    }
+    if (Number(market.suppliedUsd) === 0 && Number(market.borrowedUsd) === 0) {
+      emptyMarkets += 1;
+      continue;
+    }
+    fields.push(
+      field(
+        `market-${market.vToken}`,
+        `${label} position`,
+        `${usd(market.suppliedUsd)} supplied · ${usd(market.borrowedUsd)} borrowed`,
+        {
+          source: SOURCES.derived,
+          // A borrow-only market has no collateral to weight, and quoting its
+          // weight next to "$0.00 counts as collateral" reads like a mistake
+          // rather than a fact. Debt counts in full, which is the useful thing to
+          // say about that row.
+          note:
+            Number(market.suppliedUsd) === 0
+              ? `Borrowed only — no collateral supplied in this market, and debt counts against you in full. ${TESTNET_PRICE_NOTE}`
+              : `Liquidation weight ${market.liquidationFactor} → ${usd(market.weightedCollateralUsd)} ` +
+                `of this counts toward avoiding liquidation. ${TESTNET_PRICE_NOTE}`,
+        },
+      ),
+    );
+  }
+  if (emptyMarkets > 0) {
+    fields.push(
+      field(
+        'emptyMarkets',
+        'Entered markets with no balance',
+        String(emptyMarkets),
+        {
+          source: SOURCES.derived,
+          note: 'Entered but holding nothing supplied or borrowed, so they contribute nothing either way.',
+        },
+      ),
+    );
+  }
+
+  if (position.totals) {
+    // WHY THESE ROWS NEED A PARTIAL LABEL: when a market could not be valued, the
+    // sums cover only the markets that WERE valued, so they understate the
+    // position. Unlabelled, they are the most misleading rows on the page — a
+    // reader seeing "$0.00 counts as collateral" beside "$1.26 borrowed" would
+    // conclude liquidation is imminent, while Venus's own figure on the row above
+    // reports a healthy buffer. A number that is quietly partial is worse here
+    // than no number, so the label says so and the value carries a warning tone.
+    const partial = position.reconciliation?.complete === false;
+    const suffix = partial ? ' (valued markets only)' : '';
+    const gap = partial
+      ? " This EXCLUDES the market(s) above that could not be valued, so it understates the real position — Venus's own liquidity figure is the complete one."
+      : '';
+    const partialTone = partial ? { tone: 'warn' } : {};
+    fields.push(
+      field('supplied', `Total supplied${suffix}`, usd(position.totals.suppliedUsd), {
+        source: SOURCES.derived,
+        ...partialTone,
+        note: `Market value of everything supplied, before liquidation weights.${gap} ${TESTNET_PRICE_NOTE}`,
+      }),
+      field(
+        'collateral',
+        `Counts as collateral${suffix}`,
+        usd(position.totals.weightedCollateralUsd),
+        {
+          source: SOURCES.derived,
+          ...partialTone,
+          note: `Each market's supply after its liquidation weight — the figure Venus compares against your debt.${gap} ${TESTNET_PRICE_NOTE}`,
+        },
+      ),
+      field('borrow', `Total borrowed${suffix}`, usd(position.totals.borrowedUsd), {
+        source: SOURCES.derived,
+        ...partialTone,
+        note: `Debt across every valued market.${gap} ${TESTNET_PRICE_NOTE}`,
+      }),
+    );
+  }
+
+  if (position.reconciliation) {
+    const recon = position.reconciliation;
+    fields.push(
+      field(
+        'reconciliation',
+        'Cross-check against Venus',
+        !recon.matches
+          ? `Mismatch — off by ${recon.deltaWei} wei`
+          : recon.complete
+            ? 'Exact match'
+            : 'Matches, but the market set is incomplete',
+        {
+          source: SOURCES.derived,
+          tone: recon.reconciled ? 'ok' : 'warn',
+          note:
+            `${recon.explanation} Ours: ${usd(recon.computedLiquidityUsd)}. ` +
+            `Venus: ${usd(recon.protocolLiquidityUsd)}.`,
+        },
+      ),
+    );
+  }
+
+  if (position.oracle) {
+    fields.push(
+      field('oracle', 'Price oracle used', `${position.oracle.slice(0, 10)}…${position.oracle.slice(-6)}`, {
+        note: "Read from the Comptroller's oracle() this run, never hardcoded, so an oracle migration cannot leave this agent quoting a dead contract.",
+      }),
+    );
+  }
+
+  fields.push(protocolField, walletField, ...networkFields(chain));
+
+  fields.push(
+    hf !== null
+      ? field(
+          'threshold',
+          'Your warning threshold',
+          `${warnBelow} — ${breached ? 'BREACHED' : 'not breached'}`,
+          { source: SOURCES.derived, tone: breached ? 'bad' : 'ok' },
+        )
+      : field('threshold', 'Your warning threshold', `${warnBelow} — not evaluated`, {
+          source: SOURCES.unavailable,
+          note: 'There is no health factor to compare it against this run.',
+        }),
+  );
+
+  const headline = liquidatable
+    ? `LIQUIDATABLE NOW — Venus reports a ${usd(position.venus.shortfallUsd)} shortfall`
+    : hf !== null
+      ? `Health factor ${hf} — ${risk.level} risk`
+      : `Venus position found — health factor unavailable`;
+
+  const recommendation = liquidatable
+    ? `Venus's Comptroller reports a shortfall of ${usd(position.venus.shortfallUsd)} for this ` +
+      `account, which means it can be liquidated right now — this is the protocol's own figure, not ` +
+      `our estimate. Repaying part of the borrow or supplying more collateral is what clears a ` +
+      `shortfall. AgentHub cannot do either: it holds no keys and sends no transactions.`
+    : hf === null
+      ? // Deliberately does NOT restate healthFactorUnavailableReason — that is
+        // already the note on the "Health factor" row, and repeating it here made
+        // the two read like a stutter. What belongs here instead is what the user
+        // should act on: the protocol's own verdict, when it is usable.
+        venusVerdictUsable
+        ? `Go by Venus's own verdict on the row above: ${usd(position.venus.liquidityUsd)} of ` +
+          `liquidity and no shortfall, so Venus would not allow a liquidation at this block. The ` +
+          `derived health factor is withheld for the reason given on its row — this agent reports a ` +
+          `liquidation ratio only when it can be reconciled against Venus to the wei. Nothing was ` +
+          `signed or sent; this run was read-only.`
+        : `Neither Venus's own liquidity verdict nor a derived health factor is usable for this ` +
+          `account this run, so this agent is not telling you how close to liquidation you are — ` +
+          `checking the position directly on Venus is the reliable move. Nothing was signed or sent.`
+      : breached
+        ? `The health factor (${hf}) is below your ${warnBelow} threshold. Adding collateral or ` +
+          `repaying part of the borrow is what raises it; liquidation becomes possible at 1.00. ` +
+          `Nothing was signed or sent — this run was read-only.`
+        : `The health factor (${hf}) sits above your ${warnBelow} threshold, with ` +
+          `${usd(position.venus.liquidityUsd)} of liquidity left before Venus would allow a ` +
+          `liquidation. No action needed at block #${chain.blockNumber.toLocaleString('en-US')}.`;
 
   return {
-    headline: `Health factor ${position.healthFactor.toFixed(2)} — ${band.level} risk`,
+    headline,
     summary:
-      `The wallet's on-chain state was read live at block #${chain.blockNumber.toLocaleString('en-US')}. ` +
-      `The ${protocol} position itself is modelled, not read from the protocol's contracts — see the note below.`,
-    fields: [
-      field('healthFactor', 'Health factor', position.healthFactor.toFixed(2), {
-        source: SOURCES.simulated,
-        tone: band.tone,
-        note: position.note,
-      }),
-      field('risk', 'Risk level', band.level, { source: SOURCES.simulated, tone: band.tone }),
-      field('collateral', 'Collateral supplied', usd(position.collateralUsd), {
-        source: SOURCES.simulated,
-      }),
-      field('borrow', 'Amount borrowed', usd(position.borrowUsd), { source: SOURCES.simulated }),
-      field('protocol', 'Protocol', protocol, { source: SOURCES.input }),
-      field('walletBalance', 'Wallet native balance', bnb(state.balance), {
-        note: 'Real: what this wallet could use to top up collateral or repay.',
-      }),
-      ...networkFields(chain),
-      field(
-        'threshold',
-        'Your warning threshold',
-        `${warnBelow} — ${breached ? 'BREACHED' : 'not breached'}`,
-        { source: SOURCES.derived, tone: breached ? 'bad' : 'ok' },
-      ),
-    ],
-    recommendation: breached
-      ? `The modelled health factor (${position.healthFactor.toFixed(2)}) is below your ${warnBelow} threshold. In a live position this is where you would add collateral or repay part of the borrow. Liquidation happens at 1.0.`
-      : `The modelled health factor (${position.healthFactor.toFixed(2)}) sits above your ${warnBelow} threshold. No action required.`,
+      `Venus Core Pool was read live on BNB testnet at block ` +
+      `#${chain.blockNumber.toLocaleString('en-US')}: the markets this wallet entered, its balance ` +
+      `and debt in each, each market's liquidation weight, and the Comptroller's own liquidity ` +
+      `verdict. ${
+        hf !== null
+          ? "The health factor is our arithmetic on those reads, and it is only shown because re-deriving Venus's own liquidity figure from them matched exactly."
+          : 'No health factor is shown this run — the reason is on that row.'
+      }`,
+    fields,
+    recommendation,
   };
 }
 
