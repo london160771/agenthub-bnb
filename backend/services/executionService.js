@@ -95,6 +95,12 @@ export async function getExecutionDoc(executionId) {
  * Atomically claim a pending execution for running. Returns the document if this
  * call won the claim, or null if it was already claimed/finished — so two
  * concurrent run requests can't execute the same hire twice.
+ *
+ * `startedAt` is written here, in the same atomic update as the status flip,
+ * because this instant IS the start of work. Recording it anywhere else would
+ * either miss a run that dies early or drift from the status it describes. The
+ * runner then measures against the stored timestamp, so the persisted duration
+ * and the persisted timestamps always agree.
  */
 export async function claimForRun(executionId) {
   const now = new Date();
@@ -103,6 +109,7 @@ export async function claimForRun(executionId) {
     {
       $set: {
         status: 'running',
+        startedAt: now,
         'steps.$[query].state': 'active',
         'steps.$[query].at': now,
       },
@@ -139,6 +146,10 @@ export async function resetForRetry(executionId) {
   doc.errorMessage = '';
   doc.output = null;
   doc.durationMs = null;
+  // Cleared with the rest of the measurements: a retry's timing and read count
+  // must describe the new run, not blend it with the attempt that failed.
+  doc.startedAt = null;
+  doc.rpcCallCount = null;
   doc.completedAt = null;
   await doc.save();
   return doc;

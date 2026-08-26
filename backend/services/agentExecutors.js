@@ -107,11 +107,6 @@ async function runMonitoring({ input, chain }) {
     recommendation: state.isEmpty
       ? 'This address has never transacted and holds nothing. Confirm it is the address you meant to watch.'
       : `Baseline stored. Re-run this agent to compare against ${bnb(state.balance)} at block #${chain.blockNumber.toLocaleString('en-US')}.`,
-    reads: [
-      { method: 'eth_getBalance', target },
-      { method: 'eth_getTransactionCount', target },
-      { method: 'eth_getCode', target },
-    ],
   };
 }
 
@@ -174,10 +169,6 @@ async function runPortfolio({ input, chain }) {
     recommendation: state.isEmpty
       ? 'Nothing to report — this address holds no tBNB and has never sent a transaction. Fund it from the BNB testnet faucet to see a fuller report.'
       : `Native holdings confirmed on-chain. For a complete picture, token balances need a verified registry — see the note above.`,
-    reads: [
-      { method: 'eth_getBalance', target },
-      { method: 'eth_getTransactionCount', target },
-    ],
   };
 }
 
@@ -224,10 +215,6 @@ async function runHealthFactor({ input, chain }) {
     recommendation: breached
       ? `The modelled health factor (${position.healthFactor.toFixed(2)}) is below your ${warnBelow} threshold. In a live position this is where you would add collateral or repay part of the borrow. Liquidation happens at 1.0.`
       : `The modelled health factor (${position.healthFactor.toFixed(2)}) sits above your ${warnBelow} threshold. No action required.`,
-    reads: [
-      { method: 'eth_getBalance', target },
-      { method: 'eth_getTransactionCount', target },
-    ],
   };
 }
 
@@ -299,10 +286,6 @@ async function runResearch({ input, chain }) {
       flags.length > 0
         ? flags.join(' ')
         : 'Contract exists and looks structurally ordinary. Deeper checks (holders, liquidity, admin keys) need data sources this build does not have.',
-    reads: [
-      { method: 'eth_getCode', target },
-      { method: 'eth_getBalance', target },
-    ],
   };
 }
 
@@ -360,11 +343,6 @@ async function runTrading({ input, chain, userAddress }) {
       : affordable
         ? `Plan is viable at current gas. Executing it would require a signed transaction — AgentHub does not submit trades, so nothing has been sent.`
         : `Your wallet holds ${bnb(wallet.balance)} but this plan needs about ${bnb(String(needed), 6)} per trade including gas. Top up from the testnet faucet or reduce the trade size.`,
-    reads: [
-      { method: 'eth_getCode', target },
-      { method: 'eth_getBalance', target: userAddress },
-      { method: 'eth_gasPrice' },
-    ],
   };
 }
 
@@ -413,10 +391,6 @@ async function runYield({ input, chain, userAddress }) {
     recommendation: funded
       ? `Your balance covers the allocation and the estimated entry cost of ${bnb(entryFee.fee, 6)}. Actual pool selection needs live protocol data this build cannot verify — that is the honest limit of this result.`
       : `Top up to at least ${bnb(String(amount + Number(entryFee.fee)), 6)} (allocation plus estimated gas) before allocating. The BNB testnet faucet issues free tBNB.`,
-    reads: [
-      { method: 'eth_getBalance', target: userAddress },
-      { method: 'eth_gasPrice' },
-    ],
   };
 }
 
@@ -509,7 +483,9 @@ export async function executeForAgent({ agent, execution, chain }) {
     ...result,
     hasSimulated,
     provenance: buildProvenance(chain),
-    // Every RPC method this run actually issued, so the reads are auditable.
-    reads: result.reads,
+    // `reads` is deliberately NOT set here. The list of RPC requests is measured
+    // by the log in blockchainService.js and attached by the runner, so it
+    // reflects what was actually issued rather than what an executor believes it
+    // issued. See withRpcLog().
   };
 }

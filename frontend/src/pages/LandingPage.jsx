@@ -137,7 +137,7 @@ function TrustStrip() {
     { icon: Fingerprint, label: 'ERC-8004 identity', desc: 'On-chain agent identity where available' },
     { icon: Gauge, label: 'Explainable trust score', desc: 'A transparent, weighted marketplace score' },
     { icon: TrendingUp, label: 'Real performance', desc: 'Success rate, executions and response time' },
-    { icon: Clock, label: 'Agent Advantage', desc: 'Measured time & cost vs doing it manually' },
+    { icon: Clock, label: 'Agent Advantage', desc: 'Every run’s time, cost and on-chain reads recorded' },
   ];
   return (
     <section className="border-b border-line bg-panel/40">
@@ -235,8 +235,10 @@ function AgentAdvantage() {
             Prove hiring an agent beats doing it yourself.
           </h2>
           <p className="mt-4 max-w-lg leading-relaxed text-muted">
-            For every execution, AgentHub compares the agent against the manual alternative — time,
-            steps and cost — so the value is measurable, not assumed.
+            Every execution records what the agent actually did: when it started, how long it took,
+            what it charged, and every on-chain read it made. The manual half of that comparison has
+            to be done by a person, so the numbers below stay empty until someone has sat down and
+            done the same task by hand.
           </p>
           <div className="mt-6">
             <ButtonLink to="/discover" variant="outline">
@@ -246,28 +248,40 @@ function AgentAdvantage() {
           </div>
         </div>
 
-        {/* Illustrative comparison — clearly labelled, not a real measurement. */}
+        {/*
+          This card previously showed "~14 min / 6 steps" vs "2.8 sec / 1 request".
+          Those were invented for illustration, and an invented benchmark in a
+          submission about verifiable data is exactly the wrong thing to ship — a
+          reader would reasonably take them for measurements. They are removed
+          rather than replaced: the slots stay visible so the comparison is
+          legible, but nothing fills them until a human records a real run.
+        */}
         <Card className="p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm font-semibold text-muted">Health factor check</p>
-            <Badge variant="warn">Illustrative example</Badge>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-muted">Manual vs agent</p>
+            <Badge variant="neutral">Not yet measured</Badge>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-lg border border-line bg-base p-4">
               <p className="text-xs uppercase tracking-wide text-faint">Manual</p>
-              <p className="mt-2 text-3xl font-bold">~14 min</p>
-              <p className="mt-1 text-sm text-muted">6 manual steps</p>
+              <p className="mt-2 text-3xl font-bold text-faint" aria-label="No measurement recorded">
+                —
+              </p>
+              <p className="mt-1 text-sm text-muted">Timed by hand, not estimated</p>
             </div>
             <div className="rounded-lg border border-brand/30 bg-brand/5 p-4">
               <p className="text-xs uppercase tracking-wide text-brand">Agent</p>
-              <p className="mt-2 text-3xl font-bold text-brand">2.8 sec</p>
-              <p className="mt-1 text-sm text-muted">1 request</p>
+              <p className="mt-2 text-3xl font-bold text-faint" aria-label="No measurement recorded">
+                —
+              </p>
+              <p className="mt-1 text-sm text-muted">Measured per execution</p>
             </div>
           </div>
-          <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
-            <span className="text-sm text-muted">Time saved</span>
-            <span className="font-mono font-semibold text-ok">≈ 13m 57s</span>
-          </div>
+          <p className="mt-4 border-t border-line pt-4 text-xs leading-relaxed text-faint">
+            Figures appear here only once the same task has been run both ways and the evidence
+            recorded — three tasks, real data, a stated scoring rubric. Nothing on this page is
+            estimated or modelled.
+          </p>
         </Card>
       </Container>
     </section>

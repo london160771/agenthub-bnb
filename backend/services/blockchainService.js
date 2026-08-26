@@ -14,6 +14,7 @@
  * key, so `provenanceHost()` deliberately exposes only the hostname — never the
  * full URL, which AGENTS.md classes as a credential.
  */
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 /**
  * Official BNB Chain public testnet endpoint, verified against
@@ -55,12 +56,62 @@ export class ChainReadError extends Error {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * RPC call log
+ * ------------------------------------------------------------------ */
+
+/**
+ * A per-run log of the JSON-RPC requests actually issued.
+ *
+ * WHY THIS EXISTS: the execution page shows "RPC calls made (n)" and each
+ * method name, and an execution now persists `rpcCallCount`. Both were
+ * previously fed by a list hand-written inside each executor — which had drifted
+ * from reality (the research executor declared two reads while issuing three;
+ * two others named `eth_gasPrice`, which they never call; none of them counted
+ * the four reads `readChainState()` makes). A list that claims to be an audit
+ * trail has to be produced by the thing being audited, so it is measured here,
+ * at the single point every request passes through.
+ *
+ * AsyncLocalStorage rather than a module-level counter: two executions can be in
+ * flight at once, and a shared counter would attribute one run's reads to the
+ * other. Each run gets its own store, and async continuations inherit it.
+ */
+const rpcLogStore = new AsyncLocalStorage();
+
+const ADDRESS_PARAM_RE = /^0x[a-fA-F0-9]{40}$/;
+
+/** Append to the active run's log, if there is one. A no-op outside a run. */
+function recordRpcCall(method, params) {
+  const log = rpcLogStore.getStore();
+  if (!log) return;
+  // The first param is an address for the account/code reads and a block tag for
+  // the block read, so it is only reported when it actually looks like one.
+  const first = params?.[0];
+  const target = typeof first === 'string' && ADDRESS_PARAM_RE.test(first) ? first : undefined;
+  log.push(target ? { method, target } : { method });
+}
+
+/**
+ * Run `fn` with `log` collecting every RPC request it issues.
+ *
+ * The caller owns the array, so the log is still readable after `fn` throws —
+ * a failed run's reads are as real as a successful one's.
+ */
+export function withRpcLog(log, fn) {
+  return rpcLogStore.run(log, fn);
+}
+
 /**
  * One JSON-RPC request. Rejects with ChainReadError carrying a message that is
  * safe to show a user — RPC failures are routine (rate limits, timeouts) and the
  * execution page has to explain them rather than show a stack trace.
  */
 export async function rpcCall(method, params = []) {
+  // Logged at issue time, before the request can fail: a rejected request was
+  // still a request issued, and a count that silently drops failures would
+  // understate the work done.
+  recordRpcCall(method, params);
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
 
