@@ -2,7 +2,8 @@
 AGENTHUB — PROJECT HANDOFF
 For transferring this project to another Claude account, Codex, or any other AI.
 ================================================================================
-Written: 2026-08-26
+Written: 2026-08-26  ·  Last updated: 2026-08-26, after Phase 7 (§8A) was
+                        committed and pushed as 456c1ef
 Repo: C:\Users\uk\OneDrive\Desktop\agentgub III
 Remote: https://github.com/london160771/agenthub-bnb.git  (branch: main)
 
@@ -23,9 +24,14 @@ The product is organised as a six-step user journey, and the phases follow it:
 The differentiator is HONESTY ABOUT DATA PROVENANCE. Every value shown to a user
 carries a per-field badge saying where it came from: `chain` (read live from BNB
 testnet), `derived` (arithmetic on chain data, with the assumption stated),
-`input` (the user supplied it), `simulated` (modelled — currently one file only),
-or `unavailable` (deliberately withheld rather than invented). This is the
-project's core claim and its main defence; do not weaken it.
+`input` (the user supplied it), `simulated` (modelled), or `unavailable`
+(deliberately withheld rather than invented). This is the project's core claim and
+its main defence; do not weaken it.
+
+AS OF PHASE 7, NO EXECUTOR EMITS `simulated` ANY MORE (§8A). The tag and its
+dotted-underline treatment are kept deliberately as machinery for anything future
+that needs them. Do not mistake the absence of the tag for the absence of the
+requirement — the next modelled number must still carry it.
 
 Secondary theme: "Agent Advantage" — proving that hiring an agent beats doing the
 task by hand, using measured numbers only.
@@ -50,8 +56,11 @@ keccak256, so contract function selectors CANNOT be computed at runtime — see 
 --------------------------------------------------------------------------------
 3. COMPLETED PHASES
 --------------------------------------------------------------------------------
-Phases 1-6 are committed AND pushed. HEAD == origin/main == bd8c086.
+Phases 1-7 are committed AND pushed. HEAD == origin/main == 456c1ef.
 
+  456c1ef  Phase 7 — real Venus health factor, reconciled to the wei (see §8A)
+  15182af  docs: Phase 7 category plan and project handoff
+  09bfd48  Phase 6.5 — measure every run; Agent Advantage foundation
   bd8c086  EXECUTE phase — real BNB testnet reads with per-field provenance
   0800203  HIRE — wallet connection + persisted hire records
   40a71aa  COMPARE — agent comparison matrix
@@ -64,32 +73,27 @@ Phases 1-6 are committed AND pushed. HEAD == origin/main == bd8c086.
 --------------------------------------------------------------------------------
 4. CURRENT PHASE / STATUS
 --------------------------------------------------------------------------------
-PHASE 6.5 (instrumentation + Agent Advantage foundation) is COMPLETE, VERIFIED,
-and APPROVED BY THE USER — but NOT COMMITTED. The working tree currently holds:
+PHASE 7 (real Venus health factor) is COMPLETE, VERIFIED, APPROVED, COMMITTED AND
+PUSHED. Details in §8A. Nothing is pending approval and the working tree is clean.
 
-  Modified:
-    backend/models/Execution.js
-    backend/services/agentExecutors.js
-    backend/services/blockchainService.js
-    backend/services/executionRunner.js
-    backend/services/executionService.js
-    frontend/src/pages/LandingPage.jsx
-  Untracked (new):
-    AGENT_ADVANTAGE.md
-    CATEGORY_GAP_REPORT.md
-    CATEGORY_IMPLEMENTATION_PLAN.txt
-    PROJECT_HANDOFF.txt
+Phase 6.5 was committed as 09bfd48; the question the previous version of this
+document told the next AI to ask has been answered and is closed.
 
->>> FIRST ACTION FOR THE NEXT AI: ask the user whether to commit and push the
-    approved Phase 6.5 work. The user approved the PHASE, not explicitly a
-    commit. The user's standing preference is that an approved commit is followed
-    by `git push origin main`. Never use `git add -A` — explicit paths only.
-    Commit messages end with:
+WHAT PHASE 7 DELIBERATELY DID NOT DO — do not assume otherwise:
+  - Yield still returns "Ranked pool candidates: Not available". The 49 live Venus
+    markets are readable now, but no ranking was built (that is T1.8, §15).
+  - Rebalancing still cannot produce a trade list. Its listing was RELABELLED to
+    stop claiming it can; the capability gap is unchanged (§11.3).
+  - Grid Trading still does not exist at all.
+  - No table renderer was added; `output` is still a flat field list (A2).
+
+>>> FIRST ACTION FOR THE NEXT AI: read AGENTS.md, then ask the user to resolve the
+    §11 spec misalignment (four hackathon categories vs the three spec-mandatory
+    placeholders /find, /activity, ERC-8004) BEFORE proposing more work. Do not
+    start a phase without explicit approval — silence is not approval.
+    Never use `git add -A` — explicit paths only. After an approved commit, also
+    `git push origin main`. Commit messages end with:
       Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
-
-PHASE 7 IS PLANNED BUT NOT STARTED AND NOT APPROVED. The plan is
-CATEGORY_IMPLEMENTATION_PLAN.txt. Do not begin coding it without explicit
-approval.
 
 --------------------------------------------------------------------------------
 5. WHAT IS CURRENTLY WORKING
@@ -109,6 +113,11 @@ Real, verified end to end:
 - Phase 6.5 measurement: startedAt persisted; per-run RPC metering via
   AsyncLocalStorage (chosen over a module counter because two runs can be in
   flight at once); failure path records reads issued before it gave up.
+- Phase 7: REAL Venus Core Pool position reads on BNB testnet, with the derived
+  health factor reconciled against the Comptroller's own figure to the wei before
+  it is shown. Verified example: health factor 3.81, "Exact match — ours $3.53,
+  Venus $3.53", 17 RPC calls. Four honest non-answers also verified: no position,
+  unsupported protocol, unpriced market, non-zero Comptroller error code. See §8A.
 - Lint clean; vite build succeeds (1875 modules, ~382 kB JS / 116 kB gzip).
 
 SIMULATED PAYMENT — be precise about this: no transaction is ever signed or
@@ -129,9 +138,15 @@ Real routes: / · /discover · /agents/:agentId · /compare · /hire/:agentId ·
 
 Also incomplete:
 - ERC-8004 integration — SPEC TIER 1 (MANDATORY) — has no real data (§10).
-- The four hackathon categories are not genuinely functional yet (§11).
+- Of the four hackathon categories, only HEALTH FACTOR is genuinely functional.
+  Yield, Rebalancing and Grid Trading are not (§11).
 - No Agent Advantage measurement has been taken (§12).
 - BEP-20 token positions are honestly reported `unavailable` everywhere.
+- THE BACKEND HAS NO TESTS AT ALL. `npm test --prefix backend` runs `node --test`
+  and reports "# tests 0" — there are no test files. Every verification claim in
+  this document is therefore MANUAL evidence, reproducible only by re-running the
+  flows described. This is pre-existing, not a Phase 7 regression, but it means
+  nothing guards the reconciliation logic against a future edit.
 
 --------------------------------------------------------------------------------
 7. IMPORTANT ARCHITECTURE / TECHNICAL DECISIONS
@@ -141,10 +156,19 @@ A1. PER-FIELD PROVENANCE, NOT PAGE-LEVEL FOOTNOTES. Every output value carries
     underline. Do not replace this with a single page disclaimer.
 
 A2. output SHAPE (the contract between executors and the UI):
-      { fields[], recommendation, hasSimulated, provenance, reads[] }
-    Each field: { key, label, value, source }. Rendered by
+      { headline, summary, fields[], recommendation, hasSimulated, provenance,
+        reads[] }
+    Each field: { key, label, value, source, tone?, note? }. Rendered by
     frontend/src/components/execution/ExecutionResult.jsx as a FLAT <dl>.
     THERE IS NO TABLE RENDERER. Adding one is planned as `output.tables`.
+    Execution.output is Schema.Types.Mixed, so a new field shape needs NO model
+    change — convenient, and a reason to be deliberate about what you add.
+    TWO LAYOUT CONSTRAINTS that are easy to break:
+      - A field with `tone` renders its VALUE inside a Badge. Long values with a
+        tone break the layout; keep toned values short and put detail in `note`.
+      - The row is `flex flex-wrap items-baseline justify-between`, so a long
+        label plus its provenance badge wraps the value onto the next line
+        instead of overflowing. Verified at 390px.
 
 A3. CATEGORY COUPLING IS SIX PLACES, and all must change together to add one:
       backend/models/Agent.js             AGENT_CATEGORIES
@@ -206,14 +230,20 @@ Verified chain facts (already in frontend/src/config.js with citations):
 
 What blockchainService.js can do TODAY: eth_chainId, eth_blockNumber,
 eth_gasPrice, eth_getBlockByNumber, eth_getBalance, eth_getTransactionCount,
-eth_getCode. Plus assertTestnet, estimateFee, buildProvenance, and the
-withRpcLog per-run metering. RPC_TIMEOUT_MS = 8000.
+eth_getCode, and — since Phase 7 — eth_call via `ethCall(to, data)`. Plus
+assertTestnet, estimateFee, buildProvenance, and the withRpcLog per-run metering.
+RPC_TIMEOUT_MS = 8000. `ethCall` routes through the same rpcCall as everything
+else, so contract reads are metered for free, and the RPC audit log records the
+contract address each call touched. It throws ChainReadError on '0x' (a revert),
+which is what makes per-market degradation to `unavailable` possible.
 
-*** BIGGEST TECHNICAL GAP: THERE IS NO eth_call AND NO ABI ENCODING/DECODING. ***
-This single gap blocks all four hackathon categories. Building it is Tier 1 in
-CATEGORY_IMPLEMENTATION_PLAN.txt. Because there is no keccak256 in the repo,
-function selectors must be stored as VERIFIED CONSTANTS and validated
-empirically against the chain — never computed, never guessed.
+*** THE OLD "BIGGEST TECHNICAL GAP" (no eth_call, no ABI codec) IS CLOSED. ***
+backend/services/abi.js and backend/services/venusAdapter.js exist and are
+verified against chain 97 (§8A). The keccak256 constraint REMAINS: there is still
+no hashing in the repo, so every new function selector must be added as a VERIFIED
+CONSTANT with its evidence recorded in the comment — never computed, never
+guessed. abi.js's SELECTORS block is the model to follow; each entry states how it
+was proven.
 
 VERIFIED VENUS TESTNET DEPLOYMENT (this is new and important):
 Source: https://docs-v4.venus.io/deployed-contracts/markets.md, section
@@ -246,10 +276,144 @@ TOOLING: WebSearch is UNAVAILABLE in this environment (errors with "Tool
 'web_search' not found"). WebFetch WORKS and is how the Venus docs were read.
 
 --------------------------------------------------------------------------------
+8A. PHASE 7 — REAL VENUS HEALTH FACTOR (SHIPPED: 456c1ef)
+--------------------------------------------------------------------------------
+STATUS: complete, verified, approved, committed, pushed. Scope was HEALTH FACTOR
+ONLY. Yield, Rebalancing and Grid Trading were NOT built (§4).
+
+FILES
+  NEW  backend/services/abi.js              hand-rolled ABI encode/decode
+  NEW  backend/services/venusAdapter.js     the Venus reader + reconciliation
+  MOD  backend/services/blockchainService.js  + ethCall(); eth_call audit logging
+  MOD  backend/services/lendingProtocolAdapter.js  simulated path DELETED
+  MOD  backend/services/agentExecutors.js   runHealthFactor rewritten (~45→~250 ln)
+  MOD  backend/data/seedAgents.js           four listings relabelled
+  MOD  backend/.env.example                 a comment this phase made false
+  FRONTEND: ZERO CHANGES. SOURCE_META in frontend/src/lib/execution.js already
+  handled `unavailable`, and the row component already wrapped correctly.
+  NO NEW DEPENDENCIES. NO NEW ENVIRONMENT VARIABLES.
+
+THE DELETION THAT MATTERED MOST
+lendingProtocolAdapter.js used to derive health factor, collateral and borrow from
+an FNV-1a hash of the wallet address whenever no verified deployment was on file.
+That path is GONE, not disabled and not kept as a fallback. Either Venus is read
+on-chain, or the caller is told the protocol is unsupported and why. Do not
+reintroduce a "plausible default" here under any name.
+
+WHY THE HEALTH FACTOR IS `derived` AND NOT `chain`
+Venus is a Compound fork and stores NO health factor. It exposes
+getAccountLiquidity(account) -> (error, liquidity, shortfall) in 1e18 USD.
+shortfall > 0 means the account is liquidatable RIGHT NOW, and that verdict is
+treated as authoritative over anything we compute. The ratio we report is
+liquidation-weighted collateral / debt, assembled from per-market reads.
+
+*** THE RECONCILIATION IS LOAD-BEARING. DO NOT REMOVE IT OR LOOSEN IT. ***
+Before reporting a derived health factor, the adapter re-derives Venus's OWN
+liquidity/shortfall pair from our per-market numbers and requires EXACT equality.
+One wei of disagreement withholds the number. This is not test scaffolding — it
+runs on every execution.
+It earned its place: the per-market weight was first read from markets() word[1],
+the borrowing-power collateral factor (0.70 for vBNB). Everything looked right and
+the answer looked plausible. Reconciliation was out by $0.60, which forced a
+second look — getAccountLiquidity actually applies the HIGHER LIQUIDATION
+THRESHOLD in word[3] (0.80). Shipping word[1] would have overstated danger on
+every position in the product. A tolerance instead of exact equality would have
+hidden it. Compound also truncates at EVERY multiplication, so reproducing Venus's
+exact operation order is what makes exact equality achievable at all.
+
+RISK R1 IS RESOLVED (getAccountSnapshot's tuple layout)
+The layout was PROVEN, not assumed: member 4 is the exchange rate, which is also
+readable alone via exchangeRateStored(). Across all 39 markets returning four
+words the two agreed byte-for-byte with NON-ZERO values — 39 confirmations, no
+mismatches, no vacuous zero-equals-zero cases. On the ten delegator markets the
+rate sat at the same index with the extra words zero. Then the balances were
+validated end to end by reproducing getAccountLiquidity to the wei on a real
+position. Venus's legacy delegator proxies return EXTRA WORDS, so abi.js's decoder
+takes the leading words and REQUIRES every extra word to be zero, throwing
+otherwise — a wrong selector on a proxy can otherwise silently return a decodable
+number from a different function.
+
+FOUR HONEST NON-ANSWERS, ALL VERIFIED AS RESULTS RATHER THAN ERRORS
+  1. No Venus position       -> risk "NO POSITION" [chain], HF "Not applicable"
+                                [unavailable].  8 RPC calls.
+  2. Unsupported protocol    -> "Radiant positions cannot be read — no verified
+                                deployment on file". 6 calls, ZERO Venus calls
+                                (short-circuits before touching the chain).
+  3. Market with no price    -> that market degrades to [unavailable]; the derived
+                                HF is withheld; VENUS'S OWN FIGURE SURVIVES and is
+                                still correctly tagged [chain].
+  4. Comptroller errorCode≠0 -> "Venus's own verdict: Not usable" [unavailable].
+                                The raw liquidity pair still comes back from the
+                                contract, but quoting it as [chain] fact would be
+                                the worst row on the page: a real number, from the
+                                real contract, that the contract is disclaiming.
+In cases 3 and 4, totals covering only the markets that COULD be valued are
+labelled "(valued markets only)" with tone `warn` and a note saying what they
+exclude. This was a real defect caught late: unlabelled, "$0.00 counts as
+collateral" beside "$1.26 borrowed" reads as imminent liquidation while Venus
+reports a healthy $3.53 buffer. A quietly partial number is worse than no number
+on a liquidation screen.
+
+VERIFICATION — AND ITS LIMITS (READ THIS BEFORE REPEATING ANY CLAIM)
+Real position (0x26e94a350D2d0B118716dc17dc98730a77A8B85e, which HAS a Venus
+testnet position — useful for demos): HF 3.81, risk LOW, "Exact match — ours
+$3.53, Venus $3.53", 17 RPC calls, hasSimulated false, every USD figure carrying
+the testnet-oracle caveat. All six categories were run: hasSimulated false
+everywhere, every source in {chain, derived, input, unavailable}. Frontend lint
+exit 0, vite build exit 0, no console errors, no horizontal overflow at 390px or
+1052px.
+  CAVEAT 1 — OUTCOMES 3 AND 4 USED A TEST DOUBLE, NOT REAL CHAIN CONDITIONS.
+  Two of the 49 markets genuinely have no oracle price (vMATIC, vWBETH — 47 of 49
+  priced), but NO testnet wallet has entered either, and eth_getLogs is blocked on
+  the official endpoints while publicnode prunes to ~45,000 blocks, so none could
+  be found. Reaching that path with a real wallet would have required SENDING A
+  TRANSACTION, which this project does not do. So a labelled fault-injection RPC
+  proxy was written OUTSIDE the repo, forwarding everything verbatim except the
+  one call under test. IT HAS BEEN DELETED and is not in git. Those runs are
+  self-identifying in the database: output.provenance.rpcHost reads
+  localhost:3099 instead of bsc-testnet-dataseed.bnbchain.org. The
+  Comptroller-error case is the same story — Compound only returns a non-zero code
+  on internal failure.
+  CAVEAT 2 — the "(valued markets only)" rows were verified at the API level from
+  real JSON. Their BROWSER rendering rests on the observed wrap behaviour of an
+  equivalent real row at 390px, not on a screenshot of that exact state, because
+  reproducing it needs the deleted proxy.
+  CAVEAT 3 — there are no automated tests (§6). All of the above is manual.
+
+FOUR AGENTS RELABELLED (T1.4). THE PLAN NAMED THREE.
+Each carries a `// RELABELLED in Phase 7` comment explaining the specific false
+claim. Taglines are `truncate`d on cards and in the comparison matrix, so the
+CAVEAT MUST COME FIRST — a caveat after a promise is invisible.
+  rebalance-advisor          "Reads native balance only — no token allocations or
+                             swap plans."
+  farm-reward-harvester      "Prices the gas cost of compounding. Pending rewards
+                             not read."
+  radiant-liquidation-shield "Radiant reads unsupported — no verified testnet
+                             deployment."
+  venus-health-guardian      DELIBERATE EXTENSION BEYOND THE APPROVED THREE. It
+                             claimed to "continuously" read and to "alert you".
+                             There is no scheduler and no notification channel in
+                             this build. It is the one agent whose reads became
+                             REAL, which makes those two words matter more, not
+                             less. Its description now says "One reading per run."
+DELIBERATE: radiant-liquidation-shield is still status 'live'. Pausing it would
+hide the honest-degradation path; leaving it live keeps that path demonstrable in
+the product. Do not "fix" this by pausing it without asking.
+Agent has NO `limitations` field, so honesty has to live in tagline /
+description / skills / subcategory. Still 17 agents.
+
+SIDE EFFECT WORTH RECORDING
+Phase 7 removed the last simulated field in the whole application. SOURCES
+.simulated now appears at exactly ONE site — agentExecutors.js, computing the
+hasSimulated flag — and no executor emits it. Proven by running all six
+categories, not by grep alone.
+
+--------------------------------------------------------------------------------
 9. 8004SCAN STATUS
 --------------------------------------------------------------------------------
-NOT INTEGRATED, AND NOT VERIFIED. Be careful here, because it is easy to
-overstate.
+NOT INTEGRATED. The API itself has since been VERIFIED — see §9A. Be careful
+here, because it is easy to overstate: verified means we proved what the API
+returns, NOT that anything was built.
 
 Repository facts:
 - There is NO 8004scan client, service, route, env var, or registry address.
@@ -266,16 +430,130 @@ Repository facts:
   "AgentHub demo data" (warn tone) and reserves "Verified on-chain" for
   'verified'. The honesty plumbing is correct; only real data is missing.
 
-What I do NOT know and did not verify: 8004scan's API shape, availability,
-whether it covers BNB testnet, or whether it exposes the fields the Agent schema
-expects. WebSearch was unavailable and I did not fetch an 8004scan endpoint.
-DO NOT ASSUME ANY OF IT. Verify before scheduling work.
+SUPERSEDED by §9A: the API shape, availability and BSC coverage HAVE now been
+verified empirically. What is still unverified is whether any real agent's fields
+map cleanly onto our Agent schema at ingestion time.
 
 Architectural note: the schema supports external agents, but
 agentExecutors.executeForAgent dispatches on CATEGORY to a LOCAL function and
 throws on an unknown category. Executing a real external agent would require a
 new execution-strategy branch (local executor vs remote `endpoint`). The field
 exists; the code path does not.
+
+--------------------------------------------------------------------------------
+9A. 8004SCAN API VERIFICATION (COMPLETE — INTEGRATION NOT BUILT)
+--------------------------------------------------------------------------------
+STATUS: verification COMPLETE. Integration NOT BUILT. No client, service, route,
+env var or ingestion code exists. Nothing below is wired into the application.
+Verified 2026-08-26 with ~40 live read-only requests. No application code changed.
+
+ENDPOINT
+  Base URL   https://api.8004scan.io/api/v1
+  Auth       X-API-Key: <key>   (header)
+  Docs       8004scan.io/developers
+             (docs.8004scan.io has an EXPIRED TLS CERTIFICATE — do not use it)
+
+ANONYMOUS ACCESS + RATE LIMITS (verified by calling with no key at all)
+  Anonymous  works fully — 30 req/min, 1,000 req/day
+  Free (key) 600 req/min, 100,000 req/day
+  Every response carries X-RateLimit-Tier / -Limit-Minute / -Remaining-Minute /
+  -Limit-Day / -Remaining-Day.
+  Consequence: all verification was done WITHOUT a key, so no secret was
+  involved. A key is only needed for a bulk ingestion run.
+
+CHAIN COVERAGE
+  BSC mainnet chain_id = 56   (enabled; this is the chain the hackathon requires)
+  BSC testnet chain_id = 97   (also enabled)
+  60 chains listed overall; 774,464 agents indexed globally.
+  BSC agents found: ~283,578.
+
+ALL FOUR REQUIRED HACKATHON CATEGORIES HAVE LIVE BSC AGENTS — CONFIRMED
+Counts are `GET /agents?chain_id=56&search=<term>` totals:
+  Grid trading    8 hits — bnb-grid-trader-test.agent ("Geometric grid trading on
+                  BNB/USDT via PancakeSwap"), Brain on BNB — BSC Grid Planner,
+                  marketplace-operated-grid-planner
+  Rebalancing    41 hits — BNB LP Range Rebalancer ("PancakeSwap V3 BNB/USDT
+                  concentrated-liquidity range"), Brain on BNB — Portfolio
+                  Rebalancer, Defi.agent
+  Yield         199 hits — Brain on BNB — Venus Yield Ranking, yield-optimizer.agent,
+                  Yield-Farmer-X ("rotates capital across BSC")
+  Health factor  15 hits — Brain on BNB — Venus Health Factor Monitor,
+                  positioncrew-rescue-adf9.agent ("Bounded BSC lending
+                  health-factor analysis"), bnb-lending-guardian.agent,
+                  RiskOracle.agent
+Note: BNB LP Range Rebalancer matches the OFFICIAL hackathon definition of
+Rebalancing ("manages LP ranges") that our own executor cannot reach. We can
+SURFACE agents that do it without claiming to do it ourselves.
+
+API BEHAVIOUR THAT WILL BITE YOU
+1. UNSUPPORTED PARAMETERS FAIL SILENTLY. They return HTTP 200 with UNFILTERED
+   results — no error, no warning. Confirmed IGNORED: chainId (camelCase), q,
+   name, sort, order, is_testnet, page. Confirmed WORKING: chain_id, search,
+   limit, offset. Using an ignored param would silently display the wrong agents
+   as if filtered. Verify every param by checking that `total` actually changes.
+2. ENVELOPE KEYS DIFFER BY ENDPOINT.
+     GET /agents                 -> { items, total, limit, offset }
+     GET /agents/search/semantic -> { success, data }
+   A client must handle both.
+3. Pagination is limit + offset. `page=` is silently ignored (see 1).
+4. GET /agents/{chainId}/{tokenId} returns ~38 fields the list row omits,
+   including tags, categories, services, agent_url, created_tx_hash,
+   created_block_number, and six score components. Ingestion needs this call
+   per agent, not just the list.
+
+THE HEALTH-FACTOR SEMANTIC-SEARCH PROBLEM
+  GET /agents/search/semantic?q=health factor monitoring
+  returns MEDICAL agents — hydration trackers, heart-rate monitors, MediPulse,
+  HeartWatch, VitalityNode. The embedding does not know DeFi. Wiring our category
+  name straight into semantic search would populate AgentHub's Health Factor
+  category with wellness bots — a data-quality failure that looks like success.
+  What works instead: keyword `search=health factor`, or DeFi-phrased semantic
+  queries ("Venus Protocol lending position", "liquidation risk monitoring").
+  CONSEQUENCE: we need OUR OWN category classifier over name + description +
+  tags. Category names must never be passed through as search queries.
+
+8004SCAN CATEGORIES / TAGS / TRUST SCORES ARE NOT RELIABLE SIGNALS
+- `categories` was [] on EVERY agent inspected. Unusable.
+- `tags` is populated on some agents only (bnb-lending-guardian.agent had
+  ["venus","bnb-chain","liquidation","defi","health-factor"], others []). Usable
+  as classifier INPUT, never as the classification itself.
+- total_score / quality_score / popularity_score / activity_score were 0, and
+  total_feedbacks 0, average_score 0, is_verified false, is_endpoint_verified
+  false on all six DeFi agents inspected. metadata_completeness_score (55-80) was
+  the only non-zero component.
+- THEREFORE: 8004scan scores must NOT be shown as trust or reputation. AgentHub's
+  own trust score stays clearly ours. Any category we assign is provenance
+  'derived' (our classifier), never 'chain'.
+- Ingested agents are real registry entries, so `source: 'indexed'` is the honest
+  value — NOT 'verified', which config.js reserves for on-chain ERC-8004
+  verification we still do not perform.
+
+REQUIRED ENVIRONMENT VARIABLE
+  SCAN8004_API_KEY   — goes in backend/.env (git-ignored). Add ONLY the variable
+  NAME to backend/.env.example. Never request it in chat, never print it, never
+  commit it, never send it to the browser (8004scan's own guidance: keys belong
+  in trusted backends). The user HAS a key ready. Not needed for development
+  against the anonymous tier.
+
+RECOMMENDED FUTURE IMPLEMENTATION — 8004SCAN-BACKED REAL-AGENT INGESTION
+Why it matters: the official hackathon page states "Agents surfaced on your
+marketplace must be live on BSC." All 17 current agents are source 'seeded', so
+this is an ELIGIBILITY GATE, not a scoring bonus.
+Sketch (NOT built, NOT scheduled, NOT part of Phase 7):
+  1. backend/services/scan8004Client.js — fetch wrapper: base URL, optional
+     X-API-Key, both envelope shapes, rate-limit header handling, per-request
+     failure degrading to 'unavailable' rather than aborting.
+  2. Per category, query with VERIFIED DeFi phrasing (never the raw category
+     name), then fetch each agent's detail row.
+  3. backend/services/agentClassifier.js — our own name+description+tags
+     classifier mapping to AGENT_CATEGORIES. Provenance 'derived'. Unclassifiable
+     agents are dropped, not guessed into a category.
+  4. Upsert as source 'indexed' with erc8004Id, ownerAddress, chain 56, and
+     created_tx_hash / created_block_number as the on-chain evidence link.
+  5. UI must distinguish an indexed real agent (surfaced, not executable by us)
+     from a seeded demo agent with a working local executor. agentExecutors
+     dispatches on CATEGORY to a LOCAL function (§9) — an ingested agent has no
+     local executor, so it must not present a Hire button that implies one.
 
 --------------------------------------------------------------------------------
 10. AGENT ADVANTAGE STATUS
@@ -307,8 +585,14 @@ Key definitions you must not redefine casually:
 Three experiments are specified but NOT RUN (research, trading, portfolio).
 Eligibility per AGENT_ADVANTAGE.md §7: research/monitoring/portfolio/trading
 eligible; health-factor and yield NOT eligible, because their core value is
-currently simulated or unavailable. NOTE: Phase 7 as planned would make both
-health-factor and yield eligible — update §7 if that lands.
+currently simulated or unavailable.
+*** THAT ELIGIBILITY RULE IS NOW OUT OF DATE AND AGENT_ADVANTAGE.md §7 STILL SAYS
+THE OLD THING. *** Phase 7 landed (§8A), so HEALTH-FACTOR IS NOW ELIGIBLE — its
+core value is a real, reconciled on-chain read. YIELD IS STILL NOT eligible:
+"Ranked pool candidates" remains `unavailable`. AGENT_ADVANTAGE.md was
+deliberately not edited during Phase 7 (out of scope); whoever runs the next
+experiment should fix §7 there first, and make it say health-factor yes / yield no
+rather than lumping them together.
 
 The landing page previously showed invented figures ("~14 min / 6 steps" vs
 "2.8 sec / 1 request"). They were REMOVED and replaced with visible "—"
@@ -318,29 +602,31 @@ NUMBERS ANYWHERE.
 --------------------------------------------------------------------------------
 11. THE FOUR HACKATHON CATEGORIES AND THEIR CURRENT GAPS
 --------------------------------------------------------------------------------
-None is genuinely functional yet. Full 11-section analysis per category, shared
-infrastructure design, and a Tier 1/2/3 ranking are in
-CATEGORY_IMPLEMENTATION_PLAN.txt. Summary:
+ONE OF THE FOUR IS NOW FUNCTIONAL: Health Factor (§8A). The other three are not.
+Full 11-section analysis per category, shared infrastructure design, and a
+Tier 1/2/3 ranking are in CATEGORY_IMPLEMENTATION_PLAN.txt. Summary:
 
-1. HEALTH FACTOR MONITORING — complete product flow exists (2 agents, hire form,
-   executor, risk bands), but THE ANSWER IS SIMULATED. Health factor, collateral
-   and borrow come from a deterministic FNV-1a hash of the address in
-   backend/services/lendingProtocolAdapter.js (DEPLOYMENTS = {} is empty). This
-   is the ONLY simulated data in the whole system. Now unblockable — Venus is
-   verified (§8). Highest value fix in the project.
+1. HEALTH FACTOR MONITORING — *** DONE (§8A). *** This entry previously described
+   a hash-derived simulation and called it the highest-value fix in the project;
+   that is now shipped as 456c1ef. The health factor is a real Venus Core Pool
+   read, reconciled to the wei, with four honest non-answers. The rest of this
+   section is unchanged and still accurate.
 
 2. YIELD OPTIMISATION — 3 agents, hire form, executor exist, but ranked pool
    candidates return `unavailable`, i.e. the one thing the category is for.
-   Now unblockable: 49 Venus markets with real live supply/borrow rates.
-   APY requires a blocks-per-year assumption (~10,512,000 at 3s blocks), so APY
-   is `derived`, never `chain`, and the assumption must be printed.
+   Now unblockable AND CHEAPER THAN IT WAS: venusAdapter.js and abi.js already
+   read markets, rates and prices, so this is ranking logic plus a candidate cap,
+   not new infrastructure. APY requires a blocks-per-year assumption (~10,512,000
+   at 3s blocks), so APY is `derived`, never `chain`, and the assumption must be
+   printed.
 
-3. REBALANCING — THE WORST HONESTY DEFECT IN THE BUILD. Agent
-   `rebalance-advisor` is status 'live' with tagline "Tells you what to trade to
-   hit your target allocation", but it runs runPortfolio and returns native
-   balance, nonce and gas runway. No target-allocation input, no drift
-   calculation, no trade list, and nothing signals the mismatch to the user.
-   Blockers: no repeatable field type in hire.js, and no array support in
+3. REBALANCING — was "THE WORST HONESTY DEFECT IN THE BUILD"; the DEFECT is fixed,
+   the CAPABILITY GAP is not. `rebalance-advisor` no longer claims to tell you
+   what to trade — its tagline now reads "Reads native balance only — no token
+   allocations or swap plans" (§8A) — so the product no longer misleads. But it
+   still runs runPortfolio and returns native balance, nonce and gas runway. There
+   is still no target-allocation input, no drift calculation and no trade list.
+   Blockers unchanged: no repeatable field type in hire.js, and no array support in
    parseInput (A8). Recommended workaround: a delimited allocation string parsed
    server-side. Recommended output: token-unit drift primary, USD secondary and
    caveated.
@@ -392,16 +678,29 @@ governs the submission is the USER'S DECISION.
 READ FIRST, IN THIS ORDER:
   AGENTS.md                      the binding contract — MANDATORY
   AGENTHUB_SPEC.txt              1510 lines; product spec, Tier 1/2 requirements
-  CATEGORY_IMPLEMENTATION_PLAN.txt  the Phase 7 plan (verified addresses inside)
+  CATEGORY_IMPLEMENTATION_PLAN.txt  the Phase 7 plan. T1.1-T1.5 ARE NOW SHIPPED
+                                 (§8A); T1.6-T1.9 remain. The verified Venus
+                                 addresses and the price-scaling rule inside it are
+                                 still the reference material
   CATEGORY_GAP_REPORT.md         earlier audit; its "no verified addresses" root
-                                 cause is now RESOLVED — read the plan's §0
+                                 cause is now RESOLVED — read the plan's §0. NOTE:
+                                 it still describes Health Factor as simulated,
+                                 which Phase 7 falsified (§8A). Not updated —
+                                 treat it as a historical audit, not current state
   AGENT_ADVANTAGE.md             measurement definitions + experiment protocol
   AGENTHUB_MASTER_PROMPT.txt     original project framing
 
 BACKEND:
-  services/blockchainService.js  all RPC; withRpcLog metering; NO eth_call yet
-  services/agentExecutors.js     6 executors, SOURCES, field(), EXECUTORS map
-  services/lendingProtocolAdapter.js  the ONLY simulated data; a ready-made seam
+  services/abi.js                ABI codec; SELECTORS with per-entry EVIDENCE —
+                                 read those comments before adding a selector
+  services/venusAdapter.js       Venus reads + the wei-exact reconciliation.
+                                 START HERE to understand Phase 7; the module
+                                 header explains the word[1]/word[3] bug it caught
+  services/blockchainService.js  all RPC; withRpcLog metering; ethCall()
+  services/agentExecutors.js     6 executors, SOURCES, field(), EXECUTORS map;
+                                 runHealthFactor is the most involved
+  services/lendingProtocolAdapter.js  the honest protocol boundary. NO LONGER
+                                 SIMULATED — the hash-derived path was deleted
   services/executionRunner.js    runs a hire, measures it
   services/executionService.js   claimForRun, resetForRetry, hire creation
   services/agentService.js       generic category filtering + counts
@@ -409,7 +708,8 @@ BACKEND:
   models/Agent.js                AGENT_CATEGORIES, AGENT_SOURCES, erc8004Id
   models/Execution.js            startedAt, rpcCallCount, AdvantageSchema
   controllers/executionController.js  input caps; chain-97 enforcement; retry
-  data/seedAgents.js             17 agents; read the header comment
+  data/seedAgents.js             17 agents; read the header comment AND the four
+                                 `// RELABELLED in Phase 7` comments
   config/env.js                  the only place to read process.env
 
 FRONTEND:
@@ -424,15 +724,34 @@ FRONTEND:
 14. ENVIRONMENT / SETUP
 --------------------------------------------------------------------------------
 Backend (backend/.env, from backend/.env.example):
-  BNB_RPC_URL             mainnet RPC (unused in this build)
-  BNB_TESTNET_RPC_URL     defaults to https://bsc-testnet-dataseed.bnbchain.org
+  BNB_RPC_URL             mainnet RPC. LOADED BY config/env.js BUT READ BY NO CODE
+                          PATH — verified by grep. Present for completeness only.
+  BNB_TESTNET_RPC_URL     defaults to https://bsc-testnet-dataseed.bnbchain.org.
+                          NOT REQUIRED — the code falls back to that default, and
+                          it is what served every verification in §8A. Set it only
+                          to point at a different testnet endpoint. It is read at
+                          RUN TIME by every execution, including all Venus contract
+                          reads. Also note assertTestnet(): nothing is read at all
+                          unless the endpoint reports chain 97, so a URL pointing
+                          at mainnet fails loudly instead of returning real-looking
+                          mainnet data.
   AI_API_KEY              PRESENT BUT EMPTY — gates the /find Agent Finder.
   AI_MODEL                PRESENT BUT EMPTY — same.
                           Without them /find falls back to deterministic keyword
                           matching. THE USER MUST SUPPLY THESE; do not invent,
                           substitute, or hardcode them.
+  SCAN8004_API_KEY        NOT YET IN .env.example, because nothing reads it yet.
+                          Needed only for the deferred 8004scan ingestion (§9A).
+                          The user HAS a key. NEVER request it in chat, print it,
+                          or commit it — add only the NAME to .env.example when the
+                          integration is actually built.
   MongoDB: an in-memory Mongo is used in development and seeds 17 agents on boot,
   so no external database is required to run locally.
+
+PHASE 7 ADDED NO ENVIRONMENT VARIABLES AND NO DEPENDENCIES. The app runs with no
+backend/.env file at all. Nothing is missing to run or demo what exists today; the
+only genuinely absent values are AI_API_KEY / AI_MODEL, which gate /find and which
+only the user can supply.
 
 Frontend (frontend/.env, from frontend/.env.example):
   VITE_API_URL
@@ -456,24 +775,28 @@ integration.
 --------------------------------------------------------------------------------
 15. WHAT SHOULD BE BUILT NEXT
 --------------------------------------------------------------------------------
-0. Ask about committing/pushing the approved Phase 6.5 work (§4).
-1. Ask the user to resolve the spec misalignment in §11 — four categories vs the
-   three missing spec-mandatory items (/find, /activity, ERC-8004).
-2. Then, if the four categories win, follow CATEGORY_IMPLEMENTATION_PLAN.txt
-   Tier 1, in order:
-     T1.1  abi.js (minimal encode/decode) + blockchainService.ethCall()
-           — routing it through the existing rpcCall means the Phase 6.5 RPC
-             metering counts it for free
-     T1.2  venusAdapter.js — ONE adapter serving all four categories
-     T1.3  Health Factor -> real chain data; delete the simulated path
-     T1.4  PAUSE OR RELABEL the three overpromising agents:
-             radiant-liquidation-shield · rebalance-advisor · farm-reward-harvester
-           ~30 minutes, highest value-per-minute in the plan, NOT OPTIONAL
-     T1.5  Surface the testnet-oracle-price caveat wherever USD appears
-     T1.6  output.tables + a table renderer in ExecutionResult.jsx
-     T1.7  Grid Trading as a new plan-only category (all six wiring points)
-     T1.8  Yield -> real ranked markets from live Venus rates
+0. Ask the user to resolve the spec misalignment in §11 — four categories vs the
+   three missing spec-mandatory items (/find, /activity, ERC-8004). This is now
+   the FIRST question, because Phase 7 is committed and pushed and nothing else is
+   pending approval.
+1. Then, if the four categories win, continue CATEGORY_IMPLEMENTATION_PLAN.txt
+   Tier 1. THE FIRST FIVE ARE DONE:
+     T1.1  DONE  abi.js + blockchainService.ethCall()
+     T1.2  DONE  venusAdapter.js
+     T1.3  DONE  Health Factor -> real chain data; simulated path deleted
+     T1.4  DONE  relabelled FOUR overpromising agents (the plan named three)
+     T1.5  DONE  testnet-oracle-price caveat on every USD figure
+   REMAINING, in this order:
+     T1.6  output.tables + a table renderer in ExecutionResult.jsx — do this BEFORE
+           T1.7/T1.8/T1.9, because all three need to render a list and would
+           otherwise each invent their own shape
+     T1.7  Grid Trading as a new plan-only category (all six wiring points, A3)
+     T1.8  Yield -> real ranked markets from live Venus rates (cheaper now: the
+           adapter already reads markets, rates and prices)
      T1.9  Rebalancing -> real token-unit drift + a real trade list
+2. Worth considering alongside the above: the backend has NO tests (§6). The
+   reconciliation in venusAdapter.js is the single most valuable thing to cover,
+   and it is currently guarded only by manual runs.
 
 ARCHITECTURAL RULE THE USER SET, AND IT IS RIGHT: do not build four independent
 implementations. Build the shared primitives (ABI codec, eth_call, Venus adapter,
@@ -484,38 +807,55 @@ put four thin agents on top.
 16. KNOWN BUGS, BLOCKERS AND RISKS
 --------------------------------------------------------------------------------
 BLOCKERS
-B1. No eth_call / no ABI codec. Blocks all four categories. Highest priority.
-B2. No keccak256 in the repo, so selectors must be verified constants validated
-    empirically, never computed.
+B1. RESOLVED by Phase 7 (§8A). abi.js + ethCall() exist and are verified.
+B2. STILL TRUE AND STILL BINDING. No keccak256 in the repo, so selectors must be
+    verified constants validated empirically, never computed. abi.js records the
+    evidence per selector; match that standard or do not add the selector.
 B3. hire.js has no repeatable/list field type AND parseInput rejects arrays (A8).
     Blocks a proper Rebalancing allocation input.
 B4. ExecutionResult.jsx has no table renderer. Blocks trade lists, grid ladders
-    and ranked pool lists.
+    and ranked pool lists. Now the top remaining Tier-1 item (§15).
 B5. AI_API_KEY / AI_MODEL are empty, so /find cannot be built as specified.
     USER MUST SUPPLY.
 B6. No verified DEX address. getReserves() untested. Do not invent one.
-B7. 8004scan entirely unverified (§9), and WebSearch is unavailable here.
+B7. RESOLVED for the API itself — 8004scan is now verified (§9A); the integration
+    is still unbuilt. WebSearch remains unavailable here; WebFetch works.
+B8. NO BACKEND TESTS EXIST (§6). Not a blocker for building, but it means every
+    regression in the reconciliation logic would be silent.
 
 RISKS
-R1. Venus getAccountSnapshot returns 6 words, NOT the 4 of stock Compound. THE
-    TUPLE LAYOUT IS UNCONFIRMED. Decoding it on an assumed layout would silently
-    produce WRONG health factors — worse than a labelled simulation. Confirm
-    against the verified source on testnet.bscscan.com FIRST.
-R2. Testnet oracle prices are not market prices (§8). If the caveat is skipped,
-    Phase 7 makes the honesty story worse, not better.
+R1. RESOLVED (§8A). getAccountSnapshot's tuple layout was proven across 39 markets
+    against exchangeRateStored(), then validated end to end by reproducing
+    getAccountLiquidity to the wei. The related hazard REMAINS for any NEW call:
+    Venus delegator proxies return extra words, so decode strictly and require the
+    extras to be zero rather than truncating silently.
+R2. Testnet oracle prices are not market prices (§8). The caveat IS implemented on
+    every USD figure as of Phase 7 — keep it there. Removing it, or adding a new
+    USD field without it, would make the honesty story worse, not better.
 R3. A full Yield sweep is ~49 markets x ~6 reads = ~300 RPC calls: slow and
     rate-limitable. Cap the candidate set AND LOG WHAT WAS DROPPED — a silent cap
     reads as full coverage.
-R4. Most testnet wallets hold NO Venus position, so the honest "no position
-    found at block N" path is the COMMON path, not an edge case. Build and demo
-    it first.
-R5. getUnderlyingPrice already FAILS for vMATIC. Per-market failure must degrade
-    that row to `unavailable`, never abort the run.
+R4. ADDRESSED, and keep it that way. Most testnet wallets hold NO Venus position,
+    so "no position found" is the COMMON path; it is built and verified. For a
+    demo that shows a REAL position, use
+    0x26e94a350D2d0B118716dc17dc98730a77A8B85e.
+R5. HANDLED for prices: getUnderlyingPrice fails for vMATIC and vWBETH (47 of 49
+    markets priced), and per-market failure now degrades that row to `unavailable`
+    without aborting the run. THE REMAINING TRAP is the totals: any sum computed
+    over a partially-valued position MUST be labelled "(valued markets only)" or it
+    reads as a whole-position figure (§8A).
 R6. `verified: true` on seeded agents means "AgentHub-reviewed listing", not
     on-chain verification. Keep the UI from implying otherwise.
-R7. Nine Tier-1 items is a lot for the remaining time. T1.4 must land regardless.
+R7. Four Tier-1 items remain (T1.6-T1.9) plus three spec-mandatory placeholders.
+    Scope will have to be chosen — surface that to the user rather than silently
+    picking.
 R8. Adding a category means SIX edits (A3), and CATEGORY_ICONS is the one that
     gets forgotten (it fails soft, so the omission is easy to miss).
+R9. Do not let a future change reintroduce a plausible-looking fallback number.
+    The deleted hash-derived health factor (§8A) is the pattern to watch for: it
+    was deterministic, it looked reasonable, and nothing in the UI could tell a
+    user it was invented. `unavailable` with a reason is always the correct
+    substitute.
 
 NO KNOWN FUNCTIONAL BUGS in shipped phases. One cosmetic note: ERR_ABORTED
 entries in the browser network panel are React StrictMode double-mount
@@ -557,7 +897,9 @@ approved commit, also `git push origin main`. End commit messages with:
 
 ================================================================================
 END OF HANDOFF
-The next AI should: read AGENTS.md -> read CATEGORY_IMPLEMENTATION_PLAN.txt ->
-ask about committing Phase 6.5 -> ask the user to resolve the §11 spec
-misalignment -> then propose Phase 7 and WAIT FOR APPROVAL.
+The next AI should: read AGENTS.md -> read §4 and §8A of this document (Phase 7 is
+shipped; several older sections were written before it and are marked where they
+were falsified) -> read CATEGORY_IMPLEMENTATION_PLAN.txt for T1.6-T1.9 -> ask the
+user to resolve the §11 spec misalignment -> then propose the next phase and WAIT
+FOR EXPLICIT APPROVAL. Silence is not approval.
 ================================================================================
