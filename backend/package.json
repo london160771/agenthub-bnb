@@ -8,6 +8,8 @@
     "dev": "node --watch server.js",
     "start": "node server.js",
     "seed": "node scripts/seed.js",
+    "ingest:8004": "node scripts/ingest8004.js",
+    "ingest:8004:dry": "node scripts/ingest8004.js --dry-run",
     "test": "node --test"
   },
   "dependencies": {

@@ -217,6 +217,7 @@ export default function AgentProfilePage() {
 
   const provenance = SOURCE_LABELS[source];
   const demo = isDemoSource(source);
+  const indexed = source === 'indexed';
 
   return (
     <Container className="py-8 lg:py-12">
@@ -256,10 +257,16 @@ export default function AgentProfilePage() {
         </div>
 
         <div className="flex w-full shrink-0 gap-2 sm:w-auto sm:flex-col lg:flex-row">
-          <ButtonLink to={`/hire/${agentId}`} variant="primary" className="flex-1 sm:flex-none">
-            <Zap size={16} aria-hidden="true" />
-            Hire
-          </ButtonLink>
+          {indexed ? (
+            <span className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-info/30 bg-info/10 px-4 py-2.5 text-sm font-medium text-info sm:flex-none">
+              Registry — not locally executable
+            </span>
+          ) : (
+            <ButtonLink to={`/hire/${agentId}`} variant="primary" className="flex-1 sm:flex-none">
+              <Zap size={16} aria-hidden="true" />
+              Hire
+            </ButtonLink>
+          )}
           <ButtonLink
             to={`/compare?ids=${agentId}`}
             variant="secondary"
@@ -355,10 +362,16 @@ export default function AgentProfilePage() {
                   value={metrics.avgCost != null ? formatBnb(metrics.avgCost) : '—'}
                 />
               </div>
-              <ButtonLink to={`/hire/${agentId}`} variant="primary" className="mt-4 w-full">
-                <Zap size={16} aria-hidden="true" />
-                Hire this agent
-              </ButtonLink>
+              {indexed ? (
+                <div className="mt-4 rounded-lg border border-info/20 bg-info/5 p-3 text-xs leading-relaxed text-muted">
+                  Registry agent from 8004scan (BSC chain 56). Discoverable here, but execution in this MVP is local to seeded demo agents on BNB testnet.
+                </div>
+              ) : (
+                <ButtonLink to={`/hire/${agentId}`} variant="primary" className="mt-4 w-full">
+                  <Zap size={16} aria-hidden="true" />
+                  Hire this agent
+                </ButtonLink>
+              )}
             </CardBody>
           </Card>
 

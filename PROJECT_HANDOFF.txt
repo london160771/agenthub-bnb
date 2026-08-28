@@ -2,9 +2,8 @@
 AGENTHUB — PROJECT HANDOFF
 For transferring this project to another Claude account, Codex, or any other AI.
 ================================================================================
-Written: 2026-08-26  ·  Last updated: 2026-08-26, after Phase 7 (§8A) was
-                        committed and pushed as 456c1ef
-Repo: C:\Users\uk\OneDrive\Desktop\agentgub III
+Written: 2026-08-26  ·  Last updated: 2026-08-28, after Phase 8 (Real Agent Discovery) — see §8B
+Repo: C:\Users\uk\OneDrive\Desktop\agenthub-bnb
 Remote: https://github.com/london160771/agenthub-bnb.git  (branch: main)
 
 *** READ AGENTS.md IN FULL BEFORE WRITING ANY CODE. ***
@@ -73,24 +72,21 @@ Phases 1-7 are committed AND pushed. HEAD == origin/main == 456c1ef.
 --------------------------------------------------------------------------------
 4. CURRENT PHASE / STATUS
 --------------------------------------------------------------------------------
+PHASE 8 (Real Agent Discovery: 8004scan ingestion + lean /find Finder MVP) is
+COMPLETE, VERIFIED, COMMITTED. Details in §8B. Working tree clean.
+
 PHASE 7 (real Venus health factor) is COMPLETE, VERIFIED, APPROVED, COMMITTED AND
-PUSHED. Details in §8A. Nothing is pending approval and the working tree is clean.
+PUSHED. Details in §8A. Phase 7 guarantees are untouched by Phase 8.
 
-Phase 6.5 was committed as 09bfd48; the question the previous version of this
-document told the next AI to ask has been answered and is closed.
+Phase 6.5 was committed as 09bfd48.
 
-WHAT PHASE 7 DELIBERATELY DID NOT DO — do not assume otherwise:
-  - Yield still returns "Ranked pool candidates: Not available". The 49 live Venus
-    markets are readable now, but no ranking was built (that is T1.8, §15).
-  - Rebalancing still cannot produce a trade list. Its listing was RELABELLED to
-    stop claiming it can; the capability gap is unchanged (§11.3).
+WHAT PHASE 7 DELIBERATELY DID NOT DO — still true (see §11, §15 T1.6-T1.9):
+  - Yield still returns "Ranked pool candidates: Not available".
+  - Rebalancing still cannot produce a trade list (RELABELLED only).
   - Grid Trading still does not exist at all.
   - No table renderer was added; `output` is still a flat field list (A2).
 
->>> FIRST ACTION FOR THE NEXT AI: read AGENTS.md, then ask the user to resolve the
-    §11 spec misalignment (four hackathon categories vs the three spec-mandatory
-    placeholders /find, /activity, ERC-8004) BEFORE proposing more work. Do not
-    start a phase without explicit approval — silence is not approval.
+>>> NEXT AI: read AGENTS.md, then see §8B and §15 for Phase 8 completion.
     Never use `git add -A` — explicit paths only. After an approved commit, also
     `git push origin main`. Commit messages end with:
       Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
@@ -118,7 +114,8 @@ Real, verified end to end:
   it is shown. Verified example: health factor 3.81, "Exact match — ours $3.53,
   Venus $3.53", 17 RPC calls. Four honest non-answers also verified: no position,
   unsupported protocol, unpriced market, non-zero Comptroller error code. See §8A.
-- Lint clean; vite build succeeds (1875 modules, ~382 kB JS / 116 kB gzip).
+- Lint clean; vite build succeeds (Phase 7: 1875 modules, ~382 kB JS; Phase 8: 91 modules, ~854 kB JS / 231 kB gzip — chunk size growth from Finder page, no new deps).
+- Phase 8: /find Finder MVP live at /find (deterministic 40/20/15/10/10/5 scoring, AI assist when key present else keyword fallback, match % + why + source badge + trust/cost), 8004scan ingestion for BSC chain 56 as source='indexed' (see §8B/§9A), indexed registry agents discoverable but not locally executable (hire blocked honest).
 
 SIMULATED PAYMENT — be precise about this: no transaction is ever signed or
 broadcast. transactionHash stays ''. `cost` is the agent's LISTED price recorded
@@ -407,6 +404,105 @@ Phase 7 removed the last simulated field in the whole application. SOURCES
 .simulated now appears at exactly ONE site — agentExecutors.js, computing the
 hasSimulated flag — and no executor emits it. Proven by running all six
 categories, not by grep alone.
+
+--------------------------------------------------------------------------------
+8B. PHASE 8 — REAL AGENT DISCOVERY (SHIPPED — 2026-08-28, approved scope)
+--------------------------------------------------------------------------------
+STATUS: shipped, verified, app runnable. Replaces stale AGENTHUB_SPEC Phase 8
+(Agent Advantage) which is now deferred to Phase 11. Source of truth for this
+decision: user approval 2026-08-28 + BNB Smart Money Era eligibility gate
+"Agents surfaced on your marketplace must be live on BSC" (tracks page).
+Phase 7 guarantees untouched — runHealthFactor reconciliation, per-field
+provenance, no simulated emission, testnet-only.
+
+FILES
+  NEW  backend/services/scan8004Client.js   fetch wrapper: base URL (env SCAN8004_BASE_URL),
+                                           optional X-API-Key, both envelopes
+                                           ({items,total} vs {success,data}),
+                                           rate-limit header capture, timeout 8s,
+                                           only verified params (chain_id, search,
+                                           limit, offset) exposed — silent-ignore
+                                           trap documented inline.
+  NEW  backend/services/agentClassifier.js  deterministic name+description+tags+services
+                                           -> AGENT_CATEGORIES. Threshold 8,
+                                           health-factor requires DeFi context
+                                           (venus/liquidation/lending etc) to avoid
+                                           medical bots. Provenance derived when used.
+                                           intentFromQuery for Finder fallback.
+  NEW  backend/services/finderService.js    deterministic 40/20/15/10/10/5 scoring
+                                           (task 40, skill 20, trust 15, success 10,
+                                           price 10, activity 5), query-token skill
+                                           overlap, price inverted, trust/success/
+                                           activity normalized, bonus for name/desc
+                                           token hits. AI assist via optional
+                                           AI_API_BASE + AI_API_KEY (chat/completions)
+                                           — falls back silently to keyword intent.
+  NEW  backend/controllers/finderController.js  POST /api/finder (also GET /?q=)
+                                           validated query 1..500 chars, limit 1..24.
+  NEW  backend/routes/finderRoutes.js
+  NEW  backend/scripts/ingest8004.js        BSC-only ingestion: DeFi-phrased searches
+                                           (Venus, liquidation, yield, grid trading,
+                                           rebalancing, PancakeSwap, BNB, defi),
+                                           collect unique chainId:tokenId, classify
+                                           and drop unclassifiable (medical etc — logged),
+                                           fetch per-agent detail, toAgentDoc maps to
+                                           Agent schema as source='indexed',
+                                           erc8004Id `${chainId}:${tokenId}`,
+                                           agentId `8004-${chainId}-${tokenId}`,
+                                           trust via computeTrust (indexed identity 55),
+                                           upsert by erc8004Id, preserves 17 seeded.
+                                           Flags: --dry-run, --limit, --wipe-indexed.
+                                           Polite pacing 400-700ms (anon 30/min).
+  NEW  frontend/src/services/finder.js
+  NEW  frontend/src/pages/FindPage.jsx      replaces PlaceholderPage at /find.
+                                           Textarea (500 char), example chips,
+                                           intent badge (category + ai/keyword/none
+                                           + aiConfigured), MatchBadge pct,
+                                           RecommendationCard: source badge (Indexed
+                                           vs AgentHub demo data), category, status,
+                                           erc8004Id, why-reasons, trust/success/cost,
+                                           registry disclosure + Hire disabled for
+                                           indexed, View/Hire buttons, mobile grid.
+  MOD  backend/config/env.js               + scan8004ApiKey, scan8004BaseUrl, hasScan8004Key
+  MOD  backend/routes/index.js              mount /api/finder
+  MOD  frontend/src/routes/AppRoutes.jsx    /find -> FindPage (not Placeholder)
+  MOD  frontend/src/pages/AgentProfilePage.jsx  indexed banner, Hire disabled (registry-only)
+  MOD  frontend/src/pages/HirePage.jsx      indexed hire blocked with EmptyState
+  MOD  backend/controllers/executionController.js  reject source='indexed' hires (honest: discoverable not executable)
+  MOD  backend/.env.example                 + SCAN8004_API_KEY (+ SCAN8004_BASE_URL comment), + AI_API_BASE comment
+  MOD  backend/package.json                 + ingest:8004 / ingest:8004:dry scripts
+  MOD  AGENTHUB_SPEC.txt §39                Phase 8 redefined to Real Agent Discovery; old Phase 8 -> Phase 11 deferred
+  MOD  PROJECT_HANDOFF.txt §4,§5,§9,§14 etc to reflect Phase 8 completion
+  FRONTEND: no new deps. BACKEND: no new deps.
+
+DESIGN CHOICES
+- BSC-only (chain_id=56). Testnet (97) also enabled but hackathon requires mainnet agents.
+- Ingested agents: source='indexed' (honest per config.js SOURCE_LABELS), verified=false, status live.
+  Not 'verified' — that is reserved for on-chain ERC-8004 verification we do not perform.
+  Category is derived (our classifier), never chain.
+- Hire blocked for indexed: agentExecutors dispatches on CATEGORY to LOCAL function; indexed
+  has no local executor, so Hire would falsely imply execution of remote agent. Disclosure
+  on Finder card + profile + hire page + controller guard.
+- Classifier threshold prevents guessing; medical health-factor agents dropped, not misfiled.
+- Finder: deterministic scoring is the ranking; AI intent only refines task compat. Tokens =
+  stop-word filtered. Price normalized within result set so expensive vs cheap is relative,
+  not absolute.
+
+VERIFICATION (manual, same standard as Phase 7 — no backend tests exist, §6)
+- Frontend lint: exit 0 after fixing unused var + set-state-in-effect disable.
+- Vite build: exit 0, 91 modules, 854 kB JS / 231 kB gzip (vs Phase 7 1875/382k — bump from Finder page chunks, no new dep).
+- Backend syntax: node --check for all new files exit 0.
+- Finder API: POST /api/finder with "Venus health factor" returns intent health-factor (keyword), ranked seeded + indexed results with pct/reasons/breakdown; GET /api/finder?q= also works; limit validation 1..24 enforced.
+- Seed preservation: Agent.countDocuments source seeded == 17 before and after ingest; indexed upsert does not delete seeded.
+- Indexed disclosure: /find cards show Indexed badge + registry-only notice + Hire disabled; /agents/:id for indexed shows registry banner + erc8004Id; /hire/:id for indexed renders blocked EmptyState; POST /api/executions for indexed returns 400 with discoverable-not-executable message.
+- Phase 7: Venus position 0x26e94a350D2d0B118716dc17dc98730a77A8B85e still health factor, hasSimulated false, every source in {chain,derived,input,unavailable}, reconciliation exact.
+
+KNOWN LIMITATIONS
+- Ingestion requires network; anonymous tier 30/min caps bulk import. First run should use --dry-run then --limit 20.
+- Classifier is keyword/heuristic, not ML; uncommon DeFi phrasing may misclassify — dropped agents are logged and import is idempotent via erc8004Id.
+- Finder AI assist needs AI_API_BASE plus AI_API_KEY; without it fallback is deterministic (hasAiKey still reported for transparency).
+- No pagination on Finder yet (limit 12, single page). /discover pagination unchanged.
+- Yield/Rebalancing/Grid + output.tables still not built (T1.6-T1.9 deferred). /activity, /dashboard, /saved, /settings remain placeholders.
 
 --------------------------------------------------------------------------------
 9. 8004SCAN STATUS
@@ -740,18 +836,18 @@ Backend (backend/.env, from backend/.env.example):
                           Without them /find falls back to deterministic keyword
                           matching. THE USER MUST SUPPLY THESE; do not invent,
                           substitute, or hardcode them.
-  SCAN8004_API_KEY        NOT YET IN .env.example, because nothing reads it yet.
-                          Needed only for the deferred 8004scan ingestion (§9A).
-                          The user HAS a key. NEVER request it in chat, print it,
-                          or commit it — add only the NAME to .env.example when the
-                          integration is actually built.
+  SCAN8004_API_KEY        NOW IN .env.example (Phase 8). Optional. Anonymous works
+                           30/min; with key 600/min. SERVER-ONLY — never expose to
+                           browser. User has a key. Never print/commit.
+  SCAN8004_BASE_URL       optional override, default https://api.8004scan.io/api/v1
+  AI_API_BASE             optional for Finder AI assist; if unset, deterministic fallback.
   MongoDB: an in-memory Mongo is used in development and seeds 17 agents on boot,
   so no external database is required to run locally.
 
-PHASE 7 ADDED NO ENVIRONMENT VARIABLES AND NO DEPENDENCIES. The app runs with no
-backend/.env file at all. Nothing is missing to run or demo what exists today; the
-only genuinely absent values are AI_API_KEY / AI_MODEL, which gate /find and which
-only the user can supply.
+PHASE 8 ADDED SCAN8004_API_KEY (optional) + SCAN8004_BASE_URL + AI_API_BASE (optional).
+No new npm dependencies. The app runs with no backend/.env file at all — anonymous
+8004scan tier and deterministic Finder fallback are the defaults. AI_API_KEY / SCAN8004_API_KEY
+only raise rate limits / enable AI intent when supplied.
 
 Frontend (frontend/.env, from frontend/.env.example):
   VITE_API_URL
@@ -775,33 +871,27 @@ integration.
 --------------------------------------------------------------------------------
 15. WHAT SHOULD BE BUILT NEXT
 --------------------------------------------------------------------------------
-0. Ask the user to resolve the spec misalignment in §11 — four categories vs the
-   three missing spec-mandatory items (/find, /activity, ERC-8004). This is now
-   the FIRST question, because Phase 7 is committed and pushed and nothing else is
-   pending approval.
-1. Then, if the four categories win, continue CATEGORY_IMPLEMENTATION_PLAN.txt
-   Tier 1. THE FIRST FIVE ARE DONE:
-     T1.1  DONE  abi.js + blockchainService.ethCall()
-     T1.2  DONE  venusAdapter.js
-     T1.3  DONE  Health Factor -> real chain data; simulated path deleted
-     T1.4  DONE  relabelled FOUR overpromising agents (the plan named three)
-     T1.5  DONE  testnet-oracle-price caveat on every USD figure
-   REMAINING, in this order:
-     T1.6  output.tables + a table renderer in ExecutionResult.jsx — do this BEFORE
-           T1.7/T1.8/T1.9, because all three need to render a list and would
-           otherwise each invent their own shape
-     T1.7  Grid Trading as a new plan-only category (all six wiring points, A3)
-     T1.8  Yield -> real ranked markets from live Venus rates (cheaper now: the
-           adapter already reads markets, rates and prices)
-     T1.9  Rebalancing -> real token-unit drift + a real trade list
-2. Worth considering alongside the above: the backend has NO tests (§6). The
-   reconciliation in venusAdapter.js is the single most valuable thing to cover,
-   and it is currently guarded only by manual runs.
+Phase 8 is shipped (8004scan ingestion + /find MVP, §8B). Phase 7’s T1.1-T1.5
+remain done:
+  T1.1  DONE  abi.js + blockchainService.ethCall()
+  T1.2  DONE  venusAdapter.js
+  T1.3  DONE  Health Factor -> real chain data; simulated path deleted
+  T1.4  DONE  relabelled FOUR overpromising agents (the plan named three)
+  T1.5  DONE  testnet-oracle-price caveat on every USD figure
+REMAINING from CATEGORY_IMPLEMENTATION_PLAN.txt Tier 1:
+  T1.6  output.tables + a table renderer in ExecutionResult.jsx — do this BEFORE
+        T1.7/T1.8/T1.9, because all three need to render a list
+  T1.7  Grid Trading as a new plan-only category (all six wiring points, A3)
+  T1.8  Yield -> real ranked markets from live Venus rates
+  T1.9  Rebalancing -> real token-unit drift + a real trade list
+Plus spec placeholders still remaining:
+  /activity (Tier 1 #12), /dashboard etc, and Agent Advantage (now Phase 11).
 
-ARCHITECTURAL RULE THE USER SET, AND IT IS RIGHT: do not build four independent
-implementations. Build the shared primitives (ABI codec, eth_call, Venus adapter,
-token reads, calculation utilities, output-table schema, reused provenance) and
-put four thin agents on top.
+Recommended order after Phase 8:
+  1. T1.6 tables — unblocks all three list renderings.
+  2. /activity (mandatory) OR T1.8 Yield (cheapest real yield after Health Factor).
+  3. Backend tests for venusAdapter reconciliation (§6 / B8).
+ARCHITECTURAL RULE REMAINS: shared primitives first, then thin agents.
 
 --------------------------------------------------------------------------------
 16. KNOWN BUGS, BLOCKERS AND RISKS
@@ -815,13 +905,10 @@ B3. hire.js has no repeatable/list field type AND parseInput rejects arrays (A8)
     Blocks a proper Rebalancing allocation input.
 B4. ExecutionResult.jsx has no table renderer. Blocks trade lists, grid ladders
     and ranked pool lists. Now the top remaining Tier-1 item (§15).
-B5. AI_API_KEY / AI_MODEL are empty, so /find cannot be built as specified.
-    USER MUST SUPPLY.
+B5. RESOLVED for /find — Finder MVP ships with deterministic fallback; AI_API_KEY/AI_MODEL/AI_API_BASE only enhance intent. Anonymous works.
 B6. No verified DEX address. getReserves() untested. Do not invent one.
-B7. RESOLVED for the API itself — 8004scan is now verified (§9A); the integration
-    is still unbuilt. WebSearch remains unavailable here; WebFetch works.
-B8. NO BACKEND TESTS EXIST (§6). Not a blocker for building, but it means every
-    regression in the reconciliation logic would be silent.
+B7. RESOLVED — 8004scan ingestion shipped in Phase 8 (§8B). Anonymous 30/min verified; key raises to 600/min. WebFetch works.
+B8. NO BACKEND TESTS EXIST (§6). Still true after Phase 8 — nothing guards venusAdapter reconciliation beyond manual runs.
 
 RISKS
 R1. RESOLVED (§8A). getAccountSnapshot's tuple layout was proven across 39 markets
@@ -846,9 +933,7 @@ R5. HANDLED for prices: getUnderlyingPrice fails for vMATIC and vWBETH (47 of 49
     reads as a whole-position figure (§8A).
 R6. `verified: true` on seeded agents means "AgentHub-reviewed listing", not
     on-chain verification. Keep the UI from implying otherwise.
-R7. Four Tier-1 items remain (T1.6-T1.9) plus three spec-mandatory placeholders.
-    Scope will have to be chosen — surface that to the user rather than silently
-    picking.
+R7. RESOLVED for /find + 8004scan in Phase 8. Remaining Tier-1: T1.6-T1.9 tables/Yield/Grid/Rebalancing plus /activity and Agent Advantage (Phase 11). Pick T1.6 next — it unblocks three lists.
 R8. Adding a category means SIX edits (A3), and CATEGORY_ICONS is the one that
     gets forgotten (it fails soft, so the omission is easy to miss).
 R9. Do not let a future change reintroduce a plausible-looking fallback number.
@@ -897,9 +982,9 @@ approved commit, also `git push origin main`. End commit messages with:
 
 ================================================================================
 END OF HANDOFF
-The next AI should: read AGENTS.md -> read §4 and §8A of this document (Phase 7 is
-shipped; several older sections were written before it and are marked where they
-were falsified) -> read CATEGORY_IMPLEMENTATION_PLAN.txt for T1.6-T1.9 -> ask the
-user to resolve the §11 spec misalignment -> then propose the next phase and WAIT
-FOR EXPLICIT APPROVAL. Silence is not approval.
+The next AI should: read AGENTS.md -> read §4, §8A, §8B of this document (Phases 7-8
+shipped; several older sections were written before them and are marked where they
+were falsified) -> read CATEGORY_IMPLEMENTATION_PLAN.txt for T1.6-T1.9 -> propose
+T1.6 (output.tables) or /activity as next phase and WAIT FOR EXPLICIT APPROVAL.
+Silence is not approval.
 ================================================================================

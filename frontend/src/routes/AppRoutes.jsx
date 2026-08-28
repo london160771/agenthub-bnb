@@ -6,6 +6,7 @@ import AgentProfilePage from '../pages/AgentProfilePage.jsx';
 import ComparePage from '../pages/ComparePage.jsx';
 import HirePage from '../pages/HirePage.jsx';
 import ExecutionPage from '../pages/ExecutionPage.jsx';
+import FindPage from '../pages/FindPage.jsx';
 import PlaceholderPage from '../pages/PlaceholderPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 
@@ -21,16 +22,7 @@ export function AppRoutes() {
 
         <Route path="/discover" element={<DiscoverPage />} />
         <Route path="/agents/:agentId" element={<AgentProfilePage />} />
-        <Route
-          path="/find"
-          element={
-            <PlaceholderPage
-              eyebrow="AI Finder"
-              title="Find an Agent"
-              description="Describe your task in plain language and let AgentHub recommend agents."
-            />
-          }
-        />
+        <Route path="/find" element={<FindPage />} />
         <Route path="/compare" element={<ComparePage />} />
         <Route path="/hire/:agentId" element={<HirePage />} />
         <Route path="/execution/:executionId" element={<ExecutionPage />} />

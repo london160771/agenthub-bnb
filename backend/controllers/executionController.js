@@ -124,6 +124,11 @@ export const postExecution = asyncHandler(async (req, res) => {
   if (agent.status === 'paused') {
     throw ApiError.conflict(`"${agent.name}" is paused and is not accepting new work right now.`);
   }
+  if (agent.source === 'indexed') {
+    throw ApiError.badRequest(
+      `"${agent.name}" is a registry agent discovered via 8004scan on BSC — it is discoverable but not executable through AgentHub's local testnet executor in this MVP. Use a seeded demo agent to run a real on-chain read.`,
+    );
+  }
 
   // Duplicate-submission safeguard: hand back the hire they already made.
   const duplicate = await findRecentDuplicate({ userAddress, agentId, task });

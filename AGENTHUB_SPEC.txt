@@ -1446,12 +1446,12 @@ Tier 2
 → reviews
 → notifications
 → advanced recommendations
+[PHASE 7 shipped as real Venus health-factor (c50e4de/456c1ef); see PROJECT_HANDOFF §8A]
 
-PHASE 8
-Hackathon differentiation
-→ Agent Advantage
-→ 3 real tasks
-→ measured evidence
+PHASE 8 — APPROVED 2026-08-28 — Real Agent Discovery (SUPERSEDES stale ordering)
+→ 8004scan ingestion (BSC chain 56 only, anonymous or SCAN8004_API_KEY, both envelopes, limit+offset pagination, own classifier)
+→ Lean /find Agent Finder MVP (deterministic 40/20/15/10/10/5 scoring, AI assist when AI_API_KEY present else keyword fallback, indexed vs seeded provenance)
+[Previous Phase 8 = Agent Advantage / 3 real tasks is DEFERRED — see PROJECT_HANDOFF §9A and §15. BNB Smart Money Era eligibility gate "Agents must be live on BSC" is the source of truth: https://www.bnbchain.org/en/hackathons/smart-money-era]
 
 PHASE 9
 Polish
@@ -1470,6 +1470,12 @@ Deployment
 → production environment
 → README
 → demo
+
+PHASE 11 (deferred)
+Hackathon differentiation — Agent Advantage
+→ 3 real tasks
+→ measured evidence
+[Was Phase 8 in original ordering; deferred to after Real Agent Discovery per user approval]
 
 ============================================================
 40. DEFINITION OF DONE

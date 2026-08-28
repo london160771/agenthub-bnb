@@ -167,6 +167,32 @@ function HireFlow({ agentId }) {
 
   if (!agent) return null;
 
+  if (agent.source === 'indexed') {
+    return (
+      <Container className="py-8 lg:py-12">
+        {backLink}
+        <div className="mt-6 space-y-5">
+          <HireSummary agent={agent} />
+          <EmptyState
+            icon={SearchX}
+            title="Registry agent — not locally executable"
+            description={`${agent.name} was discovered via 8004scan on BSC (chain 56, ${agent.erc8004Id}). It is discoverable in AgentHub but execution in this MVP runs only the local seeded demo agents against BNB testnet (chain 97). Browse seeded agents to run a real on-chain read.`}
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <ButtonLink to={`/agents/${agent.agentId}`} variant="outline">
+                  View profile
+                </ButtonLink>
+                <ButtonLink to="/discover" variant="secondary">
+                  Browse seeded agents
+                </ButtonLink>
+              </div>
+            }
+          />
+        </div>
+      </Container>
+    );
+  }
+
   // Success replaces the form entirely — there is nothing left to configure.
   if (execution) {
     return (

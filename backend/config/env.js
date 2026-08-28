@@ -20,7 +20,10 @@ export const env = {
   aiModel: process.env.AI_MODEL || 'claude-sonnet-4-5',
   bnbRpcUrl: process.env.BNB_RPC_URL || '',
   bnbTestnetRpcUrl: process.env.BNB_TESTNET_RPC_URL || '',
+  scan8004ApiKey: process.env.SCAN8004_API_KEY || '',
+  scan8004BaseUrl: process.env.SCAN8004_BASE_URL || 'https://api.8004scan.io/api/v1',
 };
 
 export const isProd = env.nodeEnv === 'production';
 export const hasAiKey = Boolean(env.aiApiKey);
+export const hasScan8004Key = Boolean(env.scan8004ApiKey);
