@@ -504,6 +504,9 @@ KNOWN LIMITATIONS
 - No pagination on Finder yet (limit 12, single page). /discover pagination unchanged.
 - Yield/Rebalancing/Grid + output.tables still not built (T1.6-T1.9 deferred). /activity, /dashboard, /saved, /settings remain placeholders.
 
+BUGFIX 2026-08-28 — FindPage seeded View/Hire (isolated, not arch):
+  FindPage.jsx used `Button as={Link} to=` but Button.jsx does not support `as` (only Card.jsx does). Clicks were dead — no navigation, no backend call. Fixed to `ButtonLink to=` (only Finder page). Indexed Hire stays disabled/blocked (controller 400 + UI disabled). Lint/build still clean. Same seeded agent works via /discover (Card as={Link}) which was unaffected.
+
 --------------------------------------------------------------------------------
 9. 8004SCAN STATUS
 --------------------------------------------------------------------------------

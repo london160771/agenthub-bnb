@@ -1,11 +1,11 @@
 /* eslint-disable react-hooks/set-state-in-effect -- initial URL query fetch is intentional */
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, Sparkles, ArrowRight, Shield, Coins, Activity as ActivityIcon, Info } from 'lucide-react';
 import { Container } from '../components/ui/Container.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Card, CardBody } from '../components/ui/Card.jsx';
-import { Button } from '../components/ui/Button.jsx';
+import { Button, ButtonLink } from '../components/ui/Button.jsx';
 import { Badge } from '../components/ui/Badge.jsx';
 import { EmptyState } from '../components/ui/EmptyState.jsx';
 import { ErrorState } from '../components/ui/ErrorState.jsx';
@@ -79,13 +79,13 @@ function RecommendationCard({ item }) {
       )}
 
       <div className="mt-3 flex gap-2">
-        <Button as={Link} to={`/agents/${agent.agentId}`} variant="outline" size="sm" className="flex-1">
+        <ButtonLink to={`/agents/${agent.agentId}`} variant="outline" size="sm" className="flex-1">
           View agent
-        </Button>
+        </ButtonLink>
         {canHireLocal ? (
-          <Button as={Link} to={`/hire/${agent.agentId}`} size="sm" className="flex-1">
+          <ButtonLink to={`/hire/${agent.agentId}`} size="sm" className="flex-1">
             Hire <ArrowRight size={14} />
-          </Button>
+          </ButtonLink>
         ) : (
           <Button disabled size="sm" className="flex-1" title="Indexed agents are discoverable only — execution is local to seeded agents">
             Hire — registry only
@@ -227,7 +227,7 @@ export default function FindPage() {
           <CardBody>
             <p className="text-sm text-muted">Enter a task above to see ranked agents. The catalogue includes <span className="font-medium text-fg">seeded demo agents</span> and, when ingested, <span className="font-medium text-fg">live BSC registry agents (indexed)</span> — each clearly labelled.</p>
             <div className="mt-3 flex gap-2">
-              <Button variant="outline" as={Link} to="/discover">Browse marketplace</Button>
+              <ButtonLink variant="outline" to="/discover">Browse marketplace</ButtonLink>
             </div>
           </CardBody>
         </Card>
