@@ -123,6 +123,18 @@ export const SELECTORS = {
   /** exchangeRateStored() → uint, scaled 1e(18 + underlyingDec - vTokenDec). */
   exchangeRateStored: '0x182df0f5',
   /**
+   * supplyRatePerBlock() → uint, 1e18 scaled. Verified 2026-08-26 returning
+   * differentiated non-zero values (e.g. vETH ~0.00001495 per block).
+   */
+  supplyRatePerBlock: '0xae9d70b0',
+  /**
+   * borrowRatePerBlock() → uint, 1e18 scaled. Verified 2026-08-26 returning
+   * differentiated values (e.g. vBNB ~0.00000717).
+   */
+  borrowRatePerBlock: '0xf8f9da28',
+  /** totalSupply() → uint. Returns vToken total supply. */
+  totalSupply: '0x18160ddd',
+  /**
    * getCash() → uint. THE STRONGEST EVIDENCE IN THIS FILE: for vBNB this
    * returned 16278354653298648953, byte-for-byte identical to what
    * `eth_getBalance` independently reported for the same contract. Two unrelated

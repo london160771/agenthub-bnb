@@ -19,10 +19,21 @@
 import {
   buildProvenance,
   estimateFee,
+  ethCall,
   readAddressState,
   readContractInfo,
 } from './blockchainService.js';
 import { positionRiskLevel, readLendingPosition } from './lendingProtocolAdapter.js';
+import {
+  SELECTORS,
+  decodeAddressArray,
+  decodeString,
+  decodeWords,
+  encodeAddress,
+  scaledToDecimalString,
+  toUint,
+} from './abi.js';
+import { VENUS_CORE_POOL, readUnderlyingPrice } from './venusAdapter.js';
 
 export const SOURCES = {
   chain: 'chain',
@@ -125,15 +136,166 @@ async function runMonitoring({ input, chain }) {
 }
 
 /* ------------------------------------------------------------------ *
- * portfolio — read what an address holds
+ * portfolio — read what an address holds, or rebalance analysis if targetAllocation given
+ * Rebalancing is read-only: parse "0xToken:60,0xOther:40" (weights sum 100), verify
+ * contracts, read BEP-20 balances/decimals/symbols, compute current % vs target drift
+ * and BUY/SELL sizes in token units (USD secondary caveated). No swaps executed.
  * ------------------------------------------------------------------ */
+function parseAllocationString(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return { ok: false, reason: 'Target allocation is empty.' };
+  const parts = s.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return { ok: false, reason: 'Provide at least 2 assets, e.g. 0xTokenA:60,0xTokenB:40' };
+  if (parts.length > 8) return { ok: false, reason: 'At most 8 assets allowed.' };
+  const out = [];
+  let sum = 0;
+  for (const p of parts) {
+    const [addrRaw, weightRaw] = p.split(':').map((x) => x.trim());
+    if (!addrRaw || !weightRaw) return { ok: false, reason: `Bad entry "${p}" — use 0xAddress:weight` };
+    if (!/^0x[a-fA-F0-9]{40}$/.test(addrRaw)) return { ok: false, reason: `Invalid address "${addrRaw}"` };
+    const w = Number(weightRaw);
+    if (!Number.isFinite(w) || w <= 0 || w > 100) return { ok: false, reason: `Weight "${weightRaw}" for ${addrRaw.slice(0,6)}… must be 0-100` };
+    sum += w;
+    out.push({ address: addrRaw, weight: w });
+  }
+  if (Math.abs(sum - 100) > 0.01) return { ok: false, reason: `Weights sum to ${sum} — must be 100` };
+  return { ok: true, items: out };
+}
+
 async function runPortfolio({ input, chain }) {
   const target = input.walletAddress;
   const state = await readAddressState(target);
   const full = input.reportDepth === 'full';
+  const allocationRaw = input.targetAllocation != null ? String(input.targetAllocation).trim() : '';
+  const isRebalance = allocationRaw !== '';
 
-  // Genuinely derived: how many plain transfers this balance could still pay for
-  // at the gas price we just read. Real numbers, stated assumption.
+  // --- Rebalancing path ---
+  if (isRebalance) {
+    const parsed = parseAllocationString(allocationRaw);
+    const fieldsBase = [
+      field('wallet', 'Wallet', `${target.slice(0,6)}…${target.slice(-4)}`, { source: SOURCES.input }),
+      field('balance', 'Native balance', bnb(state.balance, 6)),
+      ...networkFields(chain),
+    ];
+    if (!parsed.ok) {
+      return {
+        headline: 'Rebalance input invalid',
+        summary: parsed.reason,
+        fields: [...fieldsBase, field('parse', 'Allocation parse', 'Failed', { source: SOURCES.derived, tone: 'bad', note: parsed.reason })],
+        warnings: [],
+        recommendation: `Fix targetAllocation: e.g. "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd:60,0x337...:40" (weights sum 100). Nothing was signed or sent.`,
+      };
+    }
+    const targets = parsed.items; // [{address, weight}]
+    // verify contracts and read balances/decimals/symbols
+    const holdings = [];
+    const warnings = [];
+    for (const t of targets) {
+      const code = await readContractInfo(t.address);
+      if (!code.isContract) {
+        holdings.push({ address: t.address, symbol: t.address.slice(0,6)+'…', decimals: 18, balance: 0n, human: 0, isContract: false, note: 'No contract code — cannot be a token' });
+        warnings.push(`No code at ${t.address.slice(0,10)}… — treated as 0 balance`);
+        continue;
+      }
+      let decimals = 18;
+      let symbol = t.address.slice(0,6)+'…';
+      let balance = 0n;
+      try {
+        const rawDec = await ethCall(t.address, SELECTORS.decimals);
+        decimals = Number(toUint(decodeWords(rawDec, 1)[0]));
+      } catch {}
+      try {
+        const s = await ethCall(t.address, SELECTORS.symbol).then((r)=> decodeString(r)).catch(()=>null);
+        if (s) symbol = s;
+      } catch {}
+      try {
+        const rawBal = await ethCall(t.address, SELECTORS.balanceOf + encodeAddress(target));
+        const w = decodeWords(rawBal, 1);
+        balance = toUint(w[0]);
+        // extra zero words from delegator proxies already handled by strict decoder requiring extras zero — but balanceOf via vToken returns 3 words, so above would throw. Fall back: try decoding first word only via manual slice
+      } catch (e) {
+        // delegator proxy returns 3 words for balanceOf — try tolerant decode: take first word
+        try {
+          const rawBal2 = await ethCall(t.address, SELECTORS.balanceOf + encodeAddress(target));
+          const hex = rawBal2.replace(/^0x/,'');
+          const first = hex.slice(0,64);
+          balance = BigInt('0x'+first);
+        } catch {
+          warnings.push(`Balance read failed for ${symbol} (${t.address.slice(0,10)}…)`);
+          balance = 0n;
+        }
+      }
+      const human = Number(balance) / Math.pow(10, decimals);
+      holdings.push({ address: t.address, symbol, decimals, balance, human, isContract: true, targetWeight: t.weight });
+    }
+    const totalHuman = holdings.reduce((s,h)=> s + (Number.isFinite(h.human)? h.human:0), 0);
+    const rows = [];
+    for (const h of holdings) {
+      const currentPct = totalHuman > 0 ? (h.human / totalHuman * 100) : 0;
+      const drift = currentPct - h.targetWeight;
+      let action = 'HOLD';
+      let tone = 'info';
+      if (drift < -0.5) { action = 'BUY'; tone = 'ok'; }
+      else if (drift > 0.5) { action = 'SELL'; tone = 'bad'; }
+      const sizeHuman = (h.targetWeight/100 * totalHuman - h.human);
+      const sizeStr = (Math.abs(sizeHuman) < 0.0001 ? '0' : Math.abs(sizeHuman).toFixed(4)) + ' ' + h.symbol;
+      rows.push({
+        asset: { value: h.symbol, source: SOURCES.chain, note: h.address },
+        targetPct: { value: pct(h.targetWeight), source: SOURCES.input },
+        currentPct: { value: pct(currentPct), source: SOURCES.derived, note: h.isContract ? `Balance ${h.balance.toString()} / 10^${h.decimals}` : h.note },
+        drift: { value: (drift>0?'+':'')+pct(drift), source: SOURCES.derived, tone: Math.abs(drift)<0.5 ? 'info' : (drift>0?'bad':'ok') },
+        action: { value: action, source: SOURCES.derived, tone },
+        size: { value: sizeStr, source: SOURCES.derived, note: action==='HOLD' ? 'Within 0.5% tolerance' : `${action} to reach target` },
+      });
+    }
+    const table = {
+      title: 'Rebalance plan (token units, plan-only)',
+      note: 'Token-unit drift primary; USD secondary omitted (needs verified price). No swaps executed.',
+      columns: [
+        { key: 'asset', label: 'Asset' },
+        { key: 'targetPct', label: 'Target' },
+        { key: 'currentPct', label: 'Current' },
+        { key: 'drift', label: 'Drift' },
+        { key: 'action', label: 'Action' },
+        { key: 'size', label: 'Size' },
+      ],
+      rows,
+    };
+    const holdingsTable = {
+      title: 'Holdings read (chain)',
+      columns: [
+        { key: 'asset', label: 'Asset' },
+        { key: 'decimals', label: 'Decimals' },
+        { key: 'balance', label: 'Balance (raw)' },
+        { key: 'human', label: 'Human' },
+      ],
+      rows: holdings.map((h)=> ({
+        asset: { value: h.symbol, source: SOURCES.chain },
+        decimals: { value: String(h.decimals), source: SOURCES.chain },
+        balance: { value: h.balance.toString(), source: SOURCES.chain },
+        human: { value: h.human.toFixed(6), source: SOURCES.derived },
+      })),
+    };
+    const gasPer = estimateFee({ gasPriceWei: chain.gasPriceWei, gasUnits: SWAP_GAS_UNITS });
+    const totalGas = (Number(gasPer.fee) * rows.filter(r=>r.action.value!=='HOLD').length).toFixed(6);
+    return {
+      headline: `Rebalance analysis — ${holdings.length} assets vs target`,
+      summary: `Read BEP-20 balances for ${holdings.length} tokens at block #${chain.blockNumber.toLocaleString('en-US')}. Computed token-unit drift vs targetAllocation; no swaps executed.`,
+      fields: [
+        field('walletBalance', 'Native balance', bnb(state.balance, 6)),
+        field('targets', 'Target assets', String(holdings.length), { source: SOURCES.input, note: allocationRaw }),
+        ...networkFields(chain),
+        field('gasPerTrade', 'Gas per trade', bnb(gasPer.fee,6), { source: SOURCES.derived, note: `Real gas price × ${SWAP_GAS_UNITS.toLocaleString('en-US')} gas` }),
+        field('totalGas', 'Total gas (if all trades)', `${totalGas} tBNB`, { source: SOURCES.derived }),
+        field('holdingsNote', 'USD values', 'Not shown', { source: SOURCES.unavailable, note: 'USD drift needs verified Venus oracle price per token; token-unit drift shown primary.' }),
+      ],
+      tables: [holdingsTable, table],
+      warnings,
+      recommendation: 'Plan only — review drift and sizes, then execute manually if desired. Nothing was signed or broadcast.',
+    };
+  }
+
+  // --- Original portfolio path (no targetAllocation) ---
   const transferFee = estimateFee({
     gasPriceWei: chain.gasPriceWei,
     gasUnits: TRANSFER_GAS_UNITS,
@@ -632,9 +794,174 @@ async function runResearch({ input, chain }) {
 }
 
 /* ------------------------------------------------------------------ *
- * trading — plan a trade (never submits one)
+ * trading — plan a trade or grid (never submits one)
+ * Grid is plan-only under the existing `trading` category. If grid fields are
+ * present (lowerBound/upperBound/gridLevels) the executor produces a ladder;
+ * otherwise it falls back to the original DCA affordability plan (backward compat).
  * ------------------------------------------------------------------ */
+async function getVenusPriceForToken(tokenAddress) {
+  try {
+    const rawMarkets = await ethCall(VENUS_CORE_POOL.comptroller, SELECTORS.getAllMarkets);
+    const allMarkets = decodeAddressArray(rawMarkets);
+    const capped = allMarkets.slice(0, 12);
+    let oracle = null;
+    try {
+      const rawOracle = await ethCall(VENUS_CORE_POOL.comptroller, SELECTORS.oracle);
+      const addr = decodeWords(rawOracle, 1)[0].slice(24);
+      oracle = '0x' + addr;
+    } catch {
+      return null;
+    }
+    for (const vToken of capped) {
+      let underlying = null;
+      try {
+        const rawU = await ethCall(vToken, SELECTORS.underlying);
+        underlying = '0x' + decodeWords(rawU, 1)[0].slice(24);
+      } catch {
+        continue; // vBNB reverts, skip
+      }
+      if (underlying.toLowerCase() !== String(tokenAddress).toLowerCase()) continue;
+      const priceWei = await readUnderlyingPrice(oracle, vToken);
+      if (priceWei != null) {
+        let uDec = 18;
+        try {
+          const rawDec = await ethCall(tokenAddress, SELECTORS.decimals);
+          uDec = Number(toUint(decodeWords(rawDec, 1)[0]));
+        } catch {}
+        const realUsd = scaledToDecimalString(priceWei, 36 - uDec, 4);
+        return { price: realUsd, oracle, vToken, uDec };
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 async function runTrading({ input, chain, userAddress }) {
+  const isGrid = input.lowerBound != null || input.upperBound != null || input.gridLevels != null || input.capitalPerLevel != null;
+  if (isGrid) {
+    const target = input.tokenAddress;
+    const lower = Number(input.lowerBound);
+    const upper = Number(input.upperBound);
+    const levels = Number(input.gridLevels);
+    const capitalPerLevel = Number(input.capitalPerLevel);
+    const refInput = input.referencePrice != null && String(input.referencePrice).trim() !== '' ? Number(input.referencePrice) : null;
+
+    const [code, wallet] = await Promise.all([readContractInfo(target), readAddressState(userAddress)]);
+    const warnings = [];
+    const fields = [];
+    fields.push(field('token', 'Target token is a contract', code.isContract ? 'Yes' : 'No', { tone: code.isContract ? 'ok' : 'bad', note: code.isContract ? 'Verified with eth_getCode.' : 'No code at this address — it cannot be traded as a token.' }));
+    fields.push(field('walletBalance', 'Your balance', bnb(wallet.balance)));
+    fields.push(field('lowerBound', 'Lower bound', String(lower), { source: SOURCES.input }));
+    fields.push(field('upperBound', 'Upper bound', String(upper), { source: SOURCES.input }));
+    fields.push(field('levels', 'Levels', String(levels), { source: SOURCES.input }));
+    fields.push(field('capitalPerLevel', 'Capital per level', bnb(String(capitalPerLevel)), { source: SOURCES.input }));
+    if (refInput != null) fields.push(field('refPriceInput', 'Reference price (input)', String(refInput), { source: SOURCES.input }));
+    fields.push(...networkFields(chain));
+
+    // validation
+    const errs = [];
+    if (!Number.isFinite(lower) || lower <= 0) errs.push('lowerBound must be > 0');
+    if (!Number.isFinite(upper) || upper <= 0) errs.push('upperBound must be > 0');
+    if (Number.isFinite(lower) && Number.isFinite(upper) && upper <= lower) errs.push('upperBound must be > lowerBound');
+    if (!Number.isInteger(levels) || levels < 2 || levels > 50) errs.push('gridLevels must be integer 2..50');
+    if (!Number.isFinite(capitalPerLevel) || capitalPerLevel <= 0) errs.push('capitalPerLevel must be > 0');
+    if (refInput != null && (!Number.isFinite(refInput) || refInput <= 0)) errs.push('referencePrice must be > 0');
+    if (errs.length) {
+      return {
+        headline: 'Grid inputs invalid',
+        summary: errs.join('; '),
+        fields: [...fields, field('validation', 'Validation', 'Failed', { source: SOURCES.derived, tone: 'bad', note: errs.join('; ') })],
+        warnings: [],
+        recommendation: 'Fix the grid bounds and levels, then re-run. Nothing was signed or sent.',
+      };
+    }
+
+    // reference price resolve
+    let refPrice = refInput;
+    let refSource = refInput != null ? SOURCES.input : SOURCES.unavailable;
+    let refNote = refInput != null ? 'Provided by you.' : 'No reference price provided.';
+    let refOracle = null;
+    if (refPrice == null) {
+      try {
+        const venusPrice = await getVenusPriceForToken(target);
+        if (venusPrice && venusPrice.price) {
+          refPrice = Number(venusPrice.price);
+          refSource = SOURCES.chain;
+          refNote = `Venus oracle ${venusPrice.oracle.slice(0,10)}… (vToken ${venusPrice.vToken.slice(0,6)}…). ${TESTNET_PRICE_NOTE}`;
+          refOracle = venusPrice.oracle;
+        } else {
+          warnings.push('No Venus oracle price for this token — reference price unavailable. Provide one as input.');
+        }
+      } catch (e) {
+        warnings.push(`Venus price lookup failed: ${e.message}`);
+      }
+    }
+    if (refPrice == null) {
+      fields.push(field('referencePrice', 'Reference price', 'Not available', { source: SOURCES.unavailable, note: 'Provide a reference price input, or use a Venus-listed underlying.' }));
+    } else {
+      fields.push(field('referencePrice', 'Reference price', String(refPrice), { source: refSource, note: refNote }));
+      if (refSource === SOURCES.chain) fields.push(field('priceSource', 'Price source', 'Venus oracle (chain)', { source: SOURCES.derived, note: refNote }));
+      else fields.push(field('priceSource', 'Price source', 'Your input', { source: SOURCES.input }));
+      if (refPrice < lower || refPrice > upper) warnings.push(`Reference price ${refPrice} is outside [${lower}, ${upper}] — grid will be one-sided.`);
+    }
+
+    const spacing = levels > 1 ? (upper - lower) / (levels - 1) : 0;
+    fields.push(field('spacing', 'Level spacing', spacing.toFixed(4), { source: SOURCES.derived, note: `(${(upper)} - ${(lower)}) / ${(levels-1)}` }));
+    const gasPerOrder = estimateFee({ gasPriceWei: chain.gasPriceWei, gasUnits: SWAP_GAS_UNITS });
+    const totalGas = (Number(gasPerOrder.fee) * levels).toFixed(6);
+    fields.push(field('gasPerOrder', 'Gas per order', bnb(gasPerOrder.fee, 6), { source: SOURCES.derived, note: `Real gas price × ${SWAP_GAS_UNITS.toLocaleString('en-US')} gas (assumption)` }));
+    fields.push(field('totalGas', 'Total gas (all levels)', `${totalGas} tBNB`, { source: SOURCES.derived, note: `${levels} × gas per order` }));
+    const totalCapital = capitalPerLevel * levels;
+    fields.push(field('totalCapital', 'Total capital', bnb(String(totalCapital)), { source: SOURCES.derived, note: `${capitalPerLevel} × ${levels} levels` }));
+    const affordable = Number(wallet.balance) >= totalCapital + Number(totalGas);
+    fields.push(field('affordable', 'Balance covers grid', affordable ? 'Yes' : 'No', { source: SOURCES.derived, tone: affordable ? 'ok' : 'bad', note: `Needs ~${bnb(String(totalCapital + Number(totalGas)),6)} inc. gas` }));
+
+    const rows = [];
+    for (let i = 0; i < levels; i++) {
+      const price = Number((lower + i * spacing).toFixed(4));
+      let side = '—';
+      let sideTone = undefined;
+      if (refPrice != null) {
+        if (price < refPrice) { side = 'BUY'; sideTone = 'ok'; }
+        else if (price > refPrice) { side = 'SELL'; sideTone = 'bad'; }
+        else { side = 'AT REF'; sideTone = 'warn'; }
+      } else {
+        side = 'UNKNOWN (no ref)';
+        sideTone = 'warn';
+      }
+      rows.push({
+        level: { value: String(i + 1), source: SOURCES.derived },
+        price: { value: String(price), source: SOURCES.derived },
+        side: { value: side, source: refPrice != null ? SOURCES.derived : SOURCES.unavailable, tone: sideTone },
+        size: { value: bnb(String(capitalPerLevel), 4), source: SOURCES.input },
+      });
+    }
+
+    const table = {
+      title: 'Grid ladder (plan-only)',
+      note: 'Plan only — no orders placed, signed or broadcast. Re-run to refresh at a new block.',
+      columns: [
+        { key: 'level', label: 'Level' },
+        { key: 'price', label: 'Price' },
+        { key: 'side', label: 'Side' },
+        { key: 'size', label: 'Size' },
+      ],
+      rows,
+    };
+
+    return {
+      headline: code.isContract ? `Grid plan — ${levels} levels from ${lower} to ${upper}` : `No contract at ${target.slice(0,6)}…`,
+      summary: `Grid ladder computed from your bounds/levels at block #${chain.blockNumber.toLocaleString('en-US')}. Reference price labelled by source; no DEX pair or order execution involved.`,
+      fields,
+      tables: [table],
+      warnings,
+      recommendation: !code.isContract ? 'Stop: no contract at token address.' : affordable ? 'Grid plan ready — nothing was signed or sent. Review levels and place orders manually if desired.' : `Insufficient balance for grid (needs ~${bnb(String(totalCapital + Number(totalGas)),6)}). Top up or reduce capital/levels.`,
+    };
+  }
+
+  // --- original DCA path (backward compat) ---
   const target = input.tokenAddress;
   const amount = Number(input.amountPerTrade ?? 0);
   const slippage = Number(input.maxSlippage ?? 0.5);
@@ -689,8 +1016,29 @@ async function runTrading({ input, chain, userAddress }) {
 }
 
 /* ------------------------------------------------------------------ *
- * yield — where to allocate
+ * yield — where to allocate (real Venus testnet ranking, plan-only)
  * ------------------------------------------------------------------ */
+const BLOCKS_PER_YEAR = 10_512_000; // BSC ~3s blocks; assumption stated, APY is derived
+const YIELD_MARKETS_CAP = 12;
+
+function aprFromRate(rateWei) {
+  // rate is 1e18 scaled per block → APR % = rate * blocksPerYear * 100 / 1e18
+  try {
+    const aprWei = (BigInt(rateWei) * BigInt(BLOCKS_PER_YEAR) * 100n);
+    return scaledToDecimalString(aprWei, 18, 2) + '%';
+  } catch {
+    return '—';
+  }
+}
+function aprValueForSort(rateWei) {
+  try {
+    // sort key as number percent (not string)
+    return Number(scaledToDecimalString(BigInt(rateWei) * BigInt(BLOCKS_PER_YEAR) * 100n, 18, 6));
+  } catch {
+    return -1;
+  }
+}
+
 async function runYield({ input, chain, userAddress }) {
   const amount = Number(input.allocationAmount ?? 0);
   const risk = input.riskLevel || 'balanced';
@@ -700,38 +1048,127 @@ async function runYield({ input, chain, userAddress }) {
   const entryFee = estimateFee({ gasPriceWei: chain.gasPriceWei, gasUnits: SWAP_GAS_UNITS });
   const funded = Number(wallet.balance) >= amount;
 
-  return {
-    headline: funded
-      ? `Allocation of ${bnb(String(amount))} is fundable`
-      : `Wallet holds ${bnb(wallet.balance)} — short of the ${bnb(String(amount))} requested`,
-    summary:
-      `Your wallet and live network costs were read at block #${chain.blockNumber.toLocaleString('en-US')}. ` +
-      `Pool yields are not read from any protocol — see below.`,
-    fields: [
-      field('walletBalance', 'Your balance', bnb(wallet.balance), { tone: funded ? 'ok' : 'warn' }),
-      field('requested', 'Amount to allocate', bnb(String(amount)), { source: SOURCES.input }),
-      field('risk', 'Risk level', risk, { source: SOURCES.input }),
-      field('minApy', 'Minimum net APY', minApy == null ? 'No minimum' : pct(minApy), {
-        source: SOURCES.input,
-      }),
-      ...networkFields(chain),
-      field('entryCost', 'Estimated cost to enter a pool', bnb(entryFee.fee, 6), {
-        source: SOURCES.derived,
-        note: `Real gas price × an assumed ${SWAP_GAS_UNITS.toLocaleString('en-US')} gas for a deposit.`,
-      }),
-      field('funded', 'Allocation is fundable now', funded ? 'Yes' : 'No', {
-        source: SOURCES.derived,
-        tone: funded ? 'ok' : 'bad',
-      }),
-      field('pools', 'Ranked pool candidates', 'Not available', {
-        source: SOURCES.unavailable,
-        note:
-          'Ranking pools needs verified testnet addresses and reserve data for each protocol. ' +
-          'AgentHub has none on file, and inventing APYs would make this report worthless.',
-      }),
+  // --- Real Venus market ranking ---
+  let rankedRows = [];
+  let marketsConsidered = 0;
+  let marketsDropped = 0;
+  let totalMarkets = 0;
+  let warnings = [];
+  let tableNote = `Supply APY derived from on-chain supplyRatePerBlock × ${BLOCKS_PER_YEAR.toLocaleString('en-US')} blocks/year (BSC ~3s assumption). ${TESTNET_PRICE_NOTE} Not a market-price yield.`;
+
+  try {
+    const rawMarkets = await ethCall(VENUS_CORE_POOL.comptroller, SELECTORS.getAllMarkets);
+    const allMarkets = decodeAddressArray(rawMarkets);
+    totalMarkets = allMarkets.length;
+    const capped = allMarkets.slice(0, YIELD_MARKETS_CAP);
+    marketsDropped = Math.max(0, totalMarkets - capped.length);
+    if (marketsDropped > 0) warnings.push(`Showing ${capped.length} of ${totalMarkets} Venus Core Pool markets (cap ${YIELD_MARKETS_CAP}); ${marketsDropped} dropped.`);
+    if (minApy != null) warnings.push(`Filtered by minimum ${pct(minApy)} — markets below that are omitted.`);
+
+    const perMarket = [];
+    for (const vToken of capped) {
+      try {
+        const [symRaw, supRaw, borRaw] = await Promise.all([
+          ethCall(vToken, SELECTORS.symbol).then((r) => decodeString(r)).catch(() => null),
+          ethCall(vToken, SELECTORS.supplyRatePerBlock).then((r) => toUint(decodeWords(r, 1)[0])).catch(() => null),
+          ethCall(vToken, SELECTORS.borrowRatePerBlock).then((r) => toUint(decodeWords(r, 1)[0])).catch(() => null),
+        ]);
+        if (supRaw == null || borRaw == null) {
+          perMarket.push({ vToken, symbol: symRaw || `${vToken.slice(0, 6)}…`, available: false, reason: 'Could not read on-chain rates for this market.' });
+          continue;
+        }
+        const supplyApr = aprFromRate(supRaw);
+        const borrowApr = aprFromRate(borRaw);
+        const supplyVal = aprValueForSort(supRaw);
+        if (minApy != null && supplyVal < minApy) continue;
+        perMarket.push({
+          vToken,
+          symbol: symRaw || `${vToken.slice(0, 6)}…`,
+          available: true,
+          supplyApr,
+          borrowApr,
+          supplyVal,
+        });
+      } catch {
+        perMarket.push({ vToken, symbol: `${vToken.slice(0, 6)}…`, available: false, reason: 'Market read failed.' });
+      }
+    }
+    // rank by supply APY desc
+    perMarket.sort((a, b) => {
+      if (!a.available && b.available) return 1;
+      if (a.available && !b.available) return -1;
+      if (!a.available && !b.available) return 0;
+      return (b.supplyVal ?? -1) - (a.supplyVal ?? -1);
+    });
+    // take top 8 for table brevity, but keep warning counts honest
+    const top = perMarket.slice(0, 8);
+    marketsConsidered = perMarket.length;
+    if (perMarket.length > top.length) {
+      warnings.push(`Ranked ${perMarket.length} markets, showing top ${top.length} by supply APY.`);
+    }
+    rankedRows = top.map((m) => {
+      if (!m.available) {
+        return {
+          market: { value: m.symbol, source: SOURCES.unavailable, note: m.reason },
+          supplyApy: { value: '—', source: SOURCES.unavailable },
+          borrowApy: { value: '—', source: SOURCES.unavailable },
+          note: { value: 'Unavailable', source: SOURCES.unavailable },
+        };
+      }
+      return {
+        market: { value: m.symbol, source: SOURCES.chain },
+        supplyApy: { value: m.supplyApr, source: SOURCES.derived, note: `supplyRatePerBlock on-chain × ${BLOCKS_PER_YEAR.toLocaleString('en-US')} blocks/year` },
+        borrowApy: { value: m.borrowApr, source: SOURCES.derived },
+        note: { value: 'Ranked by supply APY', source: SOURCES.derived },
+      };
+    });
+    if (rankedRows.length === 0) warnings.push('No markets met the filter — try lowering the minimum APY.');
+  } catch (err) {
+    warnings.push(`Venus market list could not be read: ${err.message}`);
+  }
+
+  const rankedTable = {
+    title: 'Ranked Venus markets by supply APY (BNB testnet)',
+    note: tableNote,
+    columns: [
+      { key: 'market', label: 'Market' },
+      { key: 'supplyApy', label: 'Supply APY' },
+      { key: 'borrowApy', label: 'Borrow APY' },
+      { key: 'note', label: 'Note' },
     ],
+    rows: rankedRows,
+    emptyNote: 'No ranked markets available.',
+  };
+
+  const headline = funded
+    ? `Allocation of ${bnb(String(amount))} is fundable — ${rankedRows.length} Venus markets ranked`
+    : `Wallet holds ${bnb(wallet.balance)} — short of the ${bnb(String(amount))} requested`;
+
+  const fields = [
+    field('walletBalance', 'Your balance', bnb(wallet.balance), { tone: funded ? 'ok' : 'warn' }),
+    field('requested', 'Amount to allocate', bnb(String(amount)), { source: SOURCES.input }),
+    field('risk', 'Risk level', risk, { source: SOURCES.input }),
+    field('minApy', 'Minimum net APY', minApy == null ? 'No minimum' : pct(minApy), { source: SOURCES.input }),
+    field('marketsConsidered', 'Markets considered', String(marketsConsidered), { source: SOURCES.derived, note: `Of ${totalMarkets} Venus Core Pool markets; ${marketsDropped} dropped by cap.` }),
+    ...networkFields(chain),
+    field('entryCost', 'Estimated cost to enter a pool', bnb(entryFee.fee, 6), {
+      source: SOURCES.derived,
+      note: `Real gas price × an assumed ${SWAP_GAS_UNITS.toLocaleString('en-US')} gas for a deposit.`,
+    }),
+    field('funded', 'Allocation is fundable now', funded ? 'Yes' : 'No', { source: SOURCES.derived, tone: funded ? 'ok' : 'bad' }),
+    field('apyAssumption', 'APY assumption', `${BLOCKS_PER_YEAR.toLocaleString('en-US')} blocks/year at ~3s`, { source: SOURCES.derived, note: 'APY = supplyRatePerBlock × blocksPerYear. A different block time changes the APY; this assumption is stated so you can re-derive.' }),
+  ];
+
+  return {
+    headline,
+    summary:
+      `Your wallet and live Venus Core Pool rates were read at block #${chain.blockNumber.toLocaleString('en-US')}. ` +
+      `Supply/borrow rates are on-chain per-block values; APYs are derived with the stated blocks/year assumption and ranked by supply APY.`,
+    fields,
+    tables: [rankedTable],
+    warnings,
     recommendation: funded
-      ? `Your balance covers the allocation and the estimated entry cost of ${bnb(entryFee.fee, 6)}. Actual pool selection needs live protocol data this build cannot verify — that is the honest limit of this result.`
+      ? `Top market ${rankedRows[0]?.market?.value || '—'} at ${rankedRows[0]?.supplyApy?.value || '—'} supply APY (see table). This is a read-only ranking on BNB testnet, not a deposit; nothing was signed or sent.`
       : `Top up to at least ${bnb(String(amount + Number(entryFee.fee)), 6)} (allocation plus estimated gas) before allocating. The BNB testnet faucet issues free tBNB.`,
   };
 }

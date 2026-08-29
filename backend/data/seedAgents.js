@@ -257,6 +257,25 @@ export const seedAgents = [
     reviewCount: 5,
     ratingAvg: 3.9,
   },
+  {
+    agentId: 'grid-strategy-planner',
+    name: 'Grid Strategy Planner',
+    tagline: 'Plan-only grid ladder — no orders placed or signed.',
+    description:
+      'Given a token, lower/upper bounds, number of levels and capital per level, it validates the token contract, resolves a reference price from your input or the Venus oracle (when listed), and returns an evenly-spaced BUY/SELL ladder with total capital and gas estimates. Plan only — never places, signs or broadcasts an order.',
+    category: 'trading',
+    subcategory: 'Grid trading (plan-only)',
+    skills: ['Grid ladder', 'Price levels', 'BUY/SELL sizing', 'Gas estimation'],
+    protocols: ['PancakeSwap', 'Venus'],
+    tags: ['trading', 'grid', 'plan-only'],
+    pricing: { amount: 0.003, currency: 'BNB', model: 'per-task' },
+    metrics: { executions: 210, successRate: 97.2, avgResponseTime: 2.4, activeSince: daysAgo(45), avgCost: 0.003 },
+    verified: false,
+    status: 'live',
+    lastActiveAt: daysAgo(0),
+    reviewCount: 6,
+    ratingAvg: 4.5,
+  },
 
   // ---------------- Portfolio ----------------
   {

@@ -2,7 +2,7 @@
 AGENTHUB — PROJECT HANDOFF
 For transferring this project to another Claude account, Codex, or any other AI.
 ================================================================================
-Written: 2026-08-26  ·  Last updated: 2026-08-28, after Phase 8 (Real Agent Discovery) — see §8B
+Written: 2026-08-26  ·  Last updated: 2026-08-29, after Phase 10 (Yield/Grid/Rebalancing) — see §8D
 Repo: C:\Users\uk\OneDrive\Desktop\agenthub-bnb
 Remote: https://github.com/london160771/agenthub-bnb.git  (branch: main)
 
@@ -55,8 +55,12 @@ keccak256, so contract function selectors CANNOT be computed at runtime — see 
 --------------------------------------------------------------------------------
 3. COMPLETED PHASES
 --------------------------------------------------------------------------------
-Phases 1-7 are committed AND pushed. HEAD == origin/main == 456c1ef.
+Phases 1-10 are implemented; Phases 1-9 committed & pushed at 3f5ee47. Phase 10 verified not yet committed (see §8D).
 
+  3f5ee47  Phase 9 — structured execution tables + renderer (T1.6, see §8C)
+  034f367  fix: wallet disconnect intent persisted
+  a1c695d  fix: FindPage ButtonLink
+  b2806d7  Phase 8 — real agent discovery (8004scan + /find MVP, see §8B)
   456c1ef  Phase 7 — real Venus health factor, reconciled to the wei (see §8A)
   15182af  docs: Phase 7 category plan and project handoff
   09bfd48  Phase 6.5 — measure every run; Agent Advantage foundation
@@ -72,8 +76,11 @@ Phases 1-7 are committed AND pushed. HEAD == origin/main == 456c1ef.
 --------------------------------------------------------------------------------
 4. CURRENT PHASE / STATUS
 --------------------------------------------------------------------------------
+PHASE 10 (Yield/Grid/Rebalancing — real testnet tables) is
+COMPLETE, VERIFIED (not yet committed/pushed). Details in §8D. Phases 7-9 guarantees untouched.
+
 PHASE 9 (T1.6 structured outputs + table renderer) is
-COMPLETE, VERIFIED (not yet committed/pushed). Details in §8C. Phase 7 and Phase 8 guarantees untouched.
+COMPLETE, VERIFIED, COMMITTED at 3f5ee47. Details in §8C.
 
 PHASE 8 (Real Agent Discovery: 8004scan ingestion + lean /find Finder MVP) is
 COMPLETE, VERIFIED, COMMITTED. Details in §8B.
@@ -83,13 +90,13 @@ PUSHED. Details in §8A.
 
 Phase 6.5 was committed as 09bfd48.
 
-WHAT PHASE 7 DELIBERATELY DID NOT DO — still true except T1.6 (see §11, §15):
-  - Yield still returns "Ranked pool candidates: Not available".
-  - Rebalancing still cannot produce a trade list (RELABELLED only).
-  - Grid Trading still does not exist at all.
-  - Table renderer is now SHIPPED (§8C); `output.tables` + `output.warnings` are optional and backward-compatible (A2 updated).
+WHAT PHASE 7 DELIBERATELY DID NOT DO — now ALL FOUR CATEGORIES ARE FUNCTIONAL (see §8A-§8D, §11, §15):
+  - Yield now returns ranked Venus Core Pool markets by derived supply APY (12 cap → top 8, warnings for dropped, chain rates + derived APY).
+  - Rebalancing now returns token-unit drift + BUY/SELL plan via targetAllocation text field (read-only, no swaps).
+  - Grid Trading now exists as plan-only grid-strategy-planner under trading (ladder table, no DEX, no order execution).
+  - Table renderer SHIPPED at §8C and used by all three.
 
->>> NEXT AI: read AGENTS.md, then see §8C and §15 for Phase 9 completion.
+>>> NEXT AI: read AGENTS.md, then see §8D and §15 for Phase 10 completion.
     Never use `git add -A` — explicit paths only. After an approved commit, also
     `git push origin main`. Commit messages end with:
       Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
@@ -98,7 +105,7 @@ WHAT PHASE 7 DELIBERATELY DID NOT DO — still true except T1.6 (see §11, §15)
 5. WHAT IS CURRENTLY WORKING
 --------------------------------------------------------------------------------
 Real, verified end to end:
-- Marketplace browse/search/filter over 17 seeded agents; category counts.
+- Marketplace browse/search/filter over 18 seeded agents (17 + grid-strategy-planner); category counts.
 - Agent profile pages; side-by-side comparison matrix.
 - Wallet connection via raw EIP-1193 (window.ethereum). No dependency added.
   Chain 97 enforced client-side AND rejected server-side if a client reports 56.
@@ -117,8 +124,10 @@ Real, verified end to end:
   it is shown. Verified example: health factor 3.81, "Exact match — ours $3.53,
   Venus $3.53", 17 RPC calls. Four honest non-answers also verified: no position,
   unsupported protocol, unpriced market, non-zero Comptroller error code. See §8A.
-- Lint clean; vite build succeeds (Phase 7: 1875 modules, ~382 kB JS; Phase 8: 91 modules, ~854 kB JS / 231 kB gzip — chunk size growth from Finder page, no new deps).
+- Lint clean; vite build succeeds (Phase 7: 1875 modules, ~382 kB JS; Phase 8: 91 modules, ~854 kB JS / 231 kB gzip; Phase 9/10: 91 modules ~858 kB / 232 kB gzip — no new deps).
 - Phase 8: /find Finder MVP live at /find (deterministic 40/20/15/10/10/5 scoring, AI assist when key present else keyword fallback, match % + why + source badge + trust/cost), 8004scan ingestion for BSC chain 56 as source='indexed' (see §8B/§9A), indexed registry agents discoverable but not locally executable (hire blocked honest).
+- Phase 9: output.tables/warnings + ResultTable renderer + per-cell provenance (see §8C).
+- Phase 10: Yield ranked Venus markets (chain rates, derived APY), Grid plan-only ladder, Rebalancing token-unit drift/BUY-SELL (all tables, warnings, hasSimulated=false).
 
 SIMULATED PAYMENT — be precise about this: no transaction is ever signed or
 broadcast. transactionHash stays ''. `cost` is the agent's LISTED price recorded
@@ -128,20 +137,18 @@ against the hire; nothing is charged. Chain reads are free.
 6. WHAT IS INCOMPLETE
 --------------------------------------------------------------------------------
 Routes still rendering PlaceholderPage (frontend/src/routes/AppRoutes.jsx):
-  /find       <-- AI Agent Finder — SPEC TIER 1 (MANDATORY)
   /activity   <-- Activity dashboard — SPEC TIER 1 (MANDATORY)
   /dashboard
   /saved
   /settings
-Real routes: / · /discover · /agents/:agentId · /compare · /hire/:agentId ·
-/execution/:executionId
+Real routes: / · /discover · /agents/:agentId · /find · /compare · /hire/:agentId ·
+/execution/:executionId  (/find was placeholder, now shipped at Phase 8)
 
 Also incomplete:
 - ERC-8004 integration — SPEC TIER 1 (MANDATORY) — has no real data (§10).
-- Of the four hackathon categories, only HEALTH FACTOR is genuinely functional.
-  Yield, Rebalancing and Grid Trading are not (§11).
-- No Agent Advantage measurement has been taken (§12).
-- BEP-20 token positions are honestly reported `unavailable` everywhere.
+- Of the four hackathon categories, ALL FOUR ARE NOW FUNCTIONAL (§8A-§8D): Yield ranked testnet APYs, Rebalancing token-unit drift/plan, Grid ladder, Health Factor reconciled.
+- No Agent Advantage measurement has been taken (§12) — intentionally deferred to Phase 11.
+- BEP-20 token positions: native-only report remains when targetAllocation blank; when supplied, BEP-20 balances are read via eth_call balanceOf (verified) — USD secondary still unavailable/caveated where no oracle price.
 - THE BACKEND HAS NO TESTS AT ALL. `npm test --prefix backend` runs `node --test`
   and reports "# tests 0" — there are no test files. Every verification claim in
   this document is therefore MANUAL evidence, reproducible only by re-running the
@@ -541,6 +548,36 @@ VERIFICATION (manual, no backend tests — §6)
 DELIBERATELY LEFT OUT: Yield (ranked pools), Rebalancing (trade list), Grid (ladder), /activity, /dashboard, Agent Advantage, new 8004scan features, wallet/auth, payment/signing, mainnet. Those belong to T1.7-T1.9 and later.
 
 --------------------------------------------------------------------------------
+8D. PHASE 10 — YIELD / GRID / REBALANCING (SHIPPED 2026-08-29, not yet pushed)
+--------------------------------------------------------------------------------
+STATUS: shipped, verified, not yet committed/pushed. Lean, hackathon-focused; all three categories now produce real testnet-backed tables via Phase 9 infrastructure. No deposits/swaps/tx/signing, no mainnet, no invented prices/addresses, hasSimulated=false, no new deps/env.
+
+FILES
+  MOD  backend/services/abi.js              + supplyRatePerBlock 0xae9d70b0, borrowRatePerBlock 0xf8f9da28, totalSupply 0x18160ddd (all verified 2026-08-26 differentiated non-zero; evidence in SELECTORS comments)
+  MOD  backend/services/agentExecutors.js   + cell() exported, hasSimulated scans tables; runYield: getAllMarkets→12 cap→per-market symbol/supplyRate/borrowRate→aprFromRate (BLOCKS_PER_YEAR 10,512,000 @3s, derived, note printed) → ranking top 8, warnings for capped/dropped; runTrading: grid branch when lowerBound/upperBound/gridLevels present → validate (2-50 levels, >0 bounds, upper>lower) → getVenusPriceForToken (12-market capped oracle lookup via underlying→price, 36-uDec scaling) else input → ladder (level/price/side/size) + spacing/gas/totalCapital/affordable; else DCA fallback untouched; runPortfolio: parseAllocationString "0xA:60,0xB:40" (weights sum 100, 2-8 assets) → eth_getCode verification → decimals/symbol/balanceOf (tolerant 3-word proxy fallback) → human total → currentPct/drift/BUY-SELL(size) in token units + holdings table; both tables plan-only.
+  MOD  frontend/src/lib/hire.js             + portfolio.targetAllocation text (500ch, optional) + trading lowerBound/upperBound/gridLevels/capitalPerLevel/referencePrice numbers (optional, bounds 0.0001-1M, 2-50) with help "Leave blank for DCA mode"
+  MOD  backend/data/seedAgents.js            + grid-strategy-planner (trading, plan-only grid ladder, PancakeSwap/Venus, live, 18 agents total)
+  (Phase 9) backend/models/Execution.js doc + frontend ExecutionResult.jsx ResultTable already shipped — reused, untouched for Phase 10 except via new tables
+
+DESIGN CHOICES
+- Yield ranking is "best supply APY among Venus Core Pool markets on BNB testnet" — honest scope, not "best yield across BSC".
+- Grid referencePrice: input (input) else Venus oracle (chain+TESTNET_PRICE_NOTE) else unavailable + warning; all labelled.
+- Rebalancing token-unit primary; USD secondary omitted (unavailable with caveat) — avoids unverified price.
+- Caps: Yield 12 (warnings for 37 dropped), Grid 50 levels max, Rebalancing 8 assets max — bounds RPC volume (Yield ~44 RPC, Grid <25, Rebalance ~9 for 2 assets vs uncapped 300).
+- All values tagged chain/derived/input/unavailable with notes; no simulated; no invented  DEX router (Grid is arithmetic, not AMM).
+
+VERIFICATION (manual, no backend tests — §6)
+- Frontend lint: exit 0; vite build: 91 modules ~858 kB / 232 kB gzip (hire fields + grid agent + rate selectors ~1 kB delta).
+- Backend syntax: node --check agentExecutors.js/abi.js/seedAgents.js exit 0.
+- Yield: allocation 1 tBNB (wallet 0.0398 → short) → hasSim false PASS, fields chain/input/derived, tables 1 rows 8 vETH 15.72% first, warnings 12 of 49 dropped + ranked 12→8, columns market/supplyApy/borrowApy/note.
+- Grid: WBNB 0xae13… 0.8→1.2 levels 5 capital 0.01 ref 1.0 → Grid plan 5 levels, hasSim false, tables rows 5 BUY/SELL, warnings []; invalid lower>upper → Grid inputs invalid + validation Failed bad.
+- Rebalance: WBNB:60 + dummy 0x000…1:40 → 2 assets, holdings 2 + plan 2 tables, hasSim false, warnings No code at 0x000…; invalid badformat → Rebalance input invalid.
+- Health Factor regression: 0x26e94a350D2d… → 3.82 LOW hasSim false PASS (was 3.81 block drift, sources {derived,chain,input}, 16 fields, no tables).
+- Phase 8: seeded 18 indexed 11 total 29, findAgents health-factor 5 results Venus Health Guardian first, indexed hire 400 block still via executionController (not modified).
+
+DELIBERATELY LEFT OUT: multi-pool Venus, farm MasterChef, DEX getReserves, repeatable allocation field type (a), /activity/dashboard, Agent Advantage measurements, mainnet/tx/signing.
+
+--------------------------------------------------------------------------------
 9. 8004SCAN STATUS
 --------------------------------------------------------------------------------
 NOT INTEGRATED. The API itself has since been VERIFIED — see §9A. Be careful
@@ -907,23 +944,25 @@ integration.
 --------------------------------------------------------------------------------
 15. WHAT SHOULD BE BUILT NEXT
 --------------------------------------------------------------------------------
-Phase 9 is shipped (T1.6 tables + renderer, §8C) — Phase 8 (§8B) and Phase 7’s T1.1-T1.5 remain done:
+Phases 7-10 are shipped — T1.1-T1.9 DONE (§8A-§8D):
   T1.1  DONE  abi.js + blockchainService.ethCall()
   T1.2  DONE  venusAdapter.js
   T1.3  DONE  Health Factor -> real chain data; simulated path deleted
   T1.4  DONE  relabelled FOUR overpromising agents (the plan named three)
   T1.5  DONE  testnet-oracle-price caveat on every USD figure
   T1.6  DONE  output.tables + table renderer in ExecutionResult.jsx (§8C)
-REMAINING from CATEGORY_IMPLEMENTATION_PLAN.txt Tier 1:
-  T1.7  Grid Trading as a new plan-only category (all six wiring points, A3)
-  T1.8  Yield -> real ranked markets from live Venus rates
-  T1.9  Rebalancing -> real token-unit drift + a real trade list
-Plus spec placeholders still remaining:
-  /activity (Tier 1 #12), /dashboard etc, and Agent Advantage (now Phase 11).
+  T1.7  DONE  Grid Trading plan-only ladder (trading, §8D)
+  T1.8  DONE  Yield ranked Venus markets by supply APY (§8D)
+  T1.9  DONE  Rebalancing token-unit drift + trade plan (§8D)
+All four Smart Money categories are now functional (Health Factor, Yield, Grid, Rebalancing).
 
-Recommended order after Phase 9:
-  1. T1.8 Yield (cheapest real yield after Health Factor, now unblocked by T1.6 tables).
-  2. /activity (mandatory) OR T1.7 Grid.
+REMAINING (Phases 11-12):
+  - Phase 11: Agent Advantage — 3 measured real tasks (health-factor + yield now eligible, need manual runs per AGENT_ADVANTAGE.md)
+  - Phase 12: /activity (Tier 1 #12), /dashboard, /saved, /settings, final polish
+
+Recommended next:
+  1. Phase 11 Agent Advantage measurements (yield now eligible, health-factor already eligible).
+  2. /activity (mandatory spec placeholder).
   3. Backend tests for venusAdapter reconciliation (§6 / B8).
 ARCHITECTURAL RULE REMAINS: shared primitives first, then thin agents.
 

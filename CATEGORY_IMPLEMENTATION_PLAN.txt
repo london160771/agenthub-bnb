@@ -3,8 +3,8 @@ AGENTHUB — CATEGORY IMPLEMENTATION PLAN
 Four hackathon categories: Rebalancing · Grid Trading · Yield Optimisation ·
 Health Factor Monitoring
 ================================================================================
-Status: PLAN ONLY at 2026-08-26; T1.1-T1.5 shipped in Phase 7 (venusAdapter etc), T1.6 shipped in Phase 9 (output.tables + ExecutionResult table renderer, §8C). See PROJECT_HANDOFF §8C/§15.
-Audit date: 2026-08-26 (T1.6 update 2026-08-28 without rewriting the 2026-08-26 audit)
+Status: PLAN ONLY at 2026-08-26; T1.1-T1.5 shipped in Phase 7 (venusAdapter etc), T1.6 shipped in Phase 9 (output.tables + renderer, §8C), T1.7 Grid + T1.8 Yield + T1.9 Rebalancing shipped in Phase 10 (§8D) — real testnet tables, plan-only, no tx.
+Audit date: 2026-08-26 (T1.6 update 2026-08-28, T1.7-T1.9 update 2026-08-29 without rewriting the 2026-08-26 audit)
 Supersedes the pessimistic verdicts in CATEGORY_GAP_REPORT.md — see "WHAT
 CHANGED" below.
 
