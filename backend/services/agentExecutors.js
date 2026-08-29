@@ -37,6 +37,21 @@ function field(key, label, value, opts = {}) {
   return { key, label, value, source: SOURCES.chain, ...opts };
 }
 
+/**
+ * One cell of a table. `value` is display-ready. String shorthand is allowed and
+ * implies source:'chain' — the common case for an address or symbol that is a
+ * straight chain read. Use the object form when you need a different provenance,
+ * tone or note.
+ */
+export function cell(value, opts = {}) {
+  return { value: String(value), source: SOURCES.chain, ...opts };
+}
+function cellSource(c) {
+  if (c == null) return null;
+  if (typeof c === 'string') return SOURCES.chain;
+  return c.source;
+}
+
 const CURRENCY = 'tBNB';
 
 /** Trim a balance to something readable without implying false precision. */
@@ -805,7 +820,14 @@ export async function executeForAgent({ agent, execution, chain }) {
     agent,
   });
 
-  const hasSimulated = result.fields.some((f) => f.source === SOURCES.simulated);
+  const hasSimulated =
+    result.fields.some((f) => f.source === SOURCES.simulated) ||
+    (Array.isArray(result.tables) &&
+      result.tables.some(
+        (t) =>
+          Array.isArray(t.rows) &&
+          t.rows.some((row) => Object.values(row).some((c) => cellSource(c) === SOURCES.simulated)),
+      ));
   return {
     ...result,
     hasSimulated,

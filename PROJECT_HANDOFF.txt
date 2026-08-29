@@ -72,21 +72,24 @@ Phases 1-7 are committed AND pushed. HEAD == origin/main == 456c1ef.
 --------------------------------------------------------------------------------
 4. CURRENT PHASE / STATUS
 --------------------------------------------------------------------------------
+PHASE 9 (T1.6 structured outputs + table renderer) is
+COMPLETE, VERIFIED (not yet committed/pushed). Details in §8C. Phase 7 and Phase 8 guarantees untouched.
+
 PHASE 8 (Real Agent Discovery: 8004scan ingestion + lean /find Finder MVP) is
-COMPLETE, VERIFIED, COMMITTED. Details in §8B. Working tree clean.
+COMPLETE, VERIFIED, COMMITTED. Details in §8B.
 
 PHASE 7 (real Venus health factor) is COMPLETE, VERIFIED, APPROVED, COMMITTED AND
-PUSHED. Details in §8A. Phase 7 guarantees are untouched by Phase 8.
+PUSHED. Details in §8A.
 
 Phase 6.5 was committed as 09bfd48.
 
-WHAT PHASE 7 DELIBERATELY DID NOT DO — still true (see §11, §15 T1.6-T1.9):
+WHAT PHASE 7 DELIBERATELY DID NOT DO — still true except T1.6 (see §11, §15):
   - Yield still returns "Ranked pool candidates: Not available".
   - Rebalancing still cannot produce a trade list (RELABELLED only).
   - Grid Trading still does not exist at all.
-  - No table renderer was added; `output` is still a flat field list (A2).
+  - Table renderer is now SHIPPED (§8C); `output.tables` + `output.warnings` are optional and backward-compatible (A2 updated).
 
->>> NEXT AI: read AGENTS.md, then see §8B and §15 for Phase 8 completion.
+>>> NEXT AI: read AGENTS.md, then see §8C and §15 for Phase 9 completion.
     Never use `git add -A` — explicit paths only. After an approved commit, also
     `git push origin main`. Commit messages end with:
       Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
@@ -153,13 +156,12 @@ A1. PER-FIELD PROVENANCE, NOT PAGE-LEVEL FOOTNOTES. Every output value carries
     underline. Do not replace this with a single page disclaimer.
 
 A2. output SHAPE (the contract between executors and the UI):
-      { headline, summary, fields[], recommendation, hasSimulated, provenance,
-        reads[] }
+      { headline, summary, fields[], tables?[], warnings?[], recommendation,
+        hasSimulated, provenance, reads[] }
     Each field: { key, label, value, source, tone?, note? }. Rendered by
     frontend/src/components/execution/ExecutionResult.jsx as a FLAT <dl>.
-    THERE IS NO TABLE RENDERER. Adding one is planned as `output.tables`.
-    Execution.output is Schema.Types.Mixed, so a new field shape needs NO model
-    change — convenient, and a reason to be deliberate about what you add.
+    Tables (T1.6, §8C) are optional { title, columns:{key,label,note?}[], rows:Record<key, {value,source,tone?,note?}|string>[], note?, emptyNote? }[]
+    with per-cell provenance (string shorthand implies chain) and `overflow-x-auto` table renderer. Warnings are optional string[]. Execution.output is Schema.Types.Mixed, so the extension needed NO model change — but the renderer now exists.
     TWO LAYOUT CONSTRAINTS that are easy to break:
       - A field with `tone` renders its VALUE inside a Badge. Long values with a
         tone break the layout; keep toned values short and put detail in `note`.
@@ -502,7 +504,7 @@ KNOWN LIMITATIONS
 - Classifier is keyword/heuristic, not ML; uncommon DeFi phrasing may misclassify — dropped agents are logged and import is idempotent via erc8004Id.
 - Finder AI assist needs AI_API_BASE plus AI_API_KEY; without it fallback is deterministic (hasAiKey still reported for transparency).
 - No pagination on Finder yet (limit 12, single page). /discover pagination unchanged.
-- Yield/Rebalancing/Grid + output.tables still not built (T1.6-T1.9 deferred). /activity, /dashboard, /saved, /settings remain placeholders.
+- Yield/Rebalancing/Grid still not built (T1.7-T1.9 deferred); output.tables/warnings are now SHIPPED (§8C). /activity, /dashboard, /saved, /settings remain placeholders.
 
 BUGFIX 2026-08-28 — FindPage seeded View/Hire (isolated, not arch):
   FindPage.jsx used `Button as={Link} to=` but Button.jsx does not support `as` (only Card.jsx does). Clicks were dead — no navigation, no backend call. Fixed to `ButtonLink to=` (only Finder page). Indexed Hire stays disabled/blocked (controller 400 + UI disabled). Lint/build still clean. Same seeded agent works via /discover (Card as={Link}) which was unaffected.
@@ -513,6 +515,30 @@ BUGFIX 2026-08-28 — Wallet disconnect → refresh reconnect (WalletProvider.js
   Intended: Connect→refresh restores; Disconnect→immediate UI disconnected; Disconnect→refresh stays disconnected; explicit Connect clears flag and restores normal restore.
   Limitation: does NOT revoke site authorization in MetaMask; revoke still via wallet Connected Sites. Expected EIP-1193 behavior.
   Verification: lint exit 0, vite build 91 modules ~854 kB, storage simulation A-D pass (restore / stay disconnected / reconnect), wallet events preserved.
+
+--------------------------------------------------------------------------------
+8C. PHASE 9 — STRUCTURED OUTPUTS + TABLE RENDERER (T1.6) (SHIPPED 2026-08-28, not yet pushed)
+--------------------------------------------------------------------------------
+STATUS: shipped, verified, not yet committed/pushed. Infrastructure/UI only — no Yield/Rebalancing/Grid category logic, no /activity, no Agent Advantage, no new deps/env. Phase 7 and Phase 8 untouched.
+
+FILES
+  MOD  backend/services/agentExecutors.js   + cell(value,opts) helper (exported), cellSource for hasSimulated; hasSimulated now scans fields OR tables rows cells (string shorthand → chain). Tables/warnings are optional and backward-compatible (old executions have none). No executor emits simulated; hasSimulated extension is prophylactic.
+  MOD  backend/models/Execution.js          doc comment only: output now {headline,summary,fields[],tables?[],warnings?[],recommendation,hasSimulated,provenance,reads[]}; tables {title, columns:{key,label,note?}[], rows:Record<key,{value,source,tone?,note?}|string>[], note?, emptyNote?}[]; warnings string[].
+  MOD  frontend/src/components/execution/ExecutionResult.jsx  + overflow-x-auto ResultTable (title, column header badges, per-cell provenance Badge, tone Badge, note tooltip, break-all for long values, unavailable/simulated styling), empty-rows EmptyState (emptyNote), + warnings Info alerts. Fields <dl> and provenance/reads cards untouched. Both old and new formats render.
+  MOD  frontend/src/lib/execution.js        no change (SOURCE_META/TONE_VARIANTS reused).
+
+DESIGN: per-cell provenance (string→chain, object→explicit source) mirrors per-field tagging A1; table-level note / emptyNote covers caveats; warnings[] is flat string alerts (e.g. cap/dropped). hasSimulated includes tables prophylactically. Mixed schema means no migration — add-on is additive.
+
+VERIFICATION (manual, no backend tests — §6)
+- Frontend lint: exit 0.
+- Vite build: exit 0, 91→91 modules, ~857 kB / 232 kB gzip (table renderer ~3 kB delta, no new dep).
+- Backend syntax: node --check agentExecutors.js, Execution.js, executionRunner.js exit 0.
+- hasSimulated: fields-only false → false; table cell simulated true → true; string shorthand false; Phase 7 Venus 0x26e94... hasSimulated false PASS, 16 fields, no tables yet — old format still renders.
+- Mock tables: normal 3-row (chain/derived/unavailable mix, long 0x... address, 160-char note) renders without overflow at 390px/1052px; per-cell provenance badges visible; note tooltips; empty rows → emptyNote; warnings Info alerts.
+- Phase 7 health factor: still health factor 3.81, hasSimulated false, sources {chain,derived,input,unavailable}, reconciliation exact.
+- Phase 8: /find scoring, indexed/seeded distinction (11 indexed + 17 seeded), indexed hire 400 block untouched.
+
+DELIBERATELY LEFT OUT: Yield (ranked pools), Rebalancing (trade list), Grid (ladder), /activity, /dashboard, Agent Advantage, new 8004scan features, wallet/auth, payment/signing, mainnet. Those belong to T1.7-T1.9 and later.
 
 --------------------------------------------------------------------------------
 9. 8004SCAN STATUS
@@ -881,25 +907,23 @@ integration.
 --------------------------------------------------------------------------------
 15. WHAT SHOULD BE BUILT NEXT
 --------------------------------------------------------------------------------
-Phase 8 is shipped (8004scan ingestion + /find MVP, §8B). Phase 7’s T1.1-T1.5
-remain done:
+Phase 9 is shipped (T1.6 tables + renderer, §8C) — Phase 8 (§8B) and Phase 7’s T1.1-T1.5 remain done:
   T1.1  DONE  abi.js + blockchainService.ethCall()
   T1.2  DONE  venusAdapter.js
   T1.3  DONE  Health Factor -> real chain data; simulated path deleted
   T1.4  DONE  relabelled FOUR overpromising agents (the plan named three)
   T1.5  DONE  testnet-oracle-price caveat on every USD figure
+  T1.6  DONE  output.tables + table renderer in ExecutionResult.jsx (§8C)
 REMAINING from CATEGORY_IMPLEMENTATION_PLAN.txt Tier 1:
-  T1.6  output.tables + a table renderer in ExecutionResult.jsx — do this BEFORE
-        T1.7/T1.8/T1.9, because all three need to render a list
   T1.7  Grid Trading as a new plan-only category (all six wiring points, A3)
   T1.8  Yield -> real ranked markets from live Venus rates
   T1.9  Rebalancing -> real token-unit drift + a real trade list
 Plus spec placeholders still remaining:
   /activity (Tier 1 #12), /dashboard etc, and Agent Advantage (now Phase 11).
 
-Recommended order after Phase 8:
-  1. T1.6 tables — unblocks all three list renderings.
-  2. /activity (mandatory) OR T1.8 Yield (cheapest real yield after Health Factor).
+Recommended order after Phase 9:
+  1. T1.8 Yield (cheapest real yield after Health Factor, now unblocked by T1.6 tables).
+  2. /activity (mandatory) OR T1.7 Grid.
   3. Backend tests for venusAdapter reconciliation (§6 / B8).
 ARCHITECTURAL RULE REMAINS: shared primitives first, then thin agents.
 

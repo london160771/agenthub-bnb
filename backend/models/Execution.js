@@ -143,6 +143,8 @@ const ExecutionSchema = new Schema(
     // Task configuration supplied at hire time (protocol, target, threshold, ...).
     input: { type: Schema.Types.Mixed, default: {} },
     // Structured result produced by the agent (e.g. health factor report).
+    // Shape: { headline, summary, fields[], tables?[], warnings?[], recommendation, hasSimulated, provenance, reads[] }
+    // `tables` and `warnings` are optional (added in T1.6) and kept backward-compatible — old executions have none.
     output: { type: Schema.Types.Mixed, default: null },
     steps: { type: [StepSchema], default: [] },
 

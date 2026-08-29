@@ -65,6 +65,28 @@ export function ExecutionResult({ execution }) {
             ))}
           </dl>
 
+          {Array.isArray(output.tables) && output.tables.length > 0 && (
+            <div className="mt-4 space-y-4">
+              {output.tables.map((table, ti) => (
+                <ResultTable key={table.title || String(ti)} table={table} />
+              ))}
+            </div>
+          )}
+
+          {Array.isArray(output.warnings) && output.warnings.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {output.warnings.map((w, i) => (
+                <div
+                  key={String(i)}
+                  className="flex gap-2 rounded-lg border border-warn/25 bg-warn/5 p-3"
+                >
+                  <Info size={15} className="mt-0.5 shrink-0 text-warn" aria-hidden="true" />
+                  <p className="text-xs leading-relaxed text-muted">{w}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
           {output.recommendation && (
             <div className="mt-4 rounded-lg border border-line bg-panel-2 p-3.5">
               <p className="text-xs font-semibold uppercase tracking-wide text-faint">
@@ -190,6 +212,99 @@ function ProvRow({ label, children }) {
     <div className="flex items-baseline justify-between gap-3">
       <dt className="shrink-0 text-muted">{label}</dt>
       <dd className="min-w-0 text-right text-fg">{children}</dd>
+    </div>
+  );
+}
+
+function normalizeCell(cell) {
+  if (cell == null) return { value: '—', source: 'unavailable' };
+  if (typeof cell === 'string') return { value: cell, source: 'chain' };
+  return cell;
+}
+
+function ResultTable({ table }) {
+  const columns = Array.isArray(table.columns) ? table.columns : [];
+  const rows = Array.isArray(table.rows) ? table.rows : [];
+  const title = table.title || 'Table';
+
+  if (columns.length === 0) return null;
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-line">
+      <div className="border-b border-line bg-panel-2 px-3 py-2.5">
+        <h3 className="text-sm font-semibold text-fg">{title}</h3>
+        {table.note && <p className="mt-1 text-xs leading-relaxed text-faint">{table.note}</p>}
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="p-4 text-center text-sm text-muted">
+          {table.emptyNote || 'No rows to display.'}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-[520px] w-full text-sm">
+            <thead className="bg-panel-2">
+              <tr>
+                {columns.map((col) => (
+                  <th
+                    key={col.key}
+                    className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-faint"
+                    title={col.note || undefined}
+                  >
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {rows.map((row, ri) => (
+                <tr key={String(ri)} className="hover:bg-panel-2/50">
+                  {columns.map((col) => {
+                    const raw = row[col.key];
+                    const cell = normalizeCell(raw);
+                    const meta = sourceMeta(cell.source);
+                    const isUnavailable = cell.source === 'unavailable';
+                    const isSimulated = cell.source === 'simulated';
+                    return (
+                      <td
+                        key={col.key}
+                        className={cn(
+                          'px-3 py-2.5 align-top',
+                          isUnavailable ? 'text-faint' : 'text-fg',
+                          isSimulated && 'underline decoration-warn/50 decoration-dotted underline-offset-4',
+                        )}
+                        title={cell.note || undefined}
+                      >
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className={cn(
+                              'break-all text-sm',
+                              isUnavailable ? 'font-normal' : 'font-medium',
+                              cell.tone && TONE_VARIANTS[cell.tone] && 'inline-flex',
+                            )}
+                            title={typeof cell.value === 'string' ? cell.value : undefined}
+                          >
+                            {cell.tone && TONE_VARIANTS[cell.tone] ? (
+                              <Badge variant={TONE_VARIANTS[cell.tone]}>{cell.value}</Badge>
+                            ) : (
+                              cell.value
+                            )}
+                          </span>
+                          <span className="inline-flex">
+                            <Badge variant={meta.variant} title={meta.tooltip} className="text-[10px] leading-none">
+                              {meta.label}
+                            </Badge>
+                          </span>
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
