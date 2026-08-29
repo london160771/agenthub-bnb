@@ -30,6 +30,29 @@ function getProvider() {
   return typeof window !== 'undefined' && window.ethereum ? window.ethereum : null;
 }
 
+const DISCONNECTED_KEY = 'agenthub:wallet:disconnected';
+function isExplicitlyDisconnected() {
+  try {
+    return typeof window !== 'undefined' && window.localStorage?.getItem(DISCONNECTED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function setDisconnectedFlag() {
+  try {
+    window.localStorage?.setItem(DISCONNECTED_KEY, '1');
+  } catch {
+    // storage may be blocked (private mode) — in-memory disconnect still works
+  }
+}
+function clearDisconnectedFlag() {
+  try {
+    window.localStorage?.removeItem(DISCONNECTED_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export function WalletProvider({ children }) {
   // Read once at mount. A wallet installed *after* the page loaded won't be seen
   // until something probes again — `connect()` does, so the UI offers that rather
@@ -50,8 +73,12 @@ export function WalletProvider({ children }) {
    * Silent restore. `eth_accounts` returns an address only if the user already
    * authorised this site on a previous visit — it never opens a popup, so simply
    * loading a page can't nag. An empty array just means "not connected".
+   * If the user explicitly disconnected in this browser, skip restore until they
+   * explicitly connect again — otherwise Connect → Disconnect → Refresh would
+   * silently reconnect.
    */
   useEffect(() => {
+    if (isExplicitlyDisconnected()) return undefined;
     const provider = getProvider();
     if (!provider) return undefined;
 
@@ -132,6 +159,7 @@ export function WalletProvider({ children }) {
       }
       setAddress(next);
       setChainId(await readChain(provider));
+      clearDisconnectedFlag();
       return next;
     } catch (err) {
       setError(walletErrorMessage(err));
@@ -180,14 +208,17 @@ export function WalletProvider({ children }) {
   }, [readChain]);
 
   /**
-   * Clears our own session state. It does NOT revoke the site's authorisation —
-   * injected wallets have no standard method for that; the user does it from the
-   * wallet's connected-sites screen. The UI says so rather than implying more.
+   * Clears our own session state and remembers that the user explicitly wants to
+   * stay disconnected until they click Connect again. It does NOT revoke the
+   * site's authorisation — injected wallets have no standard method for that; the
+   * user does it from the wallet's connected-sites screen. The UI says so rather
+   * than implying more.
    */
   const disconnect = useCallback(() => {
     setAddress(null);
     setChainId(null);
     setError(null);
+    setDisconnectedFlag();
   }, []);
 
   const clearError = useCallback(() => setError(null), []);

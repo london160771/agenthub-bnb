@@ -507,6 +507,13 @@ KNOWN LIMITATIONS
 BUGFIX 2026-08-28 — FindPage seeded View/Hire (isolated, not arch):
   FindPage.jsx used `Button as={Link} to=` but Button.jsx does not support `as` (only Card.jsx does). Clicks were dead — no navigation, no backend call. Fixed to `ButtonLink to=` (only Finder page). Indexed Hire stays disabled/blocked (controller 400 + UI disabled). Lint/build still clean. Same seeded agent works via /discover (Card as={Link}) which was unaffected.
 
+BUGFIX 2026-08-28 — Wallet disconnect → refresh reconnect (WalletProvider.jsx):
+  Root cause: disconnect() cleared only React state (address/chainId) while eth_accounts silently restored the still-authorized MetaMask account on next mount. No intent persisted.
+  Fix: persistent localStorage flag agenthub:wallet:disconnected='1' set on disconnect(), checked before eth_accounts silent restore (skip if set), cleared on successful connect() (eth_requestAccounts). Try/catch for private-mode storage. accountsChanged/chainChanged and silent-restore logic otherwise untouched; no wallet_revokePermissions / wallet_disconnect.
+  Intended: Connect→refresh restores; Disconnect→immediate UI disconnected; Disconnect→refresh stays disconnected; explicit Connect clears flag and restores normal restore.
+  Limitation: does NOT revoke site authorization in MetaMask; revoke still via wallet Connected Sites. Expected EIP-1193 behavior.
+  Verification: lint exit 0, vite build 91 modules ~854 kB, storage simulation A-D pass (restore / stay disconnected / reconnect), wallet events preserved.
+
 --------------------------------------------------------------------------------
 9. 8004SCAN STATUS
 --------------------------------------------------------------------------------
