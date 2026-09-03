@@ -3,10 +3,23 @@ AGENTHUB — CATEGORY IMPLEMENTATION PLAN
 Four hackathon categories: Rebalancing · Grid Trading · Yield Optimisation ·
 Health Factor Monitoring
 ================================================================================
-Status: PLAN ONLY at 2026-08-26; T1.1-T1.5 shipped in Phase 7 (venusAdapter etc), T1.6 shipped in Phase 9 (output.tables + renderer, §8C), T1.7 Grid + T1.8 Yield + T1.9 Rebalancing shipped in Phase 10 (§8D) — real testnet tables, plan-only, no tx.
-Audit date: 2026-08-26 (T1.6 update 2026-08-28, T1.7-T1.9 update 2026-08-29 without rewriting the 2026-08-26 audit)
+Status: PLAN/HANDOFF at 2026-09-03; T1.1-T1.5 shipped in Phase 7, T1.6 shipped in Phase 9 (§8C), and T1.7-T1.9 shipped in committed Phase 10 (§8D, e157e15) — real testnet tables, plan-only, no tx. Phase 11 cleanup is in progress and uncommitted: external-agent catalog architecture retained, Brain AgentCard/A2A catalog verified, paid execution unverified, ERC-8183 runtime preparation removed.
+Audit date: 2026-08-26 (T1.6 update 2026-08-28, T1.7-T1.9 update 2026-08-29, Phase 11 note 2026-09-02 without rewriting the 2026-08-26 audit)
 Supersedes the pessimistic verdicts in CATEGORY_GAP_REPORT.md — see "WHAT
 CHANGED" below.
+
+CODEX TAKEOVER NOTE (2026-09-02):
+Phase 10 is COMPLETED (18 seeded, Yield/Grid/Rebalance tables, hasSimulated=false, Venus reconciliation intact).
+Phase 11 code is UNCOMMITTED working-tree diff — audit `git status` + `git diff` before trusting any Phase 11 comment.
+Seeded agents retained as development/fallback and must not be confused with real executable Mainnet agents (source='seeded' vs 'indexed').
+User-approved priority order now supersedes old §9 TIER 1 remaining:
+1. Turn indexed agents into executable agents / real marketplace
+2. Increase quality real BSC Mainnet agent inventory
+3. Finish UX: Settings, Activity, Dashboard, Saved, marketplace/mobile polish
+4. Complete REAL Agent Advantage documentation with 3 measured tasks and genuine trading/security evidence
+5. Full testing, deployment, demo video, final audit/submission
+Preserve Phase 7/10 functionality. Do not cross BSC Mainnet 56 transaction boundary without explicit user approval.
+The former placeholder/synthetic ERC-8183 work was removed during the Phase 11 cleanup. Do not add payment or execution behavior until the ERC-8183 lifecycle, quote, calldata, network, and returned task result are independently verified.
 
 --------------------------------------------------------------------------------
 0. WHAT CHANGED SINCE CATEGORY_GAP_REPORT.md
@@ -726,37 +739,40 @@ order submission; invented addresses; invented prices; invented benchmarks.
 --------------------------------------------------------------------------------
 10. REAL BSC AGENTS INVESTIGATION (repository evidence only — NOT implemented)
 --------------------------------------------------------------------------------
-WHICH AGENTS ARE SEEDED/MOCK — ALL 17.
+HISTORICAL BASELINE BEFORE PHASE 8 — WHICH AGENTS WERE SEEDED/MOCK — ALL 17.
   backend/data/seedAgents.js defines 17 agents across 6 categories
   (health-factor 2, monitoring 3, yield 3, trading 3, portfolio 3, research 3).
-  None sets `source:` explicitly, so all inherit the Agent schema default
-  'seeded'. AGENT_SOURCES = ['verified','indexed','seeded','demo'].
+None sets `source:` explicitly, so all inherited the Agent schema default
+'seeded' in that baseline. Phase 8 now also imports indexed records from
+8004scan, while preserving the seeded set. AGENT_SOURCES =
+['verified','indexed','seeded','demo'].
   Every one has erc8004Id: null, ownerAddress: '' and endpoint: ''.
   There is NO off-AgentHub agent in the system, and no code path that would
   execute one — agentExecutors.js dispatches on CATEGORY to six local functions.
 
 WHICH ARE INTENDED TO REPRESENT REAL BSC AGENTS.
-  None, currently and deliberately. seedAgents.js's own header states that
+  In the historical baseline, none. The current repository also contains
+  source='indexed' BSC Mainnet discovery records from Phase 8. seedAgents.js's own header states that
   erc8004Id/ownerAddress are left empty on purpose, and that `verified: true`
   means "AgentHub-reviewed listing" — a MARKETPLACE concept — not on-chain
   ERC-8004 verification. frontend/src/config.js SOURCE_LABELS renders
   'seeded' as "AgentHub demo data" (warn tone) and reserves "Verified on-chain"
   for 'verified'. So the honesty plumbing already exists and is correctly wired;
-  what is missing is real data to put through it.
+  Phase 8 now supplies indexed real-agent data; independent identity and task
+  execution verification remain future work.
 
-8004SCAN STATUS — HONEST ANSWER.
-  There is NO 8004scan integration in the repository: no client, no service, no
-  route, no env var, no registry address. A repo-wide grep for
-  8004/erc8004/registry matches 14 files, but they are UI copy, trust-score
-  weighting, the schema field, docs, and package-lock noise — not an integration.
-  I did NOT verify 8004scan externally. WebSearch is unavailable in this
-  environment (Section 1) and I did not fetch an 8004scan endpoint, so I can
-  state nothing about its API shape, availability, coverage of BNB testnet, or
-  whether it exposes the fields AgentHub's Agent schema expects. Anything more
-  specific would be invention. THIS MUST BE VERIFIED BEFORE ANY WORK IS SCHEDULED.
+8004SCAN STATUS — UPDATED AFTER PHASE 8.
+  `backend/services/scan8004Client.js` and `backend/scripts/ingest8004.js`
+  provide read-side indexed discovery for BSC Mainnet chain 56, with optional
+  `SCAN8004_API_KEY` support. Indexed records are discoverable/watch-only unless
+  a separate execution verification is recorded. AgentHub still has no owned
+  on-chain ERC-8004 identity verifier or registry-contract reader.
+  Earlier versions of this document described the pre-Phase-8 state; that
+  historical conclusion is superseded by the current client/importer above.
 
-WHAT WOULD NEED TO CHANGE FOR REAL 8004scan-BACKED DISCOVERY.
-  (Conditional on the verification above.)
+WHAT WOULD NEED TO CHANGE FOR INDEPENDENT ERC-8004 IDENTITY VERIFICATION.
+  (Discovery is already integrated; the following is the remaining verification
+  work, not a claim that 8004scan ingestion is absent.)
   1. A verified ERC-8004 registry address for the target network, plus its ABI
      and event names — none of which are on file, and none of which may be
      guessed (AGENTS.md).

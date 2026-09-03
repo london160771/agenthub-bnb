@@ -15,6 +15,7 @@ import { AgentStatus } from '../components/agents/AgentStatus.jsx';
 import { SOURCE_LABELS } from '../config.js';
 import { searchFinder } from '../services/finder.js';
 import { formatBnb } from '../lib/format.js';
+import { capabilityMetaFor, isLocallyExecutable } from '../lib/agentCapability.js';
 
 const EXAMPLES = [
   'I need an agent that monitors my Venus lending position and warns me before liquidation.',
@@ -31,8 +32,9 @@ function MatchBadge({ pct }) {
 function RecommendationCard({ item }) {
   const { agent, match } = item;
   const sourceMeta = SOURCE_LABELS[agent.source] || SOURCE_LABELS.seeded;
-  const isIndexed = agent.source === 'indexed';
-  const canHireLocal = !isIndexed; // indexed agents are discoverable only in MVP
+  const capabilityMeta = capabilityMetaFor(agent);
+  const canHire = isLocallyExecutable(agent);
+  const isCatalogVerified = agent.capability === 'indexed/catalog-verified';
 
   return (
     <Card className="flex flex-col p-4 sm:p-5">
@@ -46,6 +48,7 @@ function RecommendationCard({ item }) {
           <p className="truncate text-sm text-muted">{agent.tagline || agent.description?.slice(0, 120)}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <Badge variant={sourceMeta.variant} title={sourceMeta.label}>{sourceMeta.label}</Badge>
+            <Badge variant={capabilityMeta.variant}>{capabilityMeta.label}</Badge>
             <Badge variant="neutral">{agent.category}</Badge>
             <AgentStatus status={agent.status} />
             {agent.erc8004Id && <span className="font-mono text-xs text-faint">{agent.erc8004Id}</span>}
@@ -69,11 +72,19 @@ function RecommendationCard({ item }) {
         </div>
       </div>
 
-      {isIndexed && (
+      {!canHire && !isCatalogVerified && (
         <div className="mt-3 flex gap-2 rounded-lg border border-info/20 bg-info/5 p-2.5">
           <Info size={14} className="mt-0.5 shrink-0 text-info" />
           <p className="text-xs leading-relaxed text-muted">
-            Registry agent — discoverable via 8004scan on BSC (chain 56). Not executable through the local testnet executor in this MVP. View profile for registry details.
+            This indexed agent is discoverable via 8004scan but is watch-only in AgentHub. No task execution has been verified.
+          </p>
+        </div>
+      )}
+      {isCatalogVerified && (
+        <div className="mt-3 flex gap-2 rounded-lg border border-brand/20 bg-brand/5 p-2.5">
+          <Info size={14} className="mt-0.5 shrink-0 text-brand" />
+          <p className="text-xs leading-relaxed text-muted">
+            Mainnet agent · catalog verified. AgentCard and A2A service metadata are available; no paid skill execution has been verified.
           </p>
         </div>
       )}
@@ -82,13 +93,13 @@ function RecommendationCard({ item }) {
         <ButtonLink to={`/agents/${agent.agentId}`} variant="outline" size="sm" className="flex-1">
           View agent
         </ButtonLink>
-        {canHireLocal ? (
+        {canHire ? (
           <ButtonLink to={`/hire/${agent.agentId}`} size="sm" className="flex-1">
             Hire <ArrowRight size={14} />
           </ButtonLink>
         ) : (
-          <Button disabled size="sm" className="flex-1" title="Indexed agents are discoverable only — execution is local to seeded agents">
-            Hire — registry only
+          <Button disabled size="sm" className="flex-1" title="This agent has no verified AgentHub execution capability">
+            Hire unavailable
           </Button>
         )}
       </div>

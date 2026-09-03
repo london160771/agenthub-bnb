@@ -23,6 +23,12 @@ export function ExecutionResult({ execution }) {
 
   const { provenance = {}, fields = [], reads = [] } = output;
   const blockUrl = explorerBlockUrl(provenance.explorer, provenance.blockNumber);
+  const networkLabel = provenance.chainId === 97
+    ? 'BNB Smart Chain Testnet'
+    : provenance.chainId === 56
+      ? 'BNB Smart Chain Mainnet'
+      : `Chain ${provenance.chainId ?? 'unknown'}`;
+  const transportLabel = provenance.transport || (provenance.rpcHost ? 'RPC' : 'External transport');
 
   return (
     <div className="space-y-4">
@@ -105,11 +111,11 @@ export function ExecutionResult({ execution }) {
           <h3 className="text-sm font-semibold text-fg">Where this data came from</h3>
           <dl className="mt-3 space-y-2 text-sm">
             <ProvRow label="Network">
-              BNB Smart Chain Testnet{' '}
+              {networkLabel}{' '}
               <span className="text-faint">· chain {provenance.chainId}</span>
             </ProvRow>
-            <ProvRow label="RPC node">
-              <span className="break-all font-mono text-xs">{provenance.rpcHost}</span>
+            <ProvRow label={provenance.rpcHost ? 'RPC node' : 'Transport'}>
+              <span className="break-all font-mono text-xs">{provenance.rpcHost || transportLabel}</span>
             </ProvRow>
             <ProvRow label="Block">
               {blockUrl ? (
@@ -136,7 +142,7 @@ export function ExecutionResult({ execution }) {
           {reads.length > 0 && (
             <>
               <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-faint">
-                RPC calls made ({reads.length})
+                {transportLabel} reads made ({reads.length})
               </p>
               <ul className="mt-1.5 space-y-1">
                 {reads.map((read, i) => (
@@ -152,8 +158,7 @@ export function ExecutionResult({ execution }) {
                 ))}
               </ul>
               <p className="mt-2 text-xs leading-relaxed text-faint">
-                All read-only. Reading a blockchain costs nothing and needs no signature — no
-                transaction was created, signed or broadcast by this run.
+                All reads are read-only. No transaction was created, signed or broadcast by this run.
               </p>
             </>
           )}

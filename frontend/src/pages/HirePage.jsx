@@ -23,6 +23,7 @@ import {
   validateHireInput,
 } from '../lib/hire.js';
 import { useWallet } from '../context/walletContext.js';
+import { isLocallyExecutable } from '../lib/agentCapability.js';
 
 /**
  * HIRE (spec §39 phase 5): configure a task → review cost and network →
@@ -167,7 +168,7 @@ function HireFlow({ agentId }) {
 
   if (!agent) return null;
 
-  if (agent.source === 'indexed') {
+  if (!isLocallyExecutable(agent)) {
     return (
       <Container className="py-8 lg:py-12">
         {backLink}
@@ -175,8 +176,8 @@ function HireFlow({ agentId }) {
           <HireSummary agent={agent} />
           <EmptyState
             icon={SearchX}
-            title="Registry agent — not locally executable"
-            description={`${agent.name} was discovered via 8004scan on BSC (chain 56, ${agent.erc8004Id}). It is discoverable in AgentHub but execution in this MVP runs only the local seeded demo agents against BNB testnet (chain 97). Browse seeded agents to run a real on-chain read.`}
+            title="Agent execution is not verified"
+            description={`${agent.name} is discoverable in AgentHub, but its current capability is ${agent.capability || 'indexed/watch-only'}. AgentCard or catalog metadata does not prove that a requested task can execute and return a result. Browse seeded agents to run a read-only BNB Smart Chain Testnet task.`}
             action={
               <div className="flex flex-wrap justify-center gap-2">
                 <ButtonLink to={`/agents/${agent.agentId}`} variant="outline">

@@ -28,6 +28,7 @@ import { useApi } from '../hooks/useApi.js';
 import { getAgent, listAgents } from '../services/agents.js';
 import { SOURCE_LABELS, CATEGORIES } from '../config.js';
 import { cn } from '../lib/cn.js';
+import { AGENT_CAPABILITIES, capabilityMetaFor, isLocallyExecutable } from '../lib/agentCapability.js';
 import {
   formatBnb,
   formatCompactNumber,
@@ -213,11 +214,14 @@ export default function AgentProfilePage() {
     ownerAddress,
     endpoint,
     lastActiveAt,
+    capability,
   } = agent;
 
   const provenance = SOURCE_LABELS[source];
   const demo = isDemoSource(source);
-  const indexed = source === 'indexed';
+  const isLocalExecutable = isLocallyExecutable(agent);
+  const isCatalogVerified = capability === AGENT_CAPABILITIES.INDEXED_CATALOG_VERIFIED;
+  const capabilityMeta = capabilityMetaFor(agent);
 
   return (
     <Container className="py-8 lg:py-12">
@@ -257,9 +261,9 @@ export default function AgentProfilePage() {
         </div>
 
         <div className="flex w-full shrink-0 gap-2 sm:w-auto sm:flex-col lg:flex-row">
-          {indexed ? (
+          {!isLocalExecutable ? (
             <span className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-info/30 bg-info/10 px-4 py-2.5 text-sm font-medium text-info sm:flex-none">
-              Registry — not locally executable
+              {capabilityMeta.label}
             </span>
           ) : (
             <ButtonLink to={`/hire/${agentId}`} variant="primary" className="flex-1 sm:flex-none">
@@ -362,16 +366,19 @@ export default function AgentProfilePage() {
                   value={metrics.avgCost != null ? formatBnb(metrics.avgCost) : '—'}
                 />
               </div>
-              {indexed ? (
+              {!isLocalExecutable ? (
                 <div className="mt-4 rounded-lg border border-info/20 bg-info/5 p-3 text-xs leading-relaxed text-muted">
-                  Registry agent from 8004scan (BSC chain 56). Discoverable here, but execution in this MVP is local to seeded demo agents on BNB testnet.
+                  {isCatalogVerified
+                    ? 'Mainnet agent · catalog verified. AgentCard and A2A service metadata are available; no paid skill execution has been verified.'
+                    : 'Indexed agent from 8004scan. Discoverable here, but watch-only because AgentHub has not verified task execution.'}
                 </div>
-              ) : (
+              ) : null}
+              {isLocalExecutable ? (
                 <ButtonLink to={`/hire/${agentId}`} variant="primary" className="mt-4 w-full">
                   <Zap size={16} aria-hidden="true" />
                   Hire this agent
                 </ButtonLink>
-              )}
+              ) : null}
             </CardBody>
           </Card>
 

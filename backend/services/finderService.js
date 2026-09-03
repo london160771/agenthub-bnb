@@ -14,6 +14,7 @@
 import { classifyAgent, intentFromQuery } from './agentClassifier.js';
 import { hasAiKey, env } from '../config/env.js';
 import { Agent } from '../models/Agent.js';
+import { decorateAgent } from './agentCapabilities.js';
 
 const STOP_WORDS = new Set(['the', 'and', 'for', 'with', 'from', 'that', 'this', 'need', 'want', 'find', 'agent', 'help', 'please', 'an', 'a', 'to', 'of', 'in', 'on', 'is', 'it', 'my', 'me', 'i', 'you']);
 
@@ -168,7 +169,8 @@ export async function findAgents(query, { limit = 12 } = {}) {
 
   const maxPrice = Math.max(...candidates.map((a) => a.pricing?.amount ?? 0), 0.01);
 
-  const scored = candidates.map((a) => {
+  const scored = candidates.map((rawAgent) => {
+    const a = decorateAgent(rawAgent);
     const s = scoreAgent(a, { intentCategory, queryTokens, maxPrice });
     return { agent: a, ...s };
   });

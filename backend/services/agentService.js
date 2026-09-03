@@ -5,6 +5,7 @@
  * module receives already-coerced values and builds the Mongoose query.
  */
 import { Agent, AGENT_CATEGORIES } from '../models/Agent.js';
+import { decorateAgent } from './agentCapabilities.js';
 
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 24;
@@ -85,7 +86,7 @@ export async function listAgents(opts = {}) {
   ]);
 
   return {
-    items,
+    items: items.map(decorateAgent),
     total,
     page,
     limit,
@@ -94,7 +95,8 @@ export async function listAgents(opts = {}) {
 }
 
 export async function getAgentById(agentId) {
-  return Agent.findOne({ agentId }).select(PROJECTION).lean();
+  const agent = await Agent.findOne({ agentId }).select(PROJECTION).lean();
+  return decorateAgent(agent);
 }
 
 /**

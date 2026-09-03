@@ -19,13 +19,15 @@
 import { assertRunnableInput, executeForAgent, TaskInputError } from './agentExecutors.js';
 import { ChainReadError, readChainState, withRpcLog } from './blockchainService.js';
 import { claimForRun, getHireableAgent } from './executionService.js';
+import { AGENT_CAPABILITIES, getAgentCapability } from './agentCapabilities.js';
 
 /**
  * Errors whose message was written to be read by a user. Anything else gets a
  * generic message, because an unexpected error's text can carry internals.
  */
 function isUserSafe(err) {
-  return err instanceof ChainReadError || err instanceof TaskInputError;
+  if (err instanceof ChainReadError || err instanceof TaskInputError) return true;
+  return false;
 }
 
 /**
@@ -82,12 +84,19 @@ export async function runExecution(executionId) {
         throw new Error(`Agent "${doc.agentId}" no longer exists, so this task cannot be run.`);
       }
 
+      const capability = getAgentCapability(agent);
+      if (capability !== AGENT_CAPABILITIES.LOCAL_EXECUTABLE) {
+        throw new TaskInputError(
+          `"${agent.name}" is catalog/watch-only. AgentHub has not verified task execution for this indexed agent, so no local or Mainnet execution was attempted.`,
+        );
+      }
+
       // Check the configuration before spending a round trip on it. A malformed
       // address should fail in milliseconds with a readable message, not after the
       // node has rejected it.
       assertRunnableInput(agent, doc.input || {});
 
-      // --- Querying on-chain data (already marked active by the claim) -------
+      // --- Local testnet executor (existing path) --------------------------
       const chain = await readChainState();
       await markStep(doc, 'query', 'done');
 

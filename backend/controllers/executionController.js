@@ -16,6 +16,7 @@ import {
   HIRE_CHAIN_ID,
 } from '../services/executionService.js';
 import { ApiError, sendSuccess, asyncHandler } from '../utils/apiResponse.js';
+import { getAgentCapability, AGENT_CAPABILITIES } from '../services/agentCapabilities.js';
 
 /** Shape check only — this is not an EIP-55 checksum validation. */
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -124,9 +125,10 @@ export const postExecution = asyncHandler(async (req, res) => {
   if (agent.status === 'paused') {
     throw ApiError.conflict(`"${agent.name}" is paused and is not accepting new work right now.`);
   }
-  if (agent.source === 'indexed') {
+  if (getAgentCapability(agent) !== AGENT_CAPABILITIES.LOCAL_EXECUTABLE) {
     throw ApiError.badRequest(
-      `"${agent.name}" is a registry agent discovered via 8004scan on BSC — it is discoverable but not executable through AgentHub's local testnet executor in this MVP. Use a seeded demo agent to run a real on-chain read.`,
+      `"${agent.name}" is discoverable in AgentHub but is not executable here. ` +
+        'Only seeded/local-executable agents can run the read-only BNB Smart Chain Testnet executor in this build.',
     );
   }
 

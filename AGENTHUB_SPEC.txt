@@ -1453,7 +1453,33 @@ PHASE 8 — APPROVED 2026-08-28 — Real Agent Discovery (SUPERSEDES stale order
 → Lean /find Agent Finder MVP (deterministic 40/20/15/10/10/5 scoring, AI assist when AI_API_KEY present else keyword fallback, indexed vs seeded provenance)
 [Previous Phase 8 = Agent Advantage / 3 real tasks is DEFERRED — see PROJECT_HANDOFF §9A and §15. BNB Smart Money Era eligibility gate "Agents must be live on BSC" is the source of truth: https://www.bnbchain.org/en/hackathons/smart-money-era]
 
-PHASE 9
+PHASE 9 — COMPLETED 2026-08-28 — Structured Outputs + Table Renderer (T1.6)
+→ output.tables / warnings, per-cell provenance, overflow-x-auto ResultTable, hasSimulated includes tables
+[See PROJECT_HANDOFF §8C]
+
+PHASE 10 — COMPLETED 2026-08-29 — Yield / Grid / Rebalancing (T1.7-T1.9)
+→ Yield: Venus Core Pool ranking via supplyRatePerBlock 12-cap → top 8, derived APY @10,512,000 blocks
+→ Grid: plan-only ladder under trading (lower/upper/levels/capital/refPrice, Venus oracle fallback)
+→ Rebalancing: read-only drift via targetAllocation text "0xA:60,0xB:40" → holdings + BUY/SELL plan
+[See PROJECT_HANDOFF §8D]
+
+PHASE 11 — IN PROGRESS / UNCOMMITTED CLEANUP (2026-09-03) — Indexed-agent capabilities
+→ Backend-authoritative capability states distinguish seeded/local-executable, indexed/catalog-verified, indexed/executable (reserved), and indexed/watch-only
+→ Brain's public AgentCard GET and external HTTP/A2A catalog retrieval are retained; this is discovery/catalog evidence only, not paid skill execution
+→ Brain indexed identities are BSC Mainnet records (chain 56) and remain catalog-verified/watch-only until a requested skill returns a genuine task result
+→ ERC-8183 quote/calldata/preparation runtime was removed; no payment route, signer, private key, or Mainnet transaction path exists
+→ Seeded agents remain development/fallback and use the existing BNB Smart Chain Testnet executor (chain 97)
+[See PROJECT_HANDOFF §8E and the Codex cleanup handoff]
+
+SUPERSEDED REMAINING ROADMAP (2026-09-02 — user-approved priority order, replaces old §§39 Phase 9-11):
+1. Turn indexed agents into executable agents / real marketplace (Phase 11)
+2. Increase quality real BSC Mainnet agent inventory
+3. Finish UX: Settings, Activity, Dashboard, Saved, marketplace/mobile polish
+4. Complete REAL Agent Advantage documentation with 3 measured tasks and genuine trading/security evidence
+5. Full testing, deployment, demo video, final audit/submission
+[Older roadmap below is SUPERSEDED, not deleted — see above for current priorities]
+
+PHASE 9 (old)
 Polish
 → responsive
 → errors
@@ -1462,7 +1488,7 @@ Polish
 → accessibility
 → visual polish
 
-PHASE 10
+PHASE 10 (old)
 Deployment
 → frontend
 → backend
@@ -1471,7 +1497,7 @@ Deployment
 → README
 → demo
 
-PHASE 11 (deferred)
+PHASE 11 (deferred, old)
 Hackathon differentiation — Agent Advantage
 → 3 real tasks
 → measured evidence

@@ -2,9 +2,17 @@
 AGENTHUB — PROJECT HANDOFF
 For transferring this project to another Claude account, Codex, or any other AI.
 ================================================================================
-Written: 2026-08-26  ·  Last updated: 2026-08-29, after Phase 10 (Yield/Grid/Rebalancing) — see §8D
+Written: 2026-08-26  ·  Last updated: 2026-09-03, after Phase 11 cleanup — see §8D/§8E
 Repo: C:\Users\uk\OneDrive\Desktop\agenthub-bnb
 Remote: https://github.com/london160771/agenthub-bnb.git  (branch: main)
+
+CODEX TAKEOVER — READ THIS FIRST (2026-09-02):
+This handoff was written for Muse (Anthropic) and is now being handed to Codex (OpenAI).
+Phase 11 cleanup is an UNCOMMITTED working-tree diff — audit `git status` + `git diff` before trusting any Phase 11 comment.
+Muse's incomplete ERC-8183 preparation was removed. Brain catalog evidence is retained, but paid skill execution remains unverified.
+Preserve Phase 7 (Venus reconciliation, hasSimulated=false) and Phase 10 (Yield/Grid/Rebalance tables) functionality.
+Do NOT cross the BSC Mainnet 56 transaction boundary (eth_sendTransaction / approve / fund) without explicit user approval.
+Seeded agents are retained as development/fallback and must not be confused with real executable Mainnet agents.
 
 *** READ AGENTS.md IN FULL BEFORE WRITING ANY CODE. ***
 It is the binding working contract for this project, not a style guide. It
@@ -55,8 +63,9 @@ keccak256, so contract function selectors CANNOT be computed at runtime — see 
 --------------------------------------------------------------------------------
 3. COMPLETED PHASES
 --------------------------------------------------------------------------------
-Phases 1-10 are implemented; Phases 1-9 committed & pushed at 3f5ee47. Phase 10 verified not yet committed (see §8D).
+Phases 1-10 are COMPLETED and Phase 11 is IN PROGRESS (uncommitted working tree, see §8E). Phases 1-9 committed & pushed at 3f5ee47; Phase 10 committed at e157e15.
 
+  e157e15  Phase 10 — Yield/Grid/Rebalancing real testnet tables (see §8D)
   3f5ee47  Phase 9 — structured execution tables + renderer (T1.6, see §8C)
   034f367  fix: wallet disconnect intent persisted
   a1c695d  fix: FindPage ButtonLink
@@ -76,8 +85,14 @@ Phases 1-10 are implemented; Phases 1-9 committed & pushed at 3f5ee47. Phase 10 
 --------------------------------------------------------------------------------
 4. CURRENT PHASE / STATUS
 --------------------------------------------------------------------------------
+PHASE 11 (Indexed-agent capability cleanup) is IN PROGRESS / UNCOMMITTED WORKING TREE.
+Details in §8E. The retained Brain integration verifies a public AgentCard and
+external HTTP/A2A catalog response for BSC Mainnet identities (chain 56). It does
+not verify paid skill execution. ERC-8183 runtime preparation, quotes and calldata
+were removed; no Mainnet transaction, signing or private key exists in the repo.
+
 PHASE 10 (Yield/Grid/Rebalancing — real testnet tables) is
-COMPLETE, VERIFIED (not yet committed/pushed). Details in §8D. Phases 7-9 guarantees untouched.
+COMPLETE, VERIFIED, COMMITTED at e157e15. Details in §8D. Phases 7-9 guarantees untouched.
 
 PHASE 9 (T1.6 structured outputs + table renderer) is
 COMPLETE, VERIFIED, COMMITTED at 3f5ee47. Details in §8C.
@@ -90,13 +105,13 @@ PUSHED. Details in §8A.
 
 Phase 6.5 was committed as 09bfd48.
 
-WHAT PHASE 7 DELIBERATELY DID NOT DO — now ALL FOUR CATEGORIES ARE FUNCTIONAL (see §8A-§8D, §11, §15):
+WHAT PHASE 7 DELIBERATELY DID NOT DO — now ALL FOUR CATEGORIES ARE FUNCTIONAL (see §8A-§8D and the superseded historical §11):
   - Yield now returns ranked Venus Core Pool markets by derived supply APY (12 cap → top 8, warnings for dropped, chain rates + derived APY).
   - Rebalancing now returns token-unit drift + BUY/SELL plan via targetAllocation text field (read-only, no swaps).
   - Grid Trading now exists as plan-only grid-strategy-planner under trading (ladder table, no DEX, no order execution).
   - Table renderer SHIPPED at §8C and used by all three.
 
->>> NEXT AI: read AGENTS.md, then see §8D and §15 for Phase 10 completion.
+>>> NEXT AI (Codex): read AGENTS.md, then see §8E (Phase 11 cleanup) and §15 (current approved priorities). Brain is catalog-verified/watch-only until a real task result is verified.
     Never use `git add -A` — explicit paths only. After an approved commit, also
     `git push origin main`. Commit messages end with:
       Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
@@ -125,7 +140,7 @@ Real, verified end to end:
   Venus $3.53", 17 RPC calls. Four honest non-answers also verified: no position,
   unsupported protocol, unpriced market, non-zero Comptroller error code. See §8A.
 - Lint clean; vite build succeeds (Phase 7: 1875 modules, ~382 kB JS; Phase 8: 91 modules, ~854 kB JS / 231 kB gzip; Phase 9/10: 91 modules ~858 kB / 232 kB gzip — no new deps).
-- Phase 8: /find Finder MVP live at /find (deterministic 40/20/15/10/10/5 scoring, AI assist when key present else keyword fallback, match % + why + source badge + trust/cost), 8004scan ingestion for BSC chain 56 as source='indexed' (see §8B/§9A), indexed registry agents discoverable but not locally executable (hire blocked honest).
+- Phase 8: /find Finder MVP live at /find (deterministic 40/20/15/10/10/5 scoring, AI assist when key present else keyword fallback, match % + why + source badge + trust/cost), 8004scan ingestion for BSC chain 56 as source='indexed' (see §8B/§9A), indexed registry agents discoverable but not locally executable (hire blocked honestly). The backend also exposes an authoritative capability state.
 - Phase 9: output.tables/warnings + ResultTable renderer + per-cell provenance (see §8C).
 - Phase 10: Yield ranked Venus markets (chain rates, derived APY), Grid plan-only ladder, Rebalancing token-unit drift/BUY-SELL (all tables, warnings, hasSimulated=false).
 
@@ -145,7 +160,7 @@ Real routes: / · /discover · /agents/:agentId · /find · /compare · /hire/:a
 /execution/:executionId  (/find was placeholder, now shipped at Phase 8)
 
 Also incomplete:
-- ERC-8004 integration — SPEC TIER 1 (MANDATORY) — has no real data (§10).
+- ERC-8004/8004scan: indexed discovery is integrated in Phase 8 (§8B/§9A). Independent on-chain identity verification remains incomplete; do not label indexed records "Verified on-chain".
 - Of the four hackathon categories, ALL FOUR ARE NOW FUNCTIONAL (§8A-§8D): Yield ranked testnet APYs, Rebalancing token-unit drift/plan, Grid ladder, Health Factor reconciled.
 - No Agent Advantage measurement has been taken (§12) — intentionally deferred to Phase 11.
 - BEP-20 token positions: native-only report remains when targetAllocation blank; when supplied, BEP-20 balances are read via eth_call balanceOf (verified) — USD secondary still unavailable/caveated where no oracle price.
@@ -524,9 +539,9 @@ BUGFIX 2026-08-28 — Wallet disconnect → refresh reconnect (WalletProvider.js
   Verification: lint exit 0, vite build 91 modules ~854 kB, storage simulation A-D pass (restore / stay disconnected / reconnect), wallet events preserved.
 
 --------------------------------------------------------------------------------
-8C. PHASE 9 — STRUCTURED OUTPUTS + TABLE RENDERER (T1.6) (SHIPPED 2026-08-28, not yet pushed)
+8C. PHASE 9 — STRUCTURED OUTPUTS + TABLE RENDERER (T1.6) (SHIPPED 2026-08-28, committed at 3f5ee47)
 --------------------------------------------------------------------------------
-STATUS: shipped, verified, not yet committed/pushed. Infrastructure/UI only — no Yield/Rebalancing/Grid category logic, no /activity, no Agent Advantage, no new deps/env. Phase 7 and Phase 8 untouched.
+STATUS: shipped, verified, committed at 3f5ee47. Infrastructure/UI only — no Yield/Rebalancing/Grid category logic, no /activity, no Agent Advantage, no new deps/env. Phase 7 and Phase 8 untouched.
 
 FILES
   MOD  backend/services/agentExecutors.js   + cell(value,opts) helper (exported), cellSource for hasSimulated; hasSimulated now scans fields OR tables rows cells (string shorthand → chain). Tables/warnings are optional and backward-compatible (old executions have none). No executor emits simulated; hasSimulated extension is prophylactic.
@@ -548,9 +563,9 @@ VERIFICATION (manual, no backend tests — §6)
 DELIBERATELY LEFT OUT: Yield (ranked pools), Rebalancing (trade list), Grid (ladder), /activity, /dashboard, Agent Advantage, new 8004scan features, wallet/auth, payment/signing, mainnet. Those belong to T1.7-T1.9 and later.
 
 --------------------------------------------------------------------------------
-8D. PHASE 10 — YIELD / GRID / REBALANCING (SHIPPED 2026-08-29, not yet pushed)
+8D. PHASE 10 — YIELD / GRID / REBALANCING (SHIPPED 2026-08-29, committed at e157e15)
 --------------------------------------------------------------------------------
-STATUS: shipped, verified, not yet committed/pushed. Lean, hackathon-focused; all three categories now produce real testnet-backed tables via Phase 9 infrastructure. No deposits/swaps/tx/signing, no mainnet, no invented prices/addresses, hasSimulated=false, no new deps/env.
+STATUS: shipped, verified, committed at e157e15. Lean, hackathon-focused; all three categories now produce real testnet-backed tables via Phase 9 infrastructure. No deposits/swaps/tx/signing, no mainnet, no invented prices/addresses, hasSimulated=false, no new deps/env.
 
 FILES
   MOD  backend/services/abi.js              + supplyRatePerBlock 0xae9d70b0, borrowRatePerBlock 0xf8f9da28, totalSupply 0x18160ddd (all verified 2026-08-26 differentiated non-zero; evidence in SELECTORS comments)
@@ -578,17 +593,65 @@ VERIFICATION (manual, no backend tests — §6)
 DELIBERATELY LEFT OUT: multi-pool Venus, farm MasterChef, DEX getReserves, repeatable allocation field type (a), /activity/dashboard, Agent Advantage measurements, mainnet/tx/signing.
 
 --------------------------------------------------------------------------------
+8E. PHASE 11 — CAPABILITY / BRAIN CATALOG CLEANUP (2026-09-03)
+--------------------------------------------------------------------------------
+STATUS: cleanup in progress in the working tree; NOT committed or pushed. No
+Mainnet transaction was sent, signed or broadcast. No private key is stored.
+
+WHAT IS RETAINED
+  - A backend external-agent adapter registry with separate catalog and
+    execution-adapter boundaries.
+  - A backend-authoritative `capability` field on agent list, detail and Finder
+    responses. Current states are `seeded/local-executable`,
+    `indexed/catalog-verified`, `indexed/executable` (reserved for future
+    evidence), and `indexed/watch-only`.
+  - 8004scan-indexed BSC Mainnet records remain discovery records, not local
+    testnet executors.
+  - Brain's public AgentCard and A2A catalog retrieval remain available as
+    read-only external HTTP/A2A adapter functions.
+
+BRAIN — VERIFIED SCOPE ONLY
+  The public AgentCard GET and A2A `message/send` catalog response were verified
+  against `https://agent.brainonbnb.com`. The AgentCard identifies ERC-8004
+  registrations on BSC Mainnet (chain 56), and the catalog advertises services
+  and a payment workflow. The response did NOT contain a completed requested
+  skill result. Brain is therefore `indexed/catalog-verified` and watch-only in
+  AgentHub. It is not "Verified executable Mainnet" and has no Hire/Execute
+  action. HTTP/A2A is external transport, not a BSC RPC read.
+
+ERC-8183 CLEANUP
+  The unverified quote generator, hardcoded payment values, fallback values,
+  placeholder calldata, incomplete create/register/fund flow, preparation route,
+  and unused frontend payment client were removed. `@bnbagent/sdk` and `viem`
+  were removed because no retained runtime code needs them. There is no runtime
+  quote, calldata, signer, approval, fund, or broadcast path.
+
+NETWORK GUARANTEE
+  Seeded/local-executable agents continue to use the Phase 7/10 BNB Smart Chain
+  Testnet executor (chain 97). Indexed records carry BSC Mainnet provenance
+  (chain 56) only as identity/catalog metadata; they cannot enter the local
+  executor and no execution record may claim Mainnet task execution.
+
+NEXT APPROVED PRIORITY
+  Verify a real Brain skill invocation and returned task result before assigning
+  `indexed/executable` or adding a hire path. Then improve real BSC Mainnet
+  inventory, finish UX, complete measured Agent Advantage evidence, and run the
+  final testing/deployment/demo audit.
+
+--------------------------------------------------------------------------------
 9. 8004SCAN STATUS
 --------------------------------------------------------------------------------
-NOT INTEGRATED. The API itself has since been VERIFIED — see §9A. Be careful
-here, because it is easy to overstate: verified means we proved what the API
-returns, NOT that anything was built.
+INTEGRATED FOR INDEXED DISCOVERY. The API and ingestion path are present in
+`scan8004Client.js` and the Phase 8 importer. This means records were surfaced
+from 8004scan, not independently verified on-chain by AgentHub.
 
 Repository facts:
-- There is NO 8004scan client, service, route, env var, or registry address.
-- A repo-wide grep for 8004/erc8004/registry matches 14 files, but they are UI
-  copy, trust-score weighting, the Agent schema field, docs, and package-lock
-  noise — NOT an integration.
+- `scan8004Client.js`, `ingest8004.js`, `SCAN8004_API_KEY` support and indexed
+  Agent documents exist. There is still no AgentHub-owned on-chain ERC-8004
+  identity verifier or registry contract reader.
+- A repo-wide grep for 8004/erc8004/registry also finds the Phase 8 client and
+  importer; those provide indexed discovery, not an AgentHub-owned identity
+  verifier.
 - Agent.js has `erc8004Id: { type: String, default: null }`. All 17 seeded agents
   have erc8004Id null, ownerAddress '' and endpoint ''.
 - AGENT_SOURCES = ['verified','indexed','seeded','demo']. All 17 seeded agents
@@ -597,24 +660,25 @@ Repository facts:
   means "AgentHub-reviewed listing" — a MARKETPLACE concept — NOT on-chain
   ERC-8004 verification. config.js SOURCE_LABELS renders 'seeded' as
   "AgentHub demo data" (warn tone) and reserves "Verified on-chain" for
-  'verified'. The honesty plumbing is correct; only real data is missing.
+  'verified'. The honesty plumbing is correct; indexed real-agent data is now
+  present, but independent identity and task-execution verification remain open.
 
-SUPERSEDED by §9A: the API shape, availability and BSC coverage HAVE now been
-verified empirically. What is still unverified is whether any real agent's fields
-map cleanly onto our Agent schema at ingestion time.
+The API shape, availability and BSC coverage HAVE now been
+verified empirically. The importer maps the usable fields into source='indexed'
+records. What remains unverified is on-chain identity ownership by AgentHub and
+task execution by any indexed agent.
 
-Architectural note: the schema supports external agents, but
-agentExecutors.executeForAgent dispatches on CATEGORY to a LOCAL function and
-throws on an unknown category. Executing a real external agent would require a
-new execution-strategy branch (local executor vs remote `endpoint`). The field
-exists; the code path does not.
+Architectural note: the schema supports external agents. The retained adapter
+registry separates read-only catalog adapters from future execution adapters;
+the local executor still dispatches only seeded/local-executable agents.
 
 --------------------------------------------------------------------------------
-9A. 8004SCAN API VERIFICATION (COMPLETE — INTEGRATION NOT BUILT)
+9A. 8004SCAN API VERIFICATION (COMPLETE — DISCOVERY INTEGRATION SHIPPED IN PHASE 8)
 --------------------------------------------------------------------------------
-STATUS: verification COMPLETE. Integration NOT BUILT. No client, service, route,
-env var or ingestion code exists. Nothing below is wired into the application.
-Verified 2026-08-26 with ~40 live read-only requests. No application code changed.
+STATUS: verification COMPLETE. Read-side client and ingestion are shipped in
+Phase 8; AgentHub-owned on-chain identity verification is not. The API facts
+below were verified with live read-only requests, and the importer now uses the
+documented working parameters.
 
 ENDPOINT
   Base URL   https://api.8004scan.io/api/v1
@@ -769,9 +833,11 @@ placeholders and a "Not yet measured" badge. DO NOT REINTRODUCE ILLUSTRATIVE
 NUMBERS ANYWHERE.
 
 --------------------------------------------------------------------------------
-11. THE FOUR HACKATHON CATEGORIES AND THEIR CURRENT GAPS
+11. THE FOUR HACKATHON CATEGORIES AND THEIR CURRENT GAPS (HISTORICAL NOTE)
 --------------------------------------------------------------------------------
-ONE OF THE FOUR IS NOW FUNCTIONAL: Health Factor (§8A). The other three are not.
+SUPERSEDED SUMMARY FROM BEFORE PHASE 10. All four Smart Money categories are
+now functional as read-only BNB testnet flows; retain the detailed historical
+analysis below for context, but do not use its old capability-gap conclusions.
 Full 11-section analysis per category, shared infrastructure design, and a
 Tier 1/2/3 ranking are in CATEGORY_IMPLEMENTATION_PLAN.txt. Summary:
 
@@ -956,14 +1022,13 @@ Phases 7-10 are shipped — T1.1-T1.9 DONE (§8A-§8D):
   T1.9  DONE  Rebalancing token-unit drift + trade plan (§8D)
 All four Smart Money categories are now functional (Health Factor, Yield, Grid, Rebalancing).
 
-REMAINING (Phases 11-12):
-  - Phase 11: Agent Advantage — 3 measured real tasks (health-factor + yield now eligible, need manual runs per AGENT_ADVANTAGE.md)
-  - Phase 12: /activity (Tier 1 #12), /dashboard, /saved, /settings, final polish
-
-Recommended next:
-  1. Phase 11 Agent Advantage measurements (yield now eligible, health-factor already eligible).
-  2. /activity (mandatory spec placeholder).
-  3. Backend tests for venusAdapter reconciliation (§6 / B8).
+CURRENT APPROVED PRIORITIES (supersedes the older Phase 11-12 ordering):
+  1. Turn real indexed agents into executable agents / real marketplace.
+  2. Increase quality real BSC Mainnet agent inventory.
+  3. Finish UX: Settings, Activity, Dashboard, Saved, marketplace/mobile polish.
+  4. Complete REAL Agent Advantage documentation with 3 measured tasks and
+     genuine trading/security evidence.
+  5. Full testing, deployment, demo video, final audit/submission.
 ARCHITECTURAL RULE REMAINS: shared primitives first, then thin agents.
 
 --------------------------------------------------------------------------------
@@ -976,8 +1041,9 @@ B2. STILL TRUE AND STILL BINDING. No keccak256 in the repo, so selectors must be
     evidence per selector; match that standard or do not add the selector.
 B3. hire.js has no repeatable/list field type AND parseInput rejects arrays (A8).
     Blocks a proper Rebalancing allocation input.
-B4. ExecutionResult.jsx has no table renderer. Blocks trade lists, grid ladders
-    and ranked pool lists. Now the top remaining Tier-1 item (§15).
+B4. RESOLVED by Phase 9/10. ExecutionResult.jsx renders structured tables,
+    including trade lists, grid ladders and ranked pool lists with per-cell
+    provenance.
 B5. RESOLVED for /find — Finder MVP ships with deterministic fallback; AI_API_KEY/AI_MODEL/AI_API_BASE only enhance intent. Anonymous works.
 B6. No verified DEX address. getReserves() untested. Do not invent one.
 B7. RESOLVED — 8004scan ingestion shipped in Phase 8 (§8B). Anonymous 30/min verified; key raises to 600/min. WebFetch works.
@@ -1006,7 +1072,9 @@ R5. HANDLED for prices: getUnderlyingPrice fails for vMATIC and vWBETH (47 of 49
     reads as a whole-position figure (§8A).
 R6. `verified: true` on seeded agents means "AgentHub-reviewed listing", not
     on-chain verification. Keep the UI from implying otherwise.
-R7. RESOLVED for /find + 8004scan in Phase 8. Remaining Tier-1: T1.6-T1.9 tables/Yield/Grid/Rebalancing plus /activity and Agent Advantage (Phase 11). Pick T1.6 next — it unblocks three lists.
+R7. RESOLVED for /find + 8004scan in Phase 8 and tables/Yield/Grid/Rebalancing
+    in Phases 9-10. The current priority is indexed-agent execution verification
+    followed by inventory, UX, measured Agent Advantage evidence and final audit.
 R8. Adding a category means SIX edits (A3), and CATEGORY_ICONS is the one that
     gets forgotten (it fails soft, so the omission is easy to miss).
 R9. Do not let a future change reintroduce a plausible-looking fallback number.
