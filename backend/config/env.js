@@ -1,6 +1,11 @@
 import dotenv from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-dotenv.config();
+// Resolve the backend-local environment file from this module's location so
+// startup is independent of whether Node is launched from repo/ or backend/.
+const backendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+dotenv.config({ path: path.join(backendDir, '.env') });
 
 /**
  * Centralised, validated access to environment variables.

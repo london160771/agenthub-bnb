@@ -23,10 +23,23 @@ export const AGENT_STATUSES = ['live', 'beta', 'paused'];
 
 const PricingSchema = new Schema(
   {
-    amount: { type: Number, default: 0, min: 0 },
-    currency: { type: String, default: 'BNB' },
+    amount: { type: Number, default: null, min: 0 },
+    currency: { type: String, default: '' },
     // per-task | subscription | free
-    model: { type: String, default: 'per-task' },
+    model: { type: String, default: 'unknown' },
+  },
+  { _id: false },
+);
+
+const PaymentSchema = new Schema(
+  {
+    type: { type: String, enum: ['free', 'x402', 'erc8183', 'other', 'unknown'], default: 'unknown' },
+    status: { type: String, enum: ['advertised', 'verified', 'unknown'], default: 'unknown' },
+    amount: { type: Number, default: null, min: 0 },
+    token: { type: String, default: null },
+    currency: { type: String, default: null },
+    requiresWallet: { type: Boolean, default: null },
+    requiresMainnetTx: { type: Boolean, default: null },
   },
   { _id: false },
 );
@@ -80,12 +93,14 @@ const AgentSchema = new Schema(
     chain: { type: String, default: 'bnb' },
     erc8004Id: { type: String, default: null },
     endpoint: { type: String, default: '' },
+    serviceEndpoints: { type: [String], default: [] },
 
     skills: { type: [String], default: [], index: true },
     protocols: { type: [String], default: [] },
     tags: { type: [String], default: [] },
 
     pricing: { type: PricingSchema, default: () => ({}) },
+    payment: { type: PaymentSchema, default: () => ({}) },
     metrics: { type: MetricsSchema, default: () => ({}) },
     trust: { type: TrustSchema, default: () => ({}) },
     // Denormalised overall trust for cheap sorting/filtering; mirrors trust.overall.
@@ -99,6 +114,10 @@ const AgentSchema = new Schema(
     ratingAvg: { type: Number, default: null, min: 0, max: 5 },
 
     source: { type: String, enum: AGENT_SOURCES, default: 'seeded', index: true },
+    // Snapshot only; API capability remains computed by agentCapabilities.js.
+    capability: { type: String, default: null },
+    lastIndexedAt: { type: Date, default: null },
+    lastVerifiedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

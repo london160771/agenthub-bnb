@@ -68,7 +68,8 @@ async function fetchJson(url, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   }
 
   if (!res.ok) {
-    const msg = json?.message || json?.error || `HTTP ${res.status}`;
+    const rawMessage = json?.message ?? json?.error ?? `HTTP ${res.status}`;
+    const msg = typeof rawMessage === 'string' ? rawMessage : JSON.stringify(rawMessage);
     throw new Error(`8004scan ${msg}`);
   }
 

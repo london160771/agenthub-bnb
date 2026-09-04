@@ -46,16 +46,16 @@ export function buildSeedDocs() {
  * @returns {Promise<{inserted:number, skipped:boolean}>}
  */
 export async function seedAgentCatalogue({ wipe = false } = {}) {
-  if (!wipe) {
-    const existing = await Agent.estimatedDocumentCount();
-    if (existing > 0) {
-      return { inserted: 0, skipped: true };
-    }
-  } else {
+  if (wipe) {
     await Agent.deleteMany({});
   }
 
   const docs = buildSeedDocs();
-  await Agent.insertMany(docs, { ordered: false });
-  return { inserted: docs.length, skipped: false };
+  const existing = new Set(
+    (await Agent.find({ agentId: { $in: docs.map((doc) => doc.agentId) } }).select('agentId').lean())
+      .map((doc) => doc.agentId),
+  );
+  const missing = docs.filter((doc) => !existing.has(doc.agentId));
+  if (missing.length > 0) await Agent.insertMany(missing, { ordered: false });
+  return { inserted: missing.length, skipped: missing.length === 0 };
 }

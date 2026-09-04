@@ -67,6 +67,7 @@ const KEYWORDS = {
     { re: /research/i, w: 4 },
     { re: /due\s*diligence/i, w: 5 },
     { re: /audit/i, w: 4 },
+    { re: /security|vulnerab|honeypot|scam|threat|exploit/i, w: 5 },
     { re: /scanner/i, w: 3 },
     { re: /risk.*scan/i, w: 4 },
     { re: /analytics/i, w: 3 },
