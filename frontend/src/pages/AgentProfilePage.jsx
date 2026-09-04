@@ -28,7 +28,7 @@ import { useApi } from '../hooks/useApi.js';
 import { getAgent, listAgents } from '../services/agents.js';
 import { SOURCE_LABELS, CATEGORIES } from '../config.js';
 import { cn } from '../lib/cn.js';
-import { AGENT_CAPABILITIES, capabilityMetaFor, isExecutable } from '../lib/agentCapability.js';
+import { AGENT_CAPABILITIES, capabilityMetaFor, isExecutable, isExternallyExecutable } from '../lib/agentCapability.js';
 import {
   formatBnb,
   formatCompactNumber,
@@ -220,7 +220,7 @@ export default function AgentProfilePage() {
   const provenance = SOURCE_LABELS[source];
   const demo = isDemoSource(source);
   const canHire = isExecutable(agent);
-  const isExternalExecutable = capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE;
+  const isExternalExecutable = isExternallyExecutable(agent);
   const isCatalogVerified = capability === AGENT_CAPABILITIES.INDEXED_CATALOG_VERIFIED;
   const capabilityMeta = capabilityMetaFor(agent);
 

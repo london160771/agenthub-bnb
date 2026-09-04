@@ -13,7 +13,7 @@
 import { randomUUID } from 'node:crypto';
 import { Agent } from '../models/Agent.js';
 import { Execution } from '../models/Execution.js';
-import { AGENT_CAPABILITIES, getAgentCapability } from './agentCapabilities.js';
+import { isExternallyExecutableAgent } from './agentCapabilities.js';
 
 const PROJECTION = '-__v -_id';
 
@@ -184,7 +184,7 @@ export async function findRecentDuplicate({ userAddress, agentId, task }) {
  */
 export async function createExecution({ agentId, userAddress, task, input, agent }) {
   const now = new Date();
-  const external = getAgentCapability(agent) === AGENT_CAPABILITIES.INDEXED_EXECUTABLE;
+  const external = isExternallyExecutableAgent(agent);
   const doc = {
     executionId: newExecutionId(),
     agentId,

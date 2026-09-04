@@ -2,13 +2,13 @@
 AGENTHUB — PROJECT HANDOFF
 For transferring this project to another Claude account, Codex, or any other AI.
 ================================================================================
-Written: 2026-08-26  ·  Last updated: 2026-09-04, after Phase 11.1B verification — see §8D/§8E
+Written: 2026-08-26  ·  Last updated: 2026-09-04, during Phase 11.2 inventory expansion — see §8G
 Repo: C:\Users\uk\OneDrive\Desktop\agenthub-bnb
 Remote: https://github.com/london160771/agenthub-bnb.git  (branch: main)
 
 CODEX TAKEOVER — READ THIS FIRST (2026-09-02):
 This handoff was written for Muse (Anthropic) and is now being handed to Codex (OpenAI).
-The Phase 11 cleanup checkpoint is committed at `689355c1b44d53a6cee1c15dfb7fc8f0dd24e8ab`; Phase 11.1B executable-agent work is an UNCOMMITTED working-tree diff. Audit `git status` + `git diff` before trusting any current Phase 11 comment.
+The Phase 11 cleanup checkpoint is committed at `689355c1b44d53a6cee1c15dfb7fc8f0dd24e8ab`; the Phase 11.1B checkpoint is committed at `4fa02d9d9e9dbf5357fc90e7de2f0ecc18677ece`. Phase 11.2 inventory expansion is the current UNCOMMITTED working-tree work. Audit `git status` + `git diff` before trusting any current Phase 11 comment.
 Muse's incomplete ERC-8183 preparation was removed. Brain catalog evidence is retained, but paid skill execution remains unverified.
 Preserve Phase 7 (Venus reconciliation, hasSimulated=false) and Phase 10 (Yield/Grid/Rebalance tables) functionality.
 Do NOT cross the BSC Mainnet 56 transaction boundary (eth_sendTransaction / approve / fund) without explicit user approval.
@@ -63,7 +63,7 @@ keccak256, so contract function selectors CANNOT be computed at runtime — see 
 --------------------------------------------------------------------------------
 3. COMPLETED PHASES
 --------------------------------------------------------------------------------
-Phases 1-10 are COMPLETED and Phase 11 is IN PROGRESS. Phases 1-9 committed & pushed at 3f5ee47; Phase 10 committed at e157e15; Phase 11 cleanup checkpoint committed at 689355c1. Phase 11.1B remains uncommitted until review.
+Phases 1-10 are COMPLETED and Phase 11 is IN PROGRESS. Phases 1-9 committed & pushed at 3f5ee47; Phase 10 committed at e157e15; Phase 11 cleanup checkpoint committed at 689355c1; Phase 11.1B committed at 4fa02d9. Phase 11.2 is uncommitted until review.
 
   e157e15  Phase 10 — Yield/Grid/Rebalancing real testnet tables (see §8D)
   3f5ee47  Phase 9 — structured execution tables + renderer (T1.6, see §8C)
@@ -518,7 +518,7 @@ VERIFICATION (manual, same standard as Phase 7 — no backend tests exist, §6)
 - Backend syntax: node --check for all new files exit 0.
 - Finder API: POST /api/finder with "Venus health factor" returns intent health-factor (keyword), ranked seeded + indexed results with pct/reasons/breakdown; GET /api/finder?q= also works; limit validation 1..24 enforced.
 - Seed preservation: Agent.countDocuments source seeded == 17 before and after ingest; indexed upsert does not delete seeded.
-- Historical Phase 8 disclosure (superseded by Phase 11.1B): generic indexed records showed Indexed badge + registry-only notice + Hire disabled; current UI enables Hire only for the four exact verified external identities.
+- Historical Phase 8 disclosure (superseded by Phase 11.1B): generic indexed records showed Indexed badge + registry-only notice + Hire disabled; current UI enables Hire only for the exact identities with verified external task/result adapters.
 - Phase 7: Venus position 0x26e94a350D2d0B118716dc17dc98730a77A8B85e still health factor, hasSimulated false, every source in {chain,derived,input,unavailable}, reconciliation exact.
 
 KNOWN LIMITATIONS
@@ -595,8 +595,8 @@ DELIBERATELY LEFT OUT: multi-pool Venus, farm MasterChef, DEX getReserves, repea
 --------------------------------------------------------------------------------
 8E. PHASE 11 — CAPABILITY / BRAIN CATALOG CLEANUP (2026-09-03)
 --------------------------------------------------------------------------------
-STATUS: cleanup checkpoint committed at `689355c1`. Phase 11.1B verification and
-integration are the current uncommitted working-tree changes. No Mainnet
+STATUS: cleanup checkpoint committed at `689355c1`; Phase 11.1B is committed at
+`4fa02d9`. Phase 11.2 inventory expansion is the current uncommitted work. No Mainnet
 transaction was sent, signed or broadcast. No private key is stored.
 
 WHAT IS RETAINED
@@ -604,7 +604,8 @@ WHAT IS RETAINED
     execution-adapter boundaries.
   - A backend-authoritative `capability` field on agent list, detail and Finder
     responses. Current states are `seeded/local-executable`,
-    `indexed/catalog-verified`, `indexed/executable`, and `indexed/watch-only`.
+    `indexed/catalog-verified`, `indexed/executable-free`,
+    `indexed/executable-paid`, and `indexed/watch-only`.
   - 8004scan-indexed BSC Mainnet records remain separate from local testnet
     executors. Exact identity allowlisting, not names or hostnames, controls
     whether an external adapter can run.
@@ -612,7 +613,8 @@ WHAT IS RETAINED
     read-only external HTTP/A2A adapter functions. Assay Yield (56:331752),
     Assay Grid (56:331751), SMEAI Health (56:331625), and SMEAI LP (56:331698)
     now have dedicated, free read-only execution adapters after real task/result
-    probes.
+    probes. HODL.DANCE (56:96231) is added in Phase 11.2 for its public token-list
+    task; its wallet-required write skills remain outside AgentHub.
 
 BRAIN — VERIFIED SCOPE ONLY
   The public AgentCard GET and A2A `message/send` catalog response were verified
@@ -633,8 +635,8 @@ ERC-8183 CLEANUP
 NETWORK GUARANTEE
   Seeded/local-executable agents continue to use the Phase 7/10 BNB Smart Chain
   Testnet executor (chain 97). Indexed records carry BSC Mainnet provenance
-  (chain 56) as identity and, for the two verified Assay adapters, external
-  HTTP task-result provenance. External HTTP execution is not an on-chain
+  (chain 56) as identity and, for verified external adapters, external HTTP
+  task-result provenance. External HTTP execution is not an on-chain
   Mainnet transaction; transactionHash remains empty and no signer exists.
 
 NEXT APPROVED PRIORITY
@@ -647,7 +649,8 @@ NEXT APPROVED PRIORITY
 8F. PHASE 11.1B — REAL EXECUTABLE AGENT VERIFICATION (2026-09-04)
 --------------------------------------------------------------------------------
 STATUS: four indexed BSC Mainnet agents have verified read-only task/result
-interfaces in the uncommitted Phase 11.1B working tree. This is external HTTP
+interfaces in committed Phase 11.1B. Phase 11.2 adds one more verified free
+read-only interface in the uncommitted working tree. This is external HTTP
 execution, not a Mainnet blockchain transaction, and no payment/signing/private
 key/AWS credential is used.
 
@@ -679,6 +682,54 @@ NOT VERIFIED
   but no requested paid skill result was verified. Security-capable and
   transaction-capable agents were not promoted. Assay Grid is strategy/analysis
   only; it does not place trades.
+
+--------------------------------------------------------------------------------
+8G. PHASE 11.2 — EXPANDED EXECUTABLE MARKETPLACE INVENTORY (IN PROGRESS)
+--------------------------------------------------------------------------------
+HODL.DANCE (`56:96231`) is the fifth exact-identity indexed executable-free
+adapter. Its public AgentCard and OpenAPI describe BSC Mainnet token reads plus
+wallet-required write skills. AgentHub invokes only `GET /api/tokens`, validates
+the returned token-list task result, retains the raw response, and labels the
+transport external HTTP with chain 56. It does not invoke quotes, buys, sells,
+creates, signing, or private-key operations.
+
+The authoritative capability states now distinguish free and paid execution:
+`indexed/executable-free` means a real task/result was verified without payment;
+`indexed/executable-paid` is reserved for a real task/result whose payment
+protocol and requirements are separately verified. No candidate has earned the
+paid state in this phase because no payment was sent.
+
+Broad 8004scan searches across DeFi, yield, health factor, rebalancing, grid,
+trading, LP, portfolio/risk, security/audit, PancakeSwap and lending returned
+493 unique records for triage. Many TermiX records were unbound/offline or
+metadata-only. Sentinels Trading Analyst and Sentinels Audit are the strongest
+paid follow-up candidates, but their documented flows require on-chain payment
+and were not invoked. No free security-analysis agent returned a complete
+requested result in the safe probes.
+
+PAID CANDIDATE REGISTER (NO PAYMENT SENT)
+  - Sentinels Trading Analyst: paymentType `erc8183`; advertised price `0.1
+    $U/job`; token `$U`; requiresWallet `yes` (Altana passkey flow);
+    requiresMainnetTx `yes`. Its free preview was invoked, but returned an
+    explicit unable-to-establish/no-live-market-data result, so it is not
+    executable in AgentHub.
+  - Sentinels Audit: paymentType `other/native BNB`; advertised price `0.2
+    BNB`; token `BNB`; requiresWallet `yes`; requiresMainnetTx `yes` because the
+    MCP tool requires a payment transaction hash. No audit was invoked.
+  - Sentinels Security Scout: paymentType `x402 + ERC-8183 advertised`;
+    advertised price not independently verified; token `$U` advertised;
+    requiresWallet `yes`; requiresMainnetTx `yes`; AWS Bedrock AgentCore auth
+    is also required. No call was made.
+  - Quick Intel: paymentType `x402`; advertised price `$0.03/scan`; token
+    `USDC`; requiresWallet `yes`; requiresMainnetTx `yes`. The published
+    description did not list BSC among its accepted chains, so no call was
+    made.
+  - Syenite: paymentType `x402`; price/token and wallet/transaction
+    requirements unknown; its public MCP hostname did not resolve. No call was
+    made.
+  - BORT: paymentType `x402` advertised by its public AgentCard; price/token
+    not verified; write skills require a private key/wallet. No task was
+    invoked.
 
 --------------------------------------------------------------------------------
 9. 8004SCAN STATUS

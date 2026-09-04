@@ -8,7 +8,8 @@
 export const AGENT_CAPABILITIES = Object.freeze({
   LOCAL_EXECUTABLE: 'seeded/local-executable',
   INDEXED_CATALOG_VERIFIED: 'indexed/catalog-verified',
-  INDEXED_EXECUTABLE: 'indexed/executable',
+  INDEXED_EXECUTABLE_FREE: 'indexed/executable-free',
+  INDEXED_EXECUTABLE_PAID: 'indexed/executable-paid',
   INDEXED_WATCH_ONLY: 'indexed/watch-only',
 });
 
@@ -27,26 +28,32 @@ const BRAIN_CATALOG_IDENTITIES = new Set([
   '56:310460',
 ]);
 
-// Exact identity + endpoint pairs independently probed during Phase 11.1B.
+// Exact identity + endpoint pairs independently probed during Phases 11.1B/11.2.
 // The identity is the allowlist key; names, hostnames, AgentCards and HTTP
 // status codes are not enough to enter this set. Each adapter still validates
-// the task response at runtime before an execution can complete.
+// the task response at runtime before an execution can complete. Paid adapters
+// must declare the paid capability only after task/result and payment protocol
+// evidence are verified; none is currently allowlisted.
 const VERIFIED_EXECUTION_IDENTITIES = new Map([
   [
     '56:331752',
-    { adapterKey: 'assay-yield', endpoint: 'https://assay-ten-iota.vercel.app/api/agents/yield' },
+    { adapterKey: 'assay-yield', endpoint: 'https://assay-ten-iota.vercel.app/api/agents/yield', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
   ],
   [
     '56:331751',
-    { adapterKey: 'assay-grid', endpoint: 'https://assay-ten-iota.vercel.app/api/agents/grid' },
+    { adapterKey: 'assay-grid', endpoint: 'https://assay-ten-iota.vercel.app/api/agents/grid', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
   ],
   [
     '56:331625',
-    { adapterKey: 'smeai-health', endpoint: 'https://smeai-dev.vercel.app/api/a2a' },
+    { adapterKey: 'smeai-health', endpoint: 'https://smeai-dev.vercel.app/api/a2a', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
   ],
   [
     '56:331698',
-    { adapterKey: 'smeai-lp', endpoint: 'https://smeai-dev.vercel.app/api/a2a/lp' },
+    { adapterKey: 'smeai-lp', endpoint: 'https://smeai-dev.vercel.app/api/a2a/lp', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
+  ],
+  [
+    '56:96231',
+    { adapterKey: 'hodl-dance', endpoint: 'https://hodl.dance/.well-known/agent-card.json', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
   ],
 ]);
 
@@ -79,7 +86,7 @@ export function getAgentCapability(agent) {
     return AGENT_CAPABILITIES.INDEXED_CATALOG_VERIFIED;
   }
   if (executionRecordFor(agent)) {
-    return AGENT_CAPABILITIES.INDEXED_EXECUTABLE;
+    return executionRecordFor(agent)?.capability || AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE;
   }
   return AGENT_CAPABILITIES.INDEXED_WATCH_ONLY;
 }
@@ -93,7 +100,8 @@ export function isCatalogVerifiedAgent(agent) {
 }
 
 export function isExternallyExecutableAgent(agent) {
-  return getAgentCapability(agent) === AGENT_CAPABILITIES.INDEXED_EXECUTABLE;
+  const capability = getAgentCapability(agent);
+  return capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE || capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID;
 }
 
 export function getExternalAdapterKey(agent) {

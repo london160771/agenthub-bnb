@@ -31,6 +31,7 @@
  */
 import { CATEGORIES } from '../config.js';
 import { isAddress } from './wallet.js';
+import { isExternallyExecutable } from './agentCapability.js';
 
 /** Kept in step with the backend's `task` column limit (300 chars). */
 export const MAX_TASK_LENGTH = 300;
@@ -325,7 +326,7 @@ export const HIRE_FIELDS = {
  * we have no basis for.
  */
 export function fieldsFor(agent) {
-  const external = agent?.capability === 'indexed/executable';
+  const external = isExternallyExecutable(agent);
   const externalBase = external && agent?.executionAdapter === 'assay-yield'
     ? [
         {
@@ -393,7 +394,42 @@ export function fieldsFor(agent) {
                 help: 'Public position NFT id to inspect. This is read-only analysis.',
               },
             ]
-          : null;
+          : external && agent?.executionAdapter === 'hodl-dance'
+            ? [
+                {
+                  key: 'sort',
+                  label: 'Sort token listings',
+                  type: 'select',
+                  required: true,
+                  options: [
+                    { value: 'newest', label: 'Newest' },
+                    { value: 'market_cap', label: 'Market cap' },
+                    { value: 'progress', label: 'Launch progress' },
+                    { value: 'volume', label: '24h volume' },
+                  ],
+                  default: 'volume',
+                  help: 'Read-only token listings from HODL.DANCE public data.',
+                },
+                {
+                  key: 'limit',
+                  label: 'Listings to return',
+                  type: 'number',
+                  required: true,
+                  default: 5,
+                  min: 1,
+                  max: 20,
+                  step: 1,
+                },
+                {
+                  key: 'search',
+                  label: 'Search (optional)',
+                  type: 'text',
+                  required: false,
+                  maxLength: 80,
+                  placeholder: 'Token name or symbol',
+                },
+              ]
+            : null;
   const base = externalBase || HIRE_FIELDS[agent?.category] || [];
   const resolved = base.map((field) => {
     if (field.optionsFrom !== 'protocols') return field;

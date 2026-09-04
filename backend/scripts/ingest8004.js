@@ -26,7 +26,7 @@ const SEARCHES = [
 ];
 
 // These exact identities have adapter-specific task schemas verified in
-// Phase 11.1B. The general classifier is intentionally conservative, but
+// Phase 11.2. The general classifier is intentionally conservative, but
 // overlapping DeFi vocabulary can still choose health-factor for a yield
 // description; the verified service identity is the stronger category evidence.
 const VERIFIED_EXTERNAL_CATEGORIES = Object.freeze({
@@ -34,6 +34,7 @@ const VERIFIED_EXTERNAL_CATEGORIES = Object.freeze({
   '56:331751': 'trading',
   '56:331625': 'health-factor',
   '56:331698': 'portfolio',
+  '56:96231': 'trading',
 });
 
 function sleep(ms) {

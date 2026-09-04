@@ -6,7 +6,8 @@
 export const AGENT_CAPABILITIES = Object.freeze({
   LOCAL_EXECUTABLE: 'seeded/local-executable',
   INDEXED_CATALOG_VERIFIED: 'indexed/catalog-verified',
-  INDEXED_EXECUTABLE: 'indexed/executable',
+  INDEXED_EXECUTABLE_FREE: 'indexed/executable-free',
+  INDEXED_EXECUTABLE_PAID: 'indexed/executable-paid',
   INDEXED_WATCH_ONLY: 'indexed/watch-only',
 });
 
@@ -19,8 +20,12 @@ export const CAPABILITY_META = Object.freeze({
     label: 'Mainnet agent · catalog verified',
     variant: 'info',
   },
-  [AGENT_CAPABILITIES.INDEXED_EXECUTABLE]: {
-    label: 'Mainnet agent · execution verified',
+  [AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE]: {
+    label: 'Mainnet agent · free execution verified',
+    variant: 'ok',
+  },
+  [AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID]: {
+    label: 'Mainnet agent · paid execution verified',
     variant: 'ok',
   },
   [AGENT_CAPABILITIES.INDEXED_WATCH_ONLY]: {
@@ -37,7 +42,8 @@ export function isLocallyExecutable(agent) {
 }
 
 export function isExternallyExecutable(agent) {
-  return capabilityFor(agent) === AGENT_CAPABILITIES.INDEXED_EXECUTABLE;
+  const capability = capabilityFor(agent);
+  return capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE || capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID;
 }
 
 export function isExecutable(agent) {

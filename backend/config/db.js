@@ -54,6 +54,7 @@ async function startInMemoryMongo() {
         '56:331751': 'trading',
         '56:331625': 'health-factor',
         '56:331698': 'portfolio',
+        '56:96231': 'trading',
       };
 
       const SEARCHES = ['Venus', 'liquidation', 'yield', 'grid trading', 'PancakeSwap'];
