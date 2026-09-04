@@ -5,6 +5,7 @@ import { sendSuccess } from '../utils/apiResponse.js';
 import agentRoutes from './agentRoutes.js';
 import executionRoutes from './executionRoutes.js';
 import finderRoutes from './finderRoutes.js';
+import paymentRoutes from './paymentRoutes.js';
 
 const router = Router();
 
@@ -27,5 +28,6 @@ router.get('/health', (req, res) => {
 router.use('/agents', agentRoutes);
 router.use('/executions', executionRoutes);
 router.use('/finder', finderRoutes);
+router.use('/payments', paymentRoutes);
 
 export default router;

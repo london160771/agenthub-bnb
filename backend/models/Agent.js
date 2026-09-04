@@ -33,13 +33,19 @@ const PricingSchema = new Schema(
 
 const PaymentSchema = new Schema(
   {
-    type: { type: String, enum: ['free', 'x402', 'erc8183', 'other', 'unknown'], default: 'unknown' },
+    type: { type: String, enum: ['free', 'x402', 'erc8183', 'native-bnb', 'other', 'unknown'], default: 'unknown' },
     status: { type: String, enum: ['advertised', 'verified', 'unknown'], default: 'unknown' },
     amount: { type: Number, default: null, min: 0 },
     token: { type: String, default: null },
+    tokenAddress: { type: String, default: null },
+    tokenDecimals: { type: Number, default: null, min: 0, max: 255 },
     currency: { type: String, default: null },
+    chainId: { type: Number, default: null, min: 1 },
+    recipient: { type: String, default: null },
+    contract: { type: String, default: null },
     requiresWallet: { type: Boolean, default: null },
     requiresMainnetTx: { type: Boolean, default: null },
+    effect: { type: String, default: null },
   },
   { _id: false },
 );
@@ -94,6 +100,8 @@ const AgentSchema = new Schema(
     erc8004Id: { type: String, default: null },
     endpoint: { type: String, default: '' },
     serviceEndpoints: { type: [String], default: [] },
+    executionProtocol: { type: String, enum: ['http', 'a2a', 'mcp', null], default: null },
+    paymentProtocol: { type: String, enum: ['none', 'x402', 'erc8183', 'native-bnb', 'custom', null], default: null },
 
     skills: { type: [String], default: [], index: true },
     protocols: { type: [String], default: [] },

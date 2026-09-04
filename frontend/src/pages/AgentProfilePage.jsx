@@ -26,9 +26,11 @@ import { TrustBreakdown } from '../components/agents/TrustBreakdown.jsx';
 import { AgentGrid } from '../components/marketplace/AgentGrid.jsx';
 import { useApi } from '../hooks/useApi.js';
 import { getAgent, listAgents } from '../services/agents.js';
+import { preparePayment } from '../services/payments.js';
 import { SOURCE_LABELS, CATEGORIES } from '../config.js';
 import { cn } from '../lib/cn.js';
 import { AGENT_CAPABILITIES, capabilityMetaFor, isExecutable, isExternallyExecutable } from '../lib/agentCapability.js';
+import { PaidPaymentConfirmation } from '../components/payment/PaidPaymentConfirmation.jsx';
 import {
   formatBnb,
   formatCompactNumber,
@@ -139,6 +141,13 @@ export default function AgentProfilePage() {
     [category],
   );
   const related = (relatedData?.items || []).filter((a) => a.agentId !== agentId).slice(0, 3);
+
+  const paymentProtocol = agent?.paymentProtocol || agent?.payment?.type;
+  const hasPaidMetadata = agent?.source === 'indexed' && ['x402', 'erc8183', 'native-bnb', 'other'].includes(paymentProtocol);
+  const { data: paymentPlan, loading: paymentPlanLoading, error: paymentPlanError } = useApi(
+    (signal) => (hasPaidMetadata ? preparePayment({ agentId }, { signal }) : Promise.resolve(null)),
+    [agentId, hasPaidMetadata, paymentProtocol],
+  );
 
   // Reset scroll when navigating between agents (e.g. via related cards).
   useEffect(() => {
@@ -382,6 +391,15 @@ export default function AgentProfilePage() {
               ) : null}
             </CardBody>
           </Card>
+
+          {hasPaidMetadata && (
+            <PaidPaymentConfirmation
+              agent={agent}
+              plan={paymentPlan}
+              loading={paymentPlanLoading}
+              error={paymentPlanError}
+            />
+          )}
 
           <Card>
             <CardBody>

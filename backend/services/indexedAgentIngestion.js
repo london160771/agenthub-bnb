@@ -28,7 +28,7 @@ const VERIFIED_EXTERNAL_CATEGORIES = Object.freeze({
   '56:96231': 'trading',
 });
 
-const PAYMENT_TYPES = new Set(['free', 'x402', 'erc8183', 'other', 'unknown']);
+const PAYMENT_TYPES = new Set(['free', 'x402', 'erc8183', 'native-bnb', 'other', 'unknown']);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -47,6 +47,7 @@ function normalizePaymentType(value) {
   if (!type) return 'unknown';
   if (type.includes('x402')) return 'x402';
   if (type.includes('8183') || type.includes('erc-8183')) return 'erc8183';
+  if (type.includes('native') && type.includes('bnb')) return 'native-bnb';
   if (type === 'free' || type === 'none') return 'free';
   return PAYMENT_TYPES.has(type) ? type : 'other';
 }
@@ -88,8 +89,14 @@ function extractPaymentMetadata(detail, raw) {
   const merged = Object.assign({}, ...sources);
   const amount = asNumber(merged.amount ?? merged.price ?? merged.value);
   const token = asText(merged.token ?? merged.paymentToken ?? merged.payment_token ?? merged.asset);
+  const tokenAddress = asText(merged.tokenAddress ?? merged.token_address);
+  const tokenDecimals = asNumber(merged.tokenDecimals ?? merged.token_decimals ?? merged.decimals);
   const currency = asText(merged.currency ?? merged.symbol) || token;
   const type = normalizePaymentType(merged.type ?? merged.paymentType ?? merged.payment_type ?? merged.protocol);
+  const chainId = asNumber(merged.chainId ?? merged.chain_id);
+  const recipient = asText(merged.recipient ?? merged.payee ?? merged.to);
+  const contract = asText(merged.contract ?? merged.contractAddress ?? merged.contract_address);
+  const effect = asText(merged.effect ?? merged.description);
   const hasExplicitEvidence = sources.length > 0 || amount != null || token || type !== 'unknown';
 
   return {
@@ -97,9 +104,15 @@ function extractPaymentMetadata(detail, raw) {
     status: hasExplicitEvidence ? 'advertised' : 'unknown',
     amount,
     token: token || null,
+    tokenAddress: tokenAddress || null,
+    tokenDecimals,
     currency: currency || null,
+    chainId,
+    recipient: recipient || null,
+    contract: contract || null,
     requiresWallet: typeof merged.requiresWallet === 'boolean' ? merged.requiresWallet : null,
     requiresMainnetTx: typeof merged.requiresMainnetTx === 'boolean' ? merged.requiresMainnetTx : null,
+    effect: effect || null,
   };
 }
 
@@ -172,6 +185,27 @@ function publishedSkills(detail) {
     : [];
 }
 
+function executionProtocol(detail, endpoint) {
+  if (!endpoint) return null;
+  if (detail?.a2a_endpoint === endpoint || detail?.a2aEndpoint === endpoint) return 'a2a';
+  if (detail?.mcp_server === endpoint || detail?.mcpServer === endpoint) return 'mcp';
+  const services = detail?.services;
+  if (services && typeof services === 'object' && !Array.isArray(services)) {
+    for (const [protocol, service] of Object.entries(services)) {
+      if (service?.endpoint === endpoint && ['a2a', 'mcp'].includes(protocol.toLowerCase())) {
+        return protocol.toLowerCase();
+      }
+    }
+  }
+  const offchainServices = detail?.raw_metadata?.offchain_content?.services;
+  if (Array.isArray(offchainServices)) {
+    const service = offchainServices.find((item) => item?.endpoint === endpoint);
+    const protocol = asText(service?.name).toLowerCase();
+    if (protocol === 'a2a' || protocol === 'mcp') return protocol;
+  }
+  return 'http';
+}
+
 function toAgentDoc(norm, detail = null) {
   const extraTags = detail && Array.isArray(detail.tags) ? detail.tags : [];
   const extraServices = detail && Array.isArray(detail.services)
@@ -187,6 +221,9 @@ function toAgentDoc(norm, detail = null) {
   const endpoint = publishedEndpoint(detail) || norm.endpoint;
   const serviceEndpoints = publishedServiceEndpoints(norm, detail);
   const payment = extractPaymentMetadata(detail, norm.raw);
+  const paymentProtocol = payment.type === 'unknown'
+    ? null
+    : payment.type === 'other' ? 'custom' : payment.type;
   const pricing = {
     amount: payment.amount,
     currency: payment.currency || '',
@@ -213,6 +250,8 @@ function toAgentDoc(norm, detail = null) {
     erc8004Id,
     endpoint: endpoint || serviceEndpoints[0] || '',
     serviceEndpoints,
+    executionProtocol: executionProtocol(detail, endpoint || serviceEndpoints[0] || ''),
+    paymentProtocol,
     skills: mergedServices.slice(0, 8).length ? mergedServices.slice(0, 8) : mergedTags.slice(0, 6),
     protocols: mergedTags.filter((tag) => /venus|pancake|bnb|bsc|defi/i.test(tag)).slice(0, 4),
     tags: mergedTags,

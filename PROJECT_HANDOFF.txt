@@ -2,13 +2,13 @@
 AGENTHUB — PROJECT HANDOFF
 For transferring this project to another Claude account, Codex, or any other AI.
 ================================================================================
-Written: 2026-08-26  ·  Last updated: 2026-09-04, during Phase 11.2 inventory expansion — see §8G
+Written: 2026-08-26  ·  Last updated: 2026-09-04, during Phase 11.3 payment architecture — see §8H
 Repo: C:\Users\uk\OneDrive\Desktop\agenthub-bnb
 Remote: https://github.com/london160771/agenthub-bnb.git  (branch: main)
 
 CODEX TAKEOVER — READ THIS FIRST (2026-09-02):
 This handoff was written for Muse (Anthropic) and is now being handed to Codex (OpenAI).
-The Phase 11 cleanup checkpoint is committed at `689355c1b44d53a6cee1c15dfb7fc8f0dd24e8ab`; the Phase 11.1B checkpoint is committed at `4fa02d9d9e9dbf5357fc90e7de2f0ecc18677ece`. Phase 11.2 inventory expansion is the current UNCOMMITTED working-tree work. Audit `git status` + `git diff` before trusting any current Phase 11 comment.
+The Phase 11 cleanup checkpoint is committed at `689355c1b44d53a6cee1c15dfb7fc8f0dd24e8ab`; the Phase 11.1B checkpoint is committed at `4fa02d9d9e9dbf5357fc90e7de2f0ecc18677ece`; Phase 11.2 is committed at `7ee2561`. Phase 11.3 payment architecture is the current UNCOMMITTED working-tree work. Audit `git status` + `git diff` before trusting any current Phase 11 comment.
 Muse's incomplete ERC-8183 preparation was removed. Brain catalog evidence is retained, but paid skill execution remains unverified.
 Preserve Phase 7 (Venus reconciliation, hasSimulated=false) and Phase 10 (Yield/Grid/Rebalance tables) functionality.
 Do NOT cross the BSC Mainnet 56 transaction boundary (eth_sendTransaction / approve / fund) without explicit user approval.
@@ -63,7 +63,7 @@ keccak256, so contract function selectors CANNOT be computed at runtime — see 
 --------------------------------------------------------------------------------
 3. COMPLETED PHASES
 --------------------------------------------------------------------------------
-Phases 1-10 are COMPLETED and Phase 11 is IN PROGRESS. Phases 1-9 committed & pushed at 3f5ee47; Phase 10 committed at e157e15; Phase 11 cleanup checkpoint committed at 689355c1; Phase 11.1B committed at 4fa02d9. Phase 11.2 is uncommitted until review.
+Phases 1-10 are COMPLETED and Phase 11 is IN PROGRESS. Phases 1-9 committed & pushed at 3f5ee47; Phase 10 committed at e157e15; Phase 11 cleanup checkpoint committed at 689355c1; Phase 11.1B committed at 4fa02d9; Phase 11.2 committed at 7ee2561. Phase 11.3 is uncommitted until review.
 
   e157e15  Phase 10 — Yield/Grid/Rebalancing real testnet tables (see §8D)
   3f5ee47  Phase 9 — structured execution tables + renderer (T1.6, see §8C)
@@ -85,11 +85,12 @@ Phases 1-10 are COMPLETED and Phase 11 is IN PROGRESS. Phases 1-9 committed & pu
 --------------------------------------------------------------------------------
 4. CURRENT PHASE / STATUS
 --------------------------------------------------------------------------------
-PHASE 11 (Indexed-agent capability cleanup) is IN PROGRESS / UNCOMMITTED WORKING TREE.
-Details in §8E. The retained Brain integration verifies a public AgentCard and
-external HTTP/A2A catalog response for BSC Mainnet identities (chain 56). It does
-not verify paid skill execution. ERC-8183 runtime preparation, quotes and calldata
-were removed; no Mainnet transaction, signing or private key exists in the repo.
+PHASE 11 (Indexed-agent capability cleanup) and Phase 11.2 are committed. Phase
+11.3 (generic paid-agent preparation) is IN PROGRESS / UNCOMMITTED WORKING TREE.
+Details in §8E, §8G and §8H. The retained Brain integration verifies a public
+AgentCard and external HTTP/A2A catalog response for BSC Mainnet identities
+(chain 56). It does not verify paid skill execution. No Mainnet transaction,
+signing or private key exists in the repo.
 
 PHASE 10 (Yield/Grid/Rebalancing — real testnet tables) is
 COMPLETE, VERIFIED, COMMITTED at e157e15. Details in §8D. Phases 7-9 guarantees untouched.
@@ -596,7 +597,8 @@ DELIBERATELY LEFT OUT: multi-pool Venus, farm MasterChef, DEX getReserves, repea
 8E. PHASE 11 — CAPABILITY / BRAIN CATALOG CLEANUP (2026-09-03)
 --------------------------------------------------------------------------------
 STATUS: cleanup checkpoint committed at `689355c1`; Phase 11.1B is committed at
-`4fa02d9`. Phase 11.2 inventory expansion is the current uncommitted work. No Mainnet
+`4fa02d9`; Phase 11.2 inventory expansion is committed at `7ee2561`. Phase 11.3
+generic paid-agent preparation is the current uncommitted work. No Mainnet
 transaction was sent, signed or broadcast. No private key is stored.
 
 WHAT IS RETAINED
@@ -627,10 +629,12 @@ BRAIN — VERIFIED SCOPE ONLY
 
 ERC-8183 CLEANUP
   The unverified quote generator, hardcoded payment values, fallback values,
-  placeholder calldata, incomplete create/register/fund flow, preparation route,
-  and unused frontend payment client were removed. `@bnbagent/sdk` and `viem`
-  were removed because no retained runtime code needs them. There is no runtime
-  quote, calldata, signer, approval, fund, or broadcast path.
+  placeholder calldata, and incomplete create/register/fund flow were removed.
+  Phase 11.3 adds only a generic read-only payment-preparation route and
+  no-broadcast protocol adapters; it does not restore the old ERC-8183 runtime.
+  `@bnbagent/sdk` and `viem` were removed because no retained runtime code needs
+  them. There is no runtime quote, calldata, signer, approval, fund, or
+  broadcast path.
 
 NETWORK GUARANTEE
   Seeded/local-executable agents continue to use the Phase 7/10 BNB Smart Chain
@@ -649,8 +653,8 @@ NEXT APPROVED PRIORITY
 8F. PHASE 11.1B — REAL EXECUTABLE AGENT VERIFICATION (2026-09-04)
 --------------------------------------------------------------------------------
 STATUS: four indexed BSC Mainnet agents have verified read-only task/result
-interfaces in committed Phase 11.1B. Phase 11.2 adds one more verified free
-read-only interface in the uncommitted working tree. This is external HTTP
+interfaces in committed Phase 11.1B. Phase 11.2 added one more verified free
+read-only interface and is committed at `7ee2561`. This is external HTTP
 execution, not a Mainnet blockchain transaction, and no payment/signing/private
 key/AWS credential is used.
 
@@ -684,7 +688,7 @@ NOT VERIFIED
   only; it does not place trades.
 
 --------------------------------------------------------------------------------
-8G. PHASE 11.2 — EXPANDED EXECUTABLE MARKETPLACE INVENTORY (IN PROGRESS)
+8G. PHASE 11.2 — EXPANDED EXECUTABLE MARKETPLACE INVENTORY (COMMITTED)
 --------------------------------------------------------------------------------
 HODL.DANCE (`56:96231`) is the fifth exact-identity indexed executable-free
 adapter. Its public AgentCard and OpenAPI describe BSC Mainnet token reads plus
@@ -708,22 +712,20 @@ and were not invoked. No free security-analysis agent returned a complete
 requested result in the safe probes.
 
 PAID CANDIDATE REGISTER (NO PAYMENT SENT)
-  - Sentinels Trading Analyst: paymentType `erc8183`; advertised price `0.1
-    $U/job`; token `$U`; requiresWallet `yes` (Altana passkey flow);
-    requiresMainnetTx `yes`. Its free preview was invoked, but returned an
-    explicit unable-to-establish/no-live-market-data result, so it is not
-    executable in AgentHub.
-  - Sentinels Audit: paymentType `other/native BNB`; advertised price `0.2
-    BNB`; token `BNB`; requiresWallet `yes`; requiresMainnetTx `yes` because the
-    MCP tool requires a payment transaction hash. No audit was invoked.
+  - Sentinels Trading Analyst: 8004scan explicitly advertises x402 support;
+    amount, token, chain and recipient are not complete in the structured
+    record. It remains `indexed/watch-only`; no paid task was invoked.
+  - Sentinels Audit: public detail exposes an MCP endpoint and its description
+    discusses an advertised BNB price, but no explicit structured payment
+    protocol, amount, chain or recipient was available. It remains
+    `indexed/watch-only`; no audit was invoked.
   - Sentinels Security Scout: paymentType `x402 + ERC-8183 advertised`;
     advertised price not independently verified; token `$U` advertised;
     requiresWallet `yes`; requiresMainnetTx `yes`; AWS Bedrock AgentCore auth
     is also required. No call was made.
-  - Quick Intel: paymentType `x402`; advertised price `$0.03/scan`; token
-    `USDC`; requiresWallet `yes`; requiresMainnetTx `yes`. The published
-    description did not list BSC among its accepted chains, so no call was
-    made.
+  - Quick Intel: 8004scan explicitly advertises x402 support and publishes the
+    x402 scan endpoint; structured amount, token, chain and recipient are not
+    complete. It remains `indexed/watch-only`; no paid scan was invoked.
   - Syenite: paymentType `x402`; price/token and wallet/transaction
     requirements unknown; its public MCP hostname did not resolve. No call was
     made.
@@ -767,6 +769,34 @@ Architectural note: the schema supports external agents. The adapter registry
 separates catalog adapters from execution adapters; the local executor still
 dispatches only seeded/local-executable agents, while the external runner uses
 only exact verified adapter identities and records HTTP provenance separately.
+
+--------------------------------------------------------------------------------
+8H. PHASE 11.3 — GENERIC PAID-AGENT EXECUTION FRAMEWORK (UNCOMMITTED)
+--------------------------------------------------------------------------------
+Phase 11.3 adds a protocol-neutral, read-only payment preparation layer. Agent
+records now carry `executionProtocol` (`http`, `a2a`, `mcp`) and
+`paymentProtocol` (`none`, `x402`, `erc8183`, `native-bnb`, `custom`) alongside
+backend-authoritative payment metadata. The normalized state machine includes
+`FREE`, `PAYMENT_REQUIRED`, `PAYMENT_PREPARED`, `AWAITING_USER_CONFIRMATION`,
+`PAYMENT_SUBMITTED`, `PAYMENT_CONFIRMED`, `TASK_RUNNING`, `COMPLETED` and
+`FAILED`; only preparation and failure states are reachable in this phase.
+
+The generic `/api/payments/prepare` route loads the Agent record on the server,
+normalizes its requirement, and fails closed when chain, token, amount or
+recipient/contract data is missing or inconsistent. The x402, ERC-8183 and
+native-BNB adapters share one no-broadcast preparation contract. Advertised
+prices are labelled as advertised and unverified; they are never treated as a
+paid execution result. The profile uses one disabled confirmation component for
+paid metadata, showing the agent, protocol, network, amount, token, destination,
+wallet/transaction requirements and effect without opening a wallet or sending
+anything.
+
+Current candidates such as Sentinels Trading Analyst and Quick Intel expose
+advertised x402 metadata but lack complete structured payment requirements, so
+they remain indexed/watch-only and the preparation response is `FAILED` rather
+than inventing missing values. Sentinels Audit has an operational MCP endpoint
+but no explicit structured payment protocol in the indexed record, so it also
+fails closed. No payment, signature, private key or Mainnet transaction exists.
 
 --------------------------------------------------------------------------------
 9A. 8004SCAN API VERIFICATION (COMPLETE — DISCOVERY INTEGRATION SHIPPED IN PHASE 8)

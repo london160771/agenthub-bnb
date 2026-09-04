@@ -3,14 +3,14 @@ AGENTHUB — CATEGORY IMPLEMENTATION PLAN
 Four hackathon categories: Rebalancing · Grid Trading · Yield Optimisation ·
 Health Factor Monitoring
 ================================================================================
-Status: PLAN/HANDOFF at 2026-09-04; T1.1-T1.5 shipped in Phase 7, T1.6 shipped in Phase 9 (§8C), and T1.7-T1.9 shipped in committed Phase 10 (§8D, e157e15) — real testnet tables, plan-only, no tx. Phase 11 cleanup is committed at 689355c1 and Phase 11.1B at 4fa02d9. Phase 11.2 is in progress and uncommitted: five indexed/executable-free read-only external task/result adapters are verified, including HODL.DANCE; Brain remains catalog-only; no indexed/executable-paid candidate has been verified without payment; ERC-8183 runtime preparation remains removed.
+Status: PLAN/HANDOFF at 2026-09-04; T1.1-T1.5 shipped in Phase 7, T1.6 shipped in Phase 9 (§8C), and T1.7-T1.9 shipped in committed Phase 10 (§8D, e157e15) — real testnet tables, plan-only, no tx. Phase 11 cleanup is committed at 689355c1, Phase 11.1B at 4fa02d9, and Phase 11.2 at 7ee2561: five indexed/executable-free read-only external task/result adapters are verified, including HODL.DANCE; Brain remains catalog-only; no indexed/executable-paid candidate has been verified without payment; ERC-8183 runtime preparation remains removed. Phase 11.3 generic paid-agent preparation is the current uncommitted work and does not submit payment.
 Audit date: 2026-08-26 (T1.6 update 2026-08-28, T1.7-T1.9 update 2026-08-29, Phase 11/11.2 updates 2026-09-04 without rewriting the 2026-08-26 audit)
 Supersedes the pessimistic verdicts in CATEGORY_GAP_REPORT.md — see "WHAT
 CHANGED" below.
 
 CODEX TAKEOVER NOTE (2026-09-02):
 Phase 10 is COMPLETED (18 seeded, Yield/Grid/Rebalance tables, hasSimulated=false, Venus reconciliation intact).
-Phase 11.1B is committed at 4fa02d9. Phase 11.2 is the current UNCOMMITTED working-tree work — audit `git status` + `git diff` before trusting any current Phase 11 comment.
+Phase 11.1B is committed at 4fa02d9 and Phase 11.2 is committed at 7ee2561. Phase 11.3 is the current UNCOMMITTED working-tree work — audit `git status` + `git diff` before trusting any current Phase 11 comment.
 Seeded agents retained as development/fallback and must not be confused with real executable Mainnet agents (source='seeded' vs 'indexed').
 User-approved priority order now supersedes old §9 TIER 1 remaining:
 1. Turn indexed agents into executable agents / real marketplace

@@ -1463,11 +1463,12 @@ PHASE 10 — COMPLETED 2026-08-29 — Yield / Grid / Rebalancing (T1.7-T1.9)
 → Rebalancing: read-only drift via targetAllocation text "0xA:60,0xB:40" → holdings + BUY/SELL plan
 [See PROJECT_HANDOFF §8D]
 
-PHASE 11 / 11.2 — IN PROGRESS / UNCOMMITTED INVENTORY EXPANSION (2026-09-04) — Indexed-agent capabilities
+PHASE 11.2 — COMMITTED INVENTORY EXPANSION (2026-09-04) / PHASE 11.3 — IN PROGRESS — Indexed-agent capabilities and paid preparation
 → Backend-authoritative capability states distinguish seeded/local-executable, indexed/catalog-verified, indexed/executable-free, indexed/executable-paid, and indexed/watch-only; only exact ERC-8004 identities with independently verified adapter task/result evidence enter an executable state
 → Brain's public AgentCard GET and external HTTP/A2A catalog retrieval are retained; this is discovery/catalog evidence only, not paid skill execution. Five exact indexed identities currently have free read-only task/result adapters; no paid execution state is promoted without sending payment.
 → Brain indexed identities are BSC Mainnet records (chain 56) and remain catalog-verified/watch-only because only its AgentCard/catalog retrieval is verified; Assay Yield (56:331752), Assay Grid (56:331751), SMEAI Health (56:331625), SMEAI LP (56:331698), and HODL.DANCE (56:96231) are indexed/executable-free read-only external adapters
 → ERC-8183 quote/calldata/preparation runtime was removed; no payment route, signer, private key, or Mainnet transaction path exists
+→ Phase 11.3 adds only backend-authoritative, read-only payment requirement normalization and no-broadcast adapters for x402, ERC-8183, and native BNB; incomplete paid metadata fails closed and no payment state reaches submission
 → Seeded agents remain development/fallback and use the existing BNB Smart Chain Testnet executor (chain 97)
 [See PROJECT_HANDOFF §8E and the Codex cleanup handoff]
 
