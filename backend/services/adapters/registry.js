@@ -7,10 +7,14 @@
  * catalog adapter from being mistaken for an execution adapter.
  */
 import { brainA2aAdapter } from './brainA2aAdapter.js';
+import { assayYieldAdapter } from './assayYieldAdapter.js';
+import { assayGridAdapter } from './assayGridAdapter.js';
+import { smeaiHealthAdapter } from './smeaiHealthAdapter.js';
+import { smeaiLpAdapter } from './smeaiLpAdapter.js';
 import { AGENT_CAPABILITIES, getAgentCapability } from '../agentCapabilities.js';
 
 const catalogAdapters = [brainA2aAdapter];
-const executionAdapters = [];
+const executionAdapters = [assayYieldAdapter, assayGridAdapter, smeaiHealthAdapter, smeaiLpAdapter];
 
 export function getCatalogAdapterForAgent(agent) {
   return catalogAdapters.find((adapter) => adapter.canHandle(agent)) || null;

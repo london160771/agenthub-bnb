@@ -20,6 +20,7 @@ import { assertRunnableInput, executeForAgent, TaskInputError } from './agentExe
 import { ChainReadError, readChainState, withRpcLog } from './blockchainService.js';
 import { claimForRun, getHireableAgent } from './executionService.js';
 import { AGENT_CAPABILITIES, getAgentCapability } from './agentCapabilities.js';
+import { getExecutionAdapterForAgent } from './adapters/registry.js';
 
 /**
  * Errors whose message was written to be read by a user. Anything else gets a
@@ -85,30 +86,34 @@ export async function runExecution(executionId) {
       }
 
       const capability = getAgentCapability(agent);
-      if (capability !== AGENT_CAPABILITIES.LOCAL_EXECUTABLE) {
+      const externalAdapter = getExecutionAdapterForAgent(agent);
+      if (capability !== AGENT_CAPABILITIES.LOCAL_EXECUTABLE && !externalAdapter) {
         throw new TaskInputError(
           `"${agent.name}" is catalog/watch-only. AgentHub has not verified task execution for this indexed agent, so no local or Mainnet execution was attempted.`,
         );
       }
 
-      // Check the configuration before spending a round trip on it. A malformed
-      // address should fail in milliseconds with a readable message, not after the
-      // node has rejected it.
-      assertRunnableInput(agent, doc.input || {});
-
-      // --- Local testnet executor (existing path) --------------------------
-      const chain = await readChainState();
-      await markStep(doc, 'query', 'done');
-
-      // --- Analyzing --------------------------------------------------------
       await markStep(doc, 'analyse', 'active');
-      const output = await executeForAgent({ agent, execution: doc, chain });
+      let output;
+      if (externalAdapter) {
+        // External agents own validation and use their published HTTP service.
+        // This branch deliberately never calls the local chain-97 reader.
+        await markStep(doc, 'query', 'done');
+        output = await externalAdapter.execute({ agent, execution: doc });
+      } else {
+        // Check the configuration before spending a round trip on it. This is
+        // the unchanged local executor path.
+        assertRunnableInput(agent, doc.input || {});
+        const chain = await readChainState();
+        await markStep(doc, 'query', 'done');
+        output = await executeForAgent({ agent, execution: doc, chain });
+      }
       await markStep(doc, 'analyse', 'done');
 
       // --- Generating result ------------------------------------------------
       await markStep(doc, 'report', 'active');
       // The measured read log, attached at the one place that holds it.
-      doc.output = { ...output, reads: [...rpcLog] };
+      doc.output = { ...output, reads: output.reads || [...rpcLog] };
       doc.status = 'completed';
       doc.durationMs = Date.now() - startedAt;
       doc.rpcCallCount = rpcLog.length;

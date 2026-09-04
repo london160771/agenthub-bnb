@@ -3,14 +3,14 @@ AGENTHUB — CATEGORY IMPLEMENTATION PLAN
 Four hackathon categories: Rebalancing · Grid Trading · Yield Optimisation ·
 Health Factor Monitoring
 ================================================================================
-Status: PLAN/HANDOFF at 2026-09-03; T1.1-T1.5 shipped in Phase 7, T1.6 shipped in Phase 9 (§8C), and T1.7-T1.9 shipped in committed Phase 10 (§8D, e157e15) — real testnet tables, plan-only, no tx. Phase 11 cleanup is in progress and uncommitted: external-agent catalog architecture retained, Brain AgentCard/A2A catalog verified, paid execution unverified, ERC-8183 runtime preparation removed.
+Status: PLAN/HANDOFF at 2026-09-04; T1.1-T1.5 shipped in Phase 7, T1.6 shipped in Phase 9 (§8C), and T1.7-T1.9 shipped in committed Phase 10 (§8D, e157e15) — real testnet tables, plan-only, no tx. Phase 11 cleanup is committed at 689355c1. Phase 11.1B is in progress and uncommitted: Assay Yield, Assay Grid, SMEAI Health, and SMEAI LP have independently verified read-only external task/result adapters; Brain remains catalog-only; ERC-8183 runtime preparation remains removed.
 Audit date: 2026-08-26 (T1.6 update 2026-08-28, T1.7-T1.9 update 2026-08-29, Phase 11 note 2026-09-02 without rewriting the 2026-08-26 audit)
 Supersedes the pessimistic verdicts in CATEGORY_GAP_REPORT.md — see "WHAT
 CHANGED" below.
 
 CODEX TAKEOVER NOTE (2026-09-02):
 Phase 10 is COMPLETED (18 seeded, Yield/Grid/Rebalance tables, hasSimulated=false, Venus reconciliation intact).
-Phase 11 code is UNCOMMITTED working-tree diff — audit `git status` + `git diff` before trusting any Phase 11 comment.
+Phase 11.1B code is an UNCOMMITTED working-tree diff — audit `git status` + `git diff` before trusting any current Phase 11 comment.
 Seeded agents retained as development/fallback and must not be confused with real executable Mainnet agents (source='seeded' vs 'indexed').
 User-approved priority order now supersedes old §9 TIER 1 remaining:
 1. Turn indexed agents into executable agents / real marketplace
@@ -758,15 +758,20 @@ WHICH ARE INTENDED TO REPRESENT REAL BSC AGENTS.
   ERC-8004 verification. frontend/src/config.js SOURCE_LABELS renders
   'seeded' as "AgentHub demo data" (warn tone) and reserves "Verified on-chain"
   for 'verified'. So the honesty plumbing already exists and is correctly wired;
-  Phase 8 now supplies indexed real-agent data; independent identity and task
-  execution verification remain future work.
+  Phase 8 now supplies indexed real-agent data. Phase 11.1B independently
+  verified four exact external read-only task/result interfaces; generic indexed
+  records remain watch-only and AgentHub still does not own an ERC-8004 identity
+  verifier.
 
 8004SCAN STATUS — UPDATED AFTER PHASE 8.
   `backend/services/scan8004Client.js` and `backend/scripts/ingest8004.js`
   provide read-side indexed discovery for BSC Mainnet chain 56, with optional
   `SCAN8004_API_KEY` support. Indexed records are discoverable/watch-only unless
-  a separate execution verification is recorded. AgentHub still has no owned
-  on-chain ERC-8004 identity verifier or registry-contract reader.
+  a separate exact-identity execution verification is recorded. Phase 11.1B
+  records Assay Yield `56:331752`, Assay Grid `56:331751`, SMEAI Health
+  `56:331625`, and SMEAI LP `56:331698` as verified external adapters;
+  AgentHub still has no owned on-chain ERC-8004 identity verifier or
+  registry-contract reader.
   Earlier versions of this document described the pre-Phase-8 state; that
   historical conclusion is superseded by the current client/importer above.
 

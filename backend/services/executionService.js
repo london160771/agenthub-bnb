@@ -13,6 +13,7 @@
 import { randomUUID } from 'node:crypto';
 import { Agent } from '../models/Agent.js';
 import { Execution } from '../models/Execution.js';
+import { AGENT_CAPABILITIES, getAgentCapability } from './agentCapabilities.js';
 
 const PROJECTION = '-__v -_id';
 
@@ -53,10 +54,10 @@ const STEP_TEMPLATE = [
 /** Steps the runner advances, in order. */
 export const RUN_STEP_KEYS = STEP_TEMPLATE.filter((s) => !s.atCreate).map((s) => s.key);
 
-function buildSteps(now) {
+function buildSteps(now, external = false) {
   return STEP_TEMPLATE.map(({ key, label, atCreate }) => ({
     key,
-    label,
+    label: external && key === 'query' ? 'Calling external agent' : label,
     state: atCreate ? 'done' : 'pending',
     at: atCreate ? now : null,
   }));
@@ -183,19 +184,20 @@ export async function findRecentDuplicate({ userAddress, agentId, task }) {
  */
 export async function createExecution({ agentId, userAddress, task, input, agent }) {
   const now = new Date();
+  const external = getAgentCapability(agent) === AGENT_CAPABILITIES.INDEXED_EXECUTABLE;
   const doc = {
     executionId: newExecutionId(),
     agentId,
     userAddress,
     task,
     input,
-    steps: buildSteps(now),
+    steps: buildSteps(now, external),
     status: 'pending',
     // Server-authoritative price: whatever the agent actually charges.
     cost: agent.pricing?.amount ?? 0,
     // Testnet fees are in tBNB regardless of how the agent labels its price.
-    currency: HIRE_CURRENCY,
-    chain: HIRE_CHAIN,
+    currency: external ? 'none' : HIRE_CURRENCY,
+    chain: external ? 'bnb-mainnet' : HIRE_CHAIN,
     // Nothing is signed or broadcast in this phase, so there is no hash to
     // record. Left empty rather than fabricated.
     transactionHash: '',

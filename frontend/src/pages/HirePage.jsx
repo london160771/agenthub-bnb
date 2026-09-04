@@ -23,7 +23,7 @@ import {
   validateHireInput,
 } from '../lib/hire.js';
 import { useWallet } from '../context/walletContext.js';
-import { isLocallyExecutable } from '../lib/agentCapability.js';
+import { isExecutable, isExternallyExecutable } from '../lib/agentCapability.js';
 
 /**
  * HIRE (spec §39 phase 5): configure a task → review cost and network →
@@ -99,7 +99,7 @@ function HireFlow({ agentId }) {
     }
 
     // Belt and braces: the confirm button is already gated on both of these.
-    if (!isConnected || !isCorrectChain) return;
+    if (!isConnected || (!isExternallyExecutable(agent) && !isCorrectChain)) return;
 
     setErrors({});
     setSubmitError(null);
@@ -168,7 +168,7 @@ function HireFlow({ agentId }) {
 
   if (!agent) return null;
 
-  if (!isLocallyExecutable(agent)) {
+  if (!isExecutable(agent)) {
     return (
       <Container className="py-8 lg:py-12">
         {backLink}

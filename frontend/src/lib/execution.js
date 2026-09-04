@@ -54,6 +54,12 @@ export const SOURCE_META = {
     variant: 'neutral',
     tooltip: 'This build has no verified data source for this, so it was left out rather than guessed.',
   },
+  external: {
+    label: 'External service',
+    variant: 'info',
+    weight: 'strong',
+    tooltip: 'Returned by the verified external agent over HTTP/A2A. This is not an AgentHub blockchain RPC read.',
+  },
 };
 
 export const sourceMeta = (source) => SOURCE_META[source] || SOURCE_META.input;

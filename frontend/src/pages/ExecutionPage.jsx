@@ -256,12 +256,12 @@ function ExecutionFlow({ executionId }) {
               onRetry={startRun}
             />
           ) : polling ? (
-            <RunningNotice status={status} />
+            <RunningNotice status={status} external={execution.chain === 'bnb-mainnet'} />
           ) : (
-            <PendingPrompt onStart={startRun} busy={busy} />
+            <PendingPrompt onStart={startRun} busy={busy} external={execution.chain === 'bnb-mainnet'} />
           )}
 
-          <FaucetNote />
+          <FaucetNote external={execution.chain === 'bnb-mainnet'} />
         </div>
       </div>
     </Container>
@@ -270,6 +270,7 @@ function ExecutionFlow({ executionId }) {
 
 /** The hire's facts: id, recorded fee, network, measured duration. */
 function ExecutionFacts({ execution }) {
+  const external = execution.chain === 'bnb-mainnet';
   const rows = [
     [
       'Execution ID',
@@ -277,15 +278,15 @@ function ExecutionFacts({ execution }) {
         {execution.executionId}
       </span>,
     ],
-    ['Recorded fee', formatBnb(execution.cost, execution.currency || DEFAULT_CHAIN.currency)],
-    ['Network', DEFAULT_CHAIN.name],
+    ['Recorded fee', execution.cost === 0 ? 'Free' : formatBnb(execution.cost, execution.currency || DEFAULT_CHAIN.currency)],
+    ['Network', external ? 'External HTTP · BSC Mainnet data' : DEFAULT_CHAIN.name],
     execution.durationMs != null && ['Duration', formatMs(execution.durationMs)],
     [
       'Transaction',
       // Empty on purpose: no transaction was broadcast, so showing a hash here
       // would be fabricating on-chain data.
       <span key="tx" className="text-faint">
-        None — payment simulated
+        {external ? 'None — external HTTP only' : 'None — payment simulated'}
       </span>,
     ],
   ].filter(Boolean);
@@ -307,7 +308,7 @@ function ExecutionFacts({ execution }) {
   );
 }
 
-function RunningNotice({ status }) {
+function RunningNotice({ status, external = false }) {
   return (
     <Card>
       <CardBody className="flex flex-col items-center py-14 text-center">
@@ -318,22 +319,22 @@ function RunningNotice({ status }) {
           {status === 'pending' ? 'Starting the agent…' : 'The agent is working'}
         </h2>
         <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-muted">
-          It&apos;s reading live data from {DEFAULT_CHAIN.name}. This usually takes a couple of
-          seconds — each step ticks over as it finishes.
+          {external
+            ? 'It is calling the published external HTTP service for BSC Mainnet data. This usually takes a couple of seconds — each step ticks over as it finishes.'
+            : `It&apos;s reading live data from ${DEFAULT_CHAIN.name}. This usually takes a couple of seconds — each step ticks over as it finishes.`}
         </p>
       </CardBody>
     </Card>
   );
 }
 
-function PendingPrompt({ onStart, busy }) {
+function PendingPrompt({ onStart, busy, external = false }) {
   return (
     <Card>
       <CardBody className="flex flex-col items-center py-14 text-center">
         <h2 className="text-base font-semibold text-fg">This task hasn&apos;t run yet</h2>
         <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-muted">
-          It&apos;s queued and ready. Running it reads public data from {DEFAULT_CHAIN.name} — no
-          funds move and nothing is signed.
+          It&apos;s queued and ready. Running it {external ? 'calls the verified external HTTP service for BSC Mainnet data' : `reads public data from ${DEFAULT_CHAIN.name}`} — no funds move and nothing is signed.
         </p>
         <div className="mt-5">
           <Button variant="primary" onClick={onStart} disabled={busy}>
@@ -347,7 +348,8 @@ function PendingPrompt({ onStart, busy }) {
 }
 
 /** Test funds are free and worthless — worth saying next to real balances. */
-function FaucetNote() {
+function FaucetNote({ external = false }) {
+  if (external) return null;
   return (
     <div className="flex items-start gap-2 rounded-lg border border-line bg-panel-2 p-3">
       <Droplets size={15} className="mt-0.5 shrink-0 text-info" aria-hidden="true" />

@@ -16,7 +16,11 @@ import {
   HIRE_CHAIN_ID,
 } from '../services/executionService.js';
 import { ApiError, sendSuccess, asyncHandler } from '../utils/apiResponse.js';
-import { getAgentCapability, AGENT_CAPABILITIES } from '../services/agentCapabilities.js';
+import {
+  getAgentCapability,
+  AGENT_CAPABILITIES,
+  isExternallyExecutableAgent,
+} from '../services/agentCapabilities.js';
 
 /** Shape check only — this is not an EIP-55 checksum validation. */
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -93,25 +97,6 @@ export const postExecution = asyncHandler(async (req, res) => {
     );
   }
 
-  /**
-   * Wrong-network / accidental-mainnet safeguard (AGENTS.md). The client tells
-   * us which chain its wallet is on; anything that isn't BNB testnet is
-   * refused outright rather than quietly accepted.
-   */
-  if (body.chainId != null) {
-    const chainId = Number(body.chainId);
-    if (!Number.isInteger(chainId)) {
-      throw ApiError.badRequest('"chainId" must be a number.');
-    }
-    if (chainId !== HIRE_CHAIN_ID) {
-      throw ApiError.badRequest(
-        `Hiring is only available on BNB Smart Chain Testnet (chain ${HIRE_CHAIN_ID}). ` +
-          'This build never hires on mainnet or any other network.',
-        { received: chainId, expected: HIRE_CHAIN_ID },
-      );
-    }
-  }
-
   const task = typeof body.task === 'string' ? body.task.trim() : '';
   if (!task) throw ApiError.badRequest('"task" is required.');
   if (task.length > MAX_TASK_LENGTH) {
@@ -125,11 +110,33 @@ export const postExecution = asyncHandler(async (req, res) => {
   if (agent.status === 'paused') {
     throw ApiError.conflict(`"${agent.name}" is paused and is not accepting new work right now.`);
   }
-  if (getAgentCapability(agent) !== AGENT_CAPABILITIES.LOCAL_EXECUTABLE) {
+  const capability = getAgentCapability(agent);
+  const external = isExternallyExecutableAgent(agent);
+  if (capability !== AGENT_CAPABILITIES.LOCAL_EXECUTABLE && !external) {
     throw ApiError.badRequest(
       `"${agent.name}" is discoverable in AgentHub but is not executable here. ` +
-        'Only seeded/local-executable agents can run the read-only BNB Smart Chain Testnet executor in this build.',
+        'Only seeded/local-executable or independently verified external agents can run here.',
     );
+  }
+
+  /**
+   * Local hires are tied to the testnet wallet gate. External hires make a
+   * read-only HTTP request to a verified Mainnet agent and do not use the
+   * connected wallet's network or submit a transaction; 56 and 97 are accepted
+   * only as the wallet context the client reports.
+   */
+  if (body.chainId != null) {
+    const chainId = Number(body.chainId);
+    if (!Number.isInteger(chainId)) throw ApiError.badRequest('"chainId" must be a number.');
+    const allowed = external ? [56, HIRE_CHAIN_ID] : [HIRE_CHAIN_ID];
+    if (!allowed.includes(chainId)) {
+      throw ApiError.badRequest(
+        external
+          ? 'External read-only hires accept a BSC Mainnet or Testnet wallet context; no transaction uses that wallet.'
+          : `Hiring is only available on BNB Smart Chain Testnet (chain ${HIRE_CHAIN_ID}).`,
+        { received: chainId, expected: allowed },
+      );
+    }
   }
 
   // Duplicate-submission safeguard: hand back the hire they already made.

@@ -325,7 +325,76 @@ export const HIRE_FIELDS = {
  * we have no basis for.
  */
 export function fieldsFor(agent) {
-  const base = HIRE_FIELDS[agent?.category] || [];
+  const external = agent?.capability === 'indexed/executable';
+  const externalBase = external && agent?.executionAdapter === 'assay-yield'
+    ? [
+        {
+          key: 'markets',
+          label: 'vToken markets (optional)',
+          type: 'text',
+          required: false,
+          placeholder: '0x… , 0x…',
+          help: 'Optional comma-separated Venus vToken addresses. Leave blank for the agent’s published default set.',
+        },
+      ]
+    : external && agent?.executionAdapter === 'assay-grid'
+      ? [
+          {
+            key: 'pool',
+            label: 'PancakeSwap V3 pool',
+            type: 'address',
+            required: true,
+            placeholder: '0x…',
+            help: 'Read-only pool address for the external grid analysis.',
+          },
+          {
+            key: 'steps',
+            label: 'Levels per side (optional)',
+            type: 'number',
+            required: false,
+            min: 1,
+            max: 20,
+            step: 1,
+            help: 'Optional. The external agent defaults this when blank.',
+          },
+          {
+            key: 'spacingBps',
+            label: 'Spacing (optional)',
+            type: 'number',
+            required: false,
+            min: 1,
+            max: 10000,
+            step: 1,
+            unit: 'bps',
+            help: 'Optional distance between levels in basis points.',
+          },
+        ]
+      : external && agent?.executionAdapter === 'smeai-health'
+        ? [
+            {
+              key: 'wallet',
+              label: 'Venus wallet',
+              type: 'address',
+              required: true,
+              placeholder: '0x…',
+              help: 'Public BSC Mainnet address whose Venus position should be read.',
+            },
+          ]
+        : external && agent?.executionAdapter === 'smeai-lp'
+          ? [
+              {
+                key: 'tokenId',
+                label: 'PancakeSwap V3 position NFT',
+                type: 'number',
+                required: true,
+                min: 1,
+                max: 1000000000,
+                step: 1,
+                help: 'Public position NFT id to inspect. This is read-only analysis.',
+              },
+            ]
+          : null;
+  const base = externalBase || HIRE_FIELDS[agent?.category] || [];
   const resolved = base.map((field) => {
     if (field.optionsFrom !== 'protocols') return field;
     const protocols = agent?.protocols || [];

@@ -15,7 +15,7 @@ import { AgentStatus } from '../components/agents/AgentStatus.jsx';
 import { SOURCE_LABELS } from '../config.js';
 import { searchFinder } from '../services/finder.js';
 import { formatBnb } from '../lib/format.js';
-import { capabilityMetaFor, isLocallyExecutable } from '../lib/agentCapability.js';
+import { capabilityMetaFor, isExecutable } from '../lib/agentCapability.js';
 
 const EXAMPLES = [
   'I need an agent that monitors my Venus lending position and warns me before liquidation.',
@@ -33,7 +33,7 @@ function RecommendationCard({ item }) {
   const { agent, match } = item;
   const sourceMeta = SOURCE_LABELS[agent.source] || SOURCE_LABELS.seeded;
   const capabilityMeta = capabilityMetaFor(agent);
-  const canHire = isLocallyExecutable(agent);
+  const canHire = isExecutable(agent);
   const isCatalogVerified = agent.capability === 'indexed/catalog-verified';
 
   return (

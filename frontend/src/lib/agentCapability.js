@@ -36,6 +36,14 @@ export function isLocallyExecutable(agent) {
   return capabilityFor(agent) === AGENT_CAPABILITIES.LOCAL_EXECUTABLE;
 }
 
+export function isExternallyExecutable(agent) {
+  return capabilityFor(agent) === AGENT_CAPABILITIES.INDEXED_EXECUTABLE;
+}
+
+export function isExecutable(agent) {
+  return isLocallyExecutable(agent) || isExternallyExecutable(agent);
+}
+
 export function capabilityMetaFor(agent) {
   return CAPABILITY_META[capabilityFor(agent)] || CAPABILITY_META[AGENT_CAPABILITIES.INDEXED_WATCH_ONLY];
 }

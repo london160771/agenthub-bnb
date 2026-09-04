@@ -25,6 +25,17 @@ const SEARCHES = [
   'defi',
 ];
 
+// These exact identities have adapter-specific task schemas verified in
+// Phase 11.1B. The general classifier is intentionally conservative, but
+// overlapping DeFi vocabulary can still choose health-factor for a yield
+// description; the verified service identity is the stronger category evidence.
+const VERIFIED_EXTERNAL_CATEGORIES = Object.freeze({
+  '56:331752': 'yield',
+  '56:331751': 'trading',
+  '56:331625': 'health-factor',
+  '56:331698': 'portfolio',
+});
+
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -67,16 +78,39 @@ function normalizeRegistryAgent(raw) {
   };
 }
 
+function publishedEndpoint(detail) {
+  const direct = detail?.a2a_endpoint || detail?.agent_url || detail?.agentUrl || detail?.endpoint;
+  if (direct) return direct;
+  const services = detail?.services;
+  if (services && !Array.isArray(services) && typeof services === 'object') {
+    const endpoint = Object.values(services).find((service) => service?.endpoint)?.endpoint;
+    if (endpoint) return endpoint;
+  }
+  const offchainServices = detail?.raw_metadata?.offchain_content?.services;
+  if (Array.isArray(offchainServices)) {
+    const endpoint = offchainServices.find((service) => service?.endpoint)?.endpoint;
+    if (endpoint) return endpoint;
+  }
+  return '';
+}
+
+function publishedSkills(detail) {
+  const offchainSkills = detail?.raw_metadata?.offchain_content?.skills;
+  return Array.isArray(offchainSkills)
+    ? offchainSkills.flatMap((skill) => [skill?.id, skill?.name]).filter(Boolean)
+    : [];
+}
+
 function toAgentDoc(norm, detail = null) {
   // detail enriches same fields plus scores etc.
   const extraTags = detail && Array.isArray(detail.tags) ? detail.tags : [];
   const extraServices = detail && Array.isArray(detail.services) ? detail.services : [];
   const mergedTags = [...new Set([...norm.tags, ...extraTags])].slice(0, 12);
-  const mergedServices = [...new Set([...norm.services, ...extraServices])];
+  const mergedServices = [...new Set([...norm.services, ...extraServices, ...publishedSkills(detail)])];
 
   const detailName = detail?.name || norm.name;
   const detailDesc = detail?.description || norm.description;
-  const detailEndpoint = detail?.agent_url || detail?.agentUrl || detail?.endpoint || norm.endpoint;
+  const detailEndpoint = publishedEndpoint(detail) || norm.endpoint;
   const detailOwner = detail?.owner || detail?.ownerAddress || norm.owner;
   const txHash = detail?.created_tx_hash || detail?.createdTxHash || norm.txHash || '';
   const blockNo = detail?.created_block_number ?? detail?.createdBlockNumber ?? norm.blockNo;
@@ -84,6 +118,7 @@ function toAgentDoc(norm, detail = null) {
   const tokenId = norm.tokenId;
   const chainId = Number(norm.chainId) || 56;
   const erc8004Id = `${chainId}:${String(tokenId)}`;
+  const category = VERIFIED_EXTERNAL_CATEGORIES[erc8004Id] || norm.category;
 
   // Do not invent pricing/metrics — use registry if present, else neutral defaults.
   // Trust will be computed from whatever we have.
@@ -102,7 +137,7 @@ function toAgentDoc(norm, detail = null) {
     name: String(detailName).slice(0, 120),
     tagline: String(detailDesc).slice(0, 160).split('.').slice(0, 1).join('.').slice(0, 120) || detailName,
     description: String(detailDesc).slice(0, 2000),
-    category: norm.category, // already validated
+    category, // verified adapter categories override overlapping keyword scores
     subcategory: mergedServices.slice(0, 2).join(', ').slice(0, 80) || 'Registry agent',
     avatar: '',
     ownerAddress: detailOwner || '',

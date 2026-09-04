@@ -8,6 +8,7 @@ import { DEFAULT_CHAIN } from '../../config.js';
 import { formatBnb } from '../../lib/format.js';
 import { shortAddress } from '../../lib/wallet.js';
 import { useWallet } from '../../context/walletContext.js';
+import { isExternallyExecutable } from '../../lib/agentCapability.js';
 
 const PRICING_MODEL_LABELS = {
   'per-task': 'Per task',
@@ -50,6 +51,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
 
   const price = agent.pricing?.amount ?? 0;
   const free = price === 0;
+  const external = isExternallyExecutable(agent);
   // Testnet funds are tBNB, not BNB — labelling them "BNB" would be misleading.
   const currency = DEFAULT_CHAIN.currency;
 
@@ -72,7 +74,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
               <span className="text-faint">None — nothing is broadcast</span>
             </Row>
             <Row label="Pricing model">
-              {PRICING_MODEL_LABELS[agent.pricing?.model] || agent.pricing?.model || '—'}
+              {external ? 'Free external service' : PRICING_MODEL_LABELS[agent.pricing?.model] || agent.pricing?.model || '—'}
             </Row>
           </div>
 
@@ -90,8 +92,8 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
 
           <div className="py-2">
             <Row label="Network">
-              <Badge variant={isCorrectChain ? 'ok' : 'neutral'}>
-                {DEFAULT_CHAIN.name} · {DEFAULT_CHAIN.id}
+              <Badge variant={external || isCorrectChain ? 'ok' : 'neutral'}>
+                {external ? 'External HTTP · BSC Mainnet data · 56' : `${DEFAULT_CHAIN.name} · ${DEFAULT_CHAIN.id}`}
               </Badge>
             </Row>
             <Row label="Your wallet">
@@ -108,13 +110,14 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
         <div className="mt-4 rounded-lg border border-info/25 bg-info/5 p-3">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-info">
             <FlaskConical size={14} aria-hidden="true" />
-            Simulated payment
+            {external ? 'Free external task' : 'Simulated payment'}
           </p>
           <p className="mt-1.5 text-xs leading-relaxed text-muted">
-            Confirming records this hire in AgentHub. It does <strong className="text-fg">not</strong>{' '}
-            send a blockchain transaction, you will <strong className="text-fg">not</strong> be asked
-            to sign anything, and no {currency} leaves your wallet. The fee above is what this agent
-            would charge.
+            {external ? (
+              <>Confirming records this hire in AgentHub and running it makes one read-only external HTTP request. It does <strong className="text-fg">not</strong> send a blockchain transaction, ask you to sign, or require payment.</>
+            ) : (
+              <>Confirming records this hire in AgentHub. It does <strong className="text-fg">not</strong> send a blockchain transaction, you will <strong className="text-fg">not</strong> be asked to sign anything, and no {currency} leaves your wallet. The fee above is what this agent would charge.</>
+            )}
           </p>
         </div>
 
@@ -164,7 +167,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
                 funds.
               </p>
             </>
-          ) : !isCorrectChain ? (
+          ) : !external && !isCorrectChain ? (
             <>
               <div className="mb-3 flex gap-2 rounded-lg border border-warn/30 bg-warn/5 p-3">
                 <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warn" aria-hidden="true" />
@@ -197,7 +200,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
                 disabled={submitting}
               >
                 <Zap size={17} aria-hidden="true" />
-                {submitting ? 'Creating hire…' : free ? 'Confirm hire (free)' : 'Confirm hire'}
+                {submitting ? 'Creating hire…' : external ? 'Run external task' : free ? 'Confirm hire (free)' : 'Confirm hire'}
               </Button>
               <p className="mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-faint">
                 <Info size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
@@ -226,7 +229,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
           </div>
         )}
 
-        {DEFAULT_CHAIN.faucet && (
+        {!external && DEFAULT_CHAIN.faucet && (
           <p className="mt-4 border-t border-line pt-3 text-xs leading-relaxed text-faint">
             Want test funds in your wallet to see a real balance?{' '}
             <a

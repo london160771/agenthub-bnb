@@ -49,6 +49,13 @@ async function startInMemoryMongo() {
       const { classifyAgent } = await import('../services/agentClassifier.js');
       const { computeTrust } = await import('../services/trustScoreService.js');
 
+      const VERIFIED_EXTERNAL_CATEGORIES = {
+        '56:331752': 'yield',
+        '56:331751': 'trading',
+        '56:331625': 'health-factor',
+        '56:331698': 'portfolio',
+      };
+
       const SEARCHES = ['Venus', 'liquidation', 'yield', 'grid trading', 'PancakeSwap'];
       const seen = new Map();
       for (const term of SEARCHES) {
@@ -74,7 +81,10 @@ async function startInMemoryMongo() {
           categories: raw.categories || [],
           services: raw.services || [],
         };
-        const category = classifyAgent(classificationInput);
+        const tokenId = raw.token_id || raw.id;
+        const chainId = raw.chain_id || 56;
+        const erc8004Id = `${chainId}:${String(tokenId)}`;
+        const category = VERIFIED_EXTERNAL_CATEGORIES[erc8004Id] || classifyAgent(classificationInput);
         if (!category) continue;
         let detail = null;
         try {
@@ -82,13 +92,10 @@ async function startInMemoryMongo() {
           detail = d.detail;
           await new Promise((res) => setTimeout(res, 350));
         } catch {}
-        const tokenId = raw.token_id || raw.id;
-        const chainId = raw.chain_id || 56;
-        const erc8004Id = `${chainId}:${String(tokenId)}`;
         const agentId = `8004-${chainId}-${String(tokenId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32)}`;
         const name = (detail?.name || raw.name || `Agent ${String(tokenId).slice(0, 8)}`).slice(0, 120);
         const description = (detail?.description || raw.description || '').slice(0, 2000) || `Registry agent ${name} — imported from 8004scan BSC registry.`;
-        const endpoint = detail?.agent_url || detail?.endpoint || detail?.services?.a2a?.endpoint || '';
+        const endpoint = detail?.a2a_endpoint || detail?.agent_url || detail?.endpoint || detail?.services?.a2a?.endpoint || detail?.raw_metadata?.offchain_content?.services?.find?.((s) => s?.endpoint)?.endpoint || '';
         const owner = detail?.owner_address || raw.owner_address || '';
         const tags = Array.isArray(detail?.tags) && detail.tags.length ? detail.tags : raw.tags || [];
         const services = detail?.services ? Object.values(detail.services).map((s) => s.endpoint || '').filter(Boolean) : [];

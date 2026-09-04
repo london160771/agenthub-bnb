@@ -5,6 +5,7 @@ import { Badge } from '../ui/Badge.jsx';
 import { Button, ButtonLink } from '../ui/Button.jsx';
 import { DEFAULT_CHAIN } from '../../config.js';
 import { formatBnb } from '../../lib/format.js';
+import { isExternallyExecutable } from '../../lib/agentCapability.js';
 
 /**
  * Confirmation after a hire record is created.
@@ -15,6 +16,7 @@ import { formatBnb } from '../../lib/format.js';
  */
 export function HireSuccess({ agent, execution }) {
   const [copied, setCopied] = useState(false);
+  const external = isExternallyExecutable(agent);
 
   const copyId = async () => {
     try {
@@ -62,7 +64,7 @@ export function HireSuccess({ agent, execution }) {
                 {formatBnb(execution.cost, execution.currency || DEFAULT_CHAIN.currency)}
               </span>
             </Detail>
-            <Detail label="Network">{DEFAULT_CHAIN.name}</Detail>
+            <Detail label="Network">{external ? 'External HTTP · BSC Mainnet data' : DEFAULT_CHAIN.name}</Detail>
             <Detail label="Transaction">
               {/* Empty on purpose — no transaction was broadcast, so inventing a
                   hash here would be fabricating on-chain data. */}
@@ -100,12 +102,13 @@ export function HireSuccess({ agent, execution }) {
               and this hire record was saved in the AgentHub database.
             </li>
             <li>
-              <strong className="text-fg">Simulated:</strong> the payment. No transaction was signed
-              or broadcast, and no {DEFAULT_CHAIN.currency} moved.
+              <strong className="text-fg">{external ? 'Real:' : 'Simulated:'}</strong>{' '}
+              {external
+                ? 'the external agent request is free and read-only; no transaction was signed or broadcast.'
+                : `the payment. No transaction was signed or broadcast, and no ${DEFAULT_CHAIN.currency} moved.`}
             </li>
             <li>
-              <strong className="text-fg">Next:</strong> running the task reads live data from{' '}
-              {DEFAULT_CHAIN.name}. Every value in the result is labelled with where it came from,
+              <strong className="text-fg">Next:</strong> running the task {external ? 'calls the published external HTTP service for BSC Mainnet data' : `reads live data from ${DEFAULT_CHAIN.name}`}. Every value in the result is labelled with where it came from,
               so a reading and an estimate are never confused.
             </li>
           </ul>
