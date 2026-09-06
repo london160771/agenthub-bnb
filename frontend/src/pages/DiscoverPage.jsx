@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { SlidersHorizontal, SearchX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { SlidersHorizontal, SearchX, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { Container } from '../components/ui/Container.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
@@ -113,8 +113,8 @@ export default function DiscoverPage() {
     <Container className="py-8 lg:py-12">
       <PageHeader
         eyebrow="Marketplace"
-        title="Discover AI Agents"
-        description="Browse the AgentHub catalogue on BNB Smart Chain. Prices are in BNB; trust scores are AgentHub's own explainable metric, not a BNB endorsement."
+        title="Discover BSC agents"
+        description="Find an agent by task, category, or capability. Every card makes it clear whether you can run it now, pay for it, or only explore its listing."
       />
 
       {/* Search + sort */}
@@ -140,6 +140,19 @@ export default function DiscoverPage() {
       {/* Category tabs */}
       <CategoryTabs className="mt-4" value={category} onChange={(id) => updateParams({ category: id })} facets={facets} />
 
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-panel/60 px-3.5 py-3 text-xs text-muted">
+        <span className="inline-flex items-center gap-1.5 font-medium text-fg">
+          <Info size={13} className="text-brand" aria-hidden="true" />
+          Listing guide
+        </span>
+        <span><strong className="text-ok">Executable</strong> can run a verified task</span>
+        <span><strong className="text-brand">Paid</strong> shows a fee before approval</span>
+        <span><strong className="text-info">Catalog</strong> is discoverable only</span>
+        <span><strong className="text-faint">Watch-only</strong> is not verified for execution</span>
+        <span><strong className="text-warn">Built-in</strong> is seeded by AgentHub</span>
+        <span><strong className="text-info">Indexed</strong> is from an external registry</span>
+      </div>
+
       {/* Sidebar + results */}
       <div className="mt-6 grid gap-6 lg:grid-cols-[240px_1fr]">
         <aside className={cn('lg:block', showFilters ? 'block' : 'hidden')}>
@@ -151,7 +164,7 @@ export default function DiscoverPage() {
         <div>
           <div className="mb-4 flex items-center justify-between gap-4">
             <p className="text-sm text-muted">
-              {loading ? 'Searching…' : `${total} ${total === 1 ? 'agent' : 'agents'}`}
+              {loading ? 'Searching…' : total > 0 ? `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} of ${total} agents` : '0 agents'}
               {!loading && q && <span className="text-faint"> for “{q}”</span>}
             </p>
           </div>

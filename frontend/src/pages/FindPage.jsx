@@ -12,10 +12,10 @@ import { ErrorState } from '../components/ui/ErrorState.jsx';
 import { Skeleton } from '../components/ui/Skeleton.jsx';
 import { AgentAvatar } from '../components/agents/AgentAvatar.jsx';
 import { AgentStatus } from '../components/agents/AgentStatus.jsx';
-import { SOURCE_LABELS } from '../config.js';
+import { SOURCE_LABELS, CATEGORIES } from '../config.js';
 import { searchFinder } from '../services/finder.js';
 import { formatBnb } from '../lib/format.js';
-import { capabilityMetaFor, isHireable } from '../lib/agentCapability.js';
+import { capabilityBadgesFor, isHireable } from '../lib/agentCapability.js';
 
 const EXAMPLES = [
   'I need an agent that monitors my Venus lending position and warns me before liquidation.',
@@ -23,6 +23,8 @@ const EXAMPLES = [
   'I want a grid trading bot for BNB/USDT via PancakeSwap',
   'Show me portfolio rebalancing agents',
 ];
+
+const categoryLabel = (id) => CATEGORIES.find((category) => category.id === id)?.label || id;
 
 function MatchBadge({ pct }) {
   const variant = pct >= 80 ? 'ok' : pct >= 60 ? 'info' : pct >= 40 ? 'warn' : 'neutral';
@@ -32,7 +34,7 @@ function MatchBadge({ pct }) {
 function RecommendationCard({ item }) {
   const { agent, match } = item;
   const sourceMeta = SOURCE_LABELS[agent.source] || SOURCE_LABELS.seeded;
-  const capabilityMeta = capabilityMetaFor(agent);
+  const capabilityBadges = capabilityBadgesFor(agent);
   const canHire = isHireable(agent);
   const isCatalogVerified = agent.capability === 'indexed/catalog-verified';
 
@@ -48,8 +50,10 @@ function RecommendationCard({ item }) {
           <p className="truncate text-sm text-muted">{agent.tagline || agent.description?.slice(0, 120)}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <Badge variant={sourceMeta.variant} title={sourceMeta.label}>{sourceMeta.label}</Badge>
-            <Badge variant={capabilityMeta.variant}>{capabilityMeta.label}</Badge>
-            <Badge variant="neutral">{agent.category}</Badge>
+            {capabilityBadges.map((badge) => (
+              <Badge key={badge.label} variant={badge.variant}>{badge.label}</Badge>
+            ))}
+            <Badge variant="neutral">{categoryLabel(agent.category)}</Badge>
             <AgentStatus status={agent.status} />
             {agent.erc8004Id && <span className="font-mono text-xs text-faint">{agent.erc8004Id}</span>}
           </div>
@@ -76,7 +80,7 @@ function RecommendationCard({ item }) {
         <div className="mt-3 flex gap-2 rounded-lg border border-info/20 bg-info/5 p-2.5">
           <Info size={14} className="mt-0.5 shrink-0 text-info" />
           <p className="text-xs leading-relaxed text-muted">
-            This indexed agent is discoverable via 8004scan but is watch-only in AgentHub. No task execution has been verified.
+            This listing is discoverable through the BSC registry, but AgentHub has not verified task execution yet.
           </p>
         </div>
       )}
@@ -84,7 +88,7 @@ function RecommendationCard({ item }) {
         <div className="mt-3 flex gap-2 rounded-lg border border-brand/20 bg-brand/5 p-2.5">
           <Info size={14} className="mt-0.5 shrink-0 text-brand" />
           <p className="text-xs leading-relaxed text-muted">
-            Mainnet agent · catalog verified. AgentCard and A2A service metadata are available; no paid skill execution has been verified.
+            Public identity and service metadata are available, but no task execution is verified here yet.
           </p>
         </div>
       )}
@@ -174,7 +178,7 @@ export default function FindPage() {
               <Button type="submit" disabled={!query.trim() || loading}>
                 <Search size={16} /> {loading ? 'Searching…' : 'Find agents'}
               </Button>
-              <span className="text-xs text-faint">Deterministic 40/20/15/10/10/5 scoring — explainable, not arbitrary.</span>
+              <span className="text-xs text-faint">Results are ranked with an explainable match score.</span>
             </div>
           </form>
 
@@ -221,7 +225,7 @@ export default function FindPage() {
           {!error && !loading && data && data.results.length > 0 && (
             <>
               <div className="mb-3 flex items-center gap-2 text-xs text-faint">
-                <Info size={12} /> Top match highlighted — scores are deterministic and explainable. Indexed agents show “Indexed” provenance and are not hireable via local executor.
+                <Info size={12} /> Top match highlighted — scores are explainable. Listings that are discovery-only are clearly marked.
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 {data.results.map((item) => (

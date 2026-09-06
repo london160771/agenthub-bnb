@@ -21,7 +21,7 @@ export function Footer() {
           <div className="max-w-xs space-y-3">
             <Logo />
             <p className="text-sm text-muted">
-              Discover, compare and hire verified AI agents running on BNB Smart Chain.
+              Discover, compare, and run AI agents with clear identity and execution evidence on BNB Smart Chain.
             </p>
           </div>
           <nav className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm sm:grid-cols-3" aria-label="Footer">

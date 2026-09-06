@@ -26,7 +26,7 @@ import {
   validateHireInput,
 } from '../lib/hire.js';
 import { useWallet } from '../context/walletContext.js';
-import { isExternallyExecutable, isHireable, isPaymentReady, paymentChainIdFor } from '../lib/agentCapability.js';
+import { capabilityCopyFor, isExternallyExecutable, isHireable, isPaymentReady, paymentChainIdFor } from '../lib/agentCapability.js';
 
 /**
  * HIRE (spec §39 phase 5): configure a task → review cost and network →
@@ -262,7 +262,7 @@ function HireFlow({ agentId }) {
           <EmptyState
             icon={SearchX}
             title="Agent execution is not verified"
-            description={`${agent.name} is discoverable in AgentHub, but its current capability is ${agent.capability || 'indexed/watch-only'}. AgentCard or catalog metadata does not prove that a requested task can execute and return a result. Browse seeded agents to run a read-only BNB Smart Chain Testnet task.`}
+            description={`${agent.name} is available to explore, but AgentHub has not verified that it can accept a task and return a result. ${capabilityCopyFor(agent).detail}. Browse executable agents to run a read-only BNB Smart Chain Testnet task.`}
             action={
               <div className="flex flex-wrap justify-center gap-2">
                 <ButtonLink to={`/agents/${agent.agentId}`} variant="outline">
@@ -289,6 +289,7 @@ function HireFlow({ agentId }) {
           title={`Pay to hire ${agent.name}`}
           description="Your task is saved as pending. Review the exact payment request, approve it in your wallet, then AgentHub will verify the payment before calling the external agent."
         />
+        <HireSteps active="payment" />
         <div className="mt-6 grid gap-5 sm:mt-8 lg:grid-cols-[1fr_420px] lg:items-start">
           <div className="space-y-5">
             <HireSummary agent={agent} />
@@ -365,9 +366,10 @@ function HireFlow({ agentId }) {
         eyebrow="Hire"
         title={`Hire ${agent.name}`}
         description={paidReady
-          ? 'Provide the task input, review the exact payment request, then explicitly approve it in your wallet.'
-          : 'Tell the agent what to do, review the cost, then confirm. Nothing is charged in this build — the payment step is simulated.'}
+          ? 'Task first. Then review the exact fee and approve it in your wallet only when everything looks right.'
+          : 'Describe the task, review the details, and run it. Free tasks do not open your wallet.'}
       />
+      <HireSteps />
 
       {/* Mobile-first: one column, in reading order (who → what → confirm).
           From lg the confirm panel becomes a sticky rail beside the form. */}
@@ -408,6 +410,27 @@ function HireFlow({ agentId }) {
         />
       </div>
     </Container>
+  );
+}
+
+function HireSteps({ active = 'task' }) {
+  const steps = [
+    ['task', '1', 'Task'],
+    ['review', '2', 'Review'],
+    ['payment', '3', 'Execute / pay'],
+  ];
+  return (
+    <ol className="mt-5 flex max-w-xl items-center gap-2 text-xs sm:mt-6" aria-label="Hire steps">
+      {steps.map(([key, number, label], index) => (
+        <li key={key} className="flex min-w-0 flex-1 items-center gap-2">
+          <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border font-mono ${key === active ? 'border-brand/50 bg-brand/10 text-brand' : 'border-line bg-panel-2 text-faint'}`}>
+            {number}
+          </span>
+          <span className={key === active ? 'font-semibold text-fg' : 'text-faint'}>{label}</span>
+          {index < steps.length - 1 && <span className="h-px flex-1 bg-line" aria-hidden="true" />}
+        </li>
+      ))}
+    </ol>
   );
 }
 

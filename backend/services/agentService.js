@@ -5,7 +5,7 @@
  * module receives already-coerced values and builds the Mongoose query.
  */
 import { Agent, AGENT_CATEGORIES } from '../models/Agent.js';
-import { decorateAgent } from './agentCapabilities.js';
+import { AGENT_CAPABILITIES, decorateAgent, getAgentCapability } from './agentCapabilities.js';
 import { capabilityDetailsFor } from './agentCapabilityModel.js';
 
 const MAX_LIMIT = 100;
@@ -21,7 +21,23 @@ const SORTS = {
   recent: { lastActiveAt: -1 },
 };
 
-export const AGENT_SORT_KEYS = Object.keys(SORTS);
+/**
+ * The default marketplace view puts agents a judge can use first. The
+ * capability is computed from the same backend-authoritative evidence used by
+ * execution, never from a name, endpoint, price, or persisted snapshot.
+ */
+export const DEFAULT_AVAILABILITY_PRIORITY = Object.freeze({
+  [AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID]: 0,
+  [AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY]: 1,
+  [AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE]: 2,
+  [AGENT_CAPABILITIES.LOCAL_EXECUTABLE]: 3,
+  [AGENT_CAPABILITIES.INDEXED_CATALOG_VERIFIED]: 4,
+  [AGENT_CAPABILITIES.INDEXED_WATCH_ONLY]: 5,
+});
+
+export const DEFAULT_AVAILABILITY_SORT = 'availability';
+
+export const AGENT_SORT_KEYS = [...Object.keys(SORTS), DEFAULT_AVAILABILITY_SORT];
 
 // Exclude Mongo internals; the public identifier is `agentId`.
 const PROJECTION = '-__v -_id';
@@ -29,6 +45,25 @@ const PROJECTION = '-__v -_id';
 function decorateForApi(agent) {
   if (!agent) return agent;
   return { ...decorateAgent(agent), capabilityDetails: capabilityDetailsFor(agent) };
+}
+
+function availabilityPriority(agent) {
+  const capability = getAgentCapability(agent);
+  return DEFAULT_AVAILABILITY_PRIORITY[capability] ?? DEFAULT_AVAILABILITY_PRIORITY[AGENT_CAPABILITIES.INDEXED_WATCH_ONLY];
+}
+
+/** Stable secondary ordering keeps the default marketplace calm between visits. */
+export function compareByDefaultAvailability(a, b) {
+  const priorityDelta = availabilityPriority(a) - availabilityPriority(b);
+  if (priorityDelta !== 0) return priorityDelta;
+
+  const trustDelta = (b.trustScore ?? -1) - (a.trustScore ?? -1);
+  if (trustDelta !== 0) return trustDelta;
+
+  const reviewDelta = (b.reviewCount ?? 0) - (a.reviewCount ?? 0);
+  if (reviewDelta !== 0) return reviewDelta;
+
+  return String(a.agentId || '').localeCompare(String(b.agentId || ''));
 }
 
 function escapeRegex(str) {
@@ -78,8 +113,27 @@ function buildFilter(opts) {
 export async function listAgents(opts = {}) {
   const page = Math.max(1, opts.page || 1);
   const limit = Math.min(MAX_LIMIT, Math.max(1, opts.limit || DEFAULT_LIMIT));
-  const sort = SORTS[opts.sort] || SORTS.trust;
+  const sortKey = opts.sort || 'trust';
   const filter = buildFilter(opts);
+
+  if (sortKey === DEFAULT_AVAILABILITY_SORT) {
+    // Capability is derived in JavaScript from the authoritative allowlists
+    // and verified payment facts, so fetch the full filtered set before
+    // sorting and paginating. A Mongo sort on `capability` would trust a
+    // snapshot field and could split a capability group across pages.
+    const allAgents = await Agent.find(filter).select(PROJECTION).lean();
+    const sorted = allAgents.sort(compareByDefaultAvailability);
+    const start = (page - 1) * limit;
+    return {
+      items: sorted.slice(start, start + limit).map(decorateForApi),
+      total: sorted.length,
+      page,
+      limit,
+      pages: Math.max(1, Math.ceil(sorted.length / limit)),
+    };
+  }
+
+  const sort = SORTS[sortKey] || SORTS.trust;
 
   const [items, total] = await Promise.all([
     Agent.find(filter)

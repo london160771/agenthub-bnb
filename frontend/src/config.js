@@ -81,6 +81,6 @@ export const DEFAULT_CHAIN =
 export const SOURCE_LABELS = {
   verified: { label: 'Verified on-chain', variant: 'ok' },
   indexed: { label: 'Indexed', variant: 'info' },
-  seeded: { label: 'AgentHub demo data', variant: 'warn' },
-  demo: { label: 'Demo agent', variant: 'warn' },
+  seeded: { label: 'Built-in', variant: 'warn' },
+  demo: { label: 'Built-in', variant: 'warn' },
 };

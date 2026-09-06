@@ -232,7 +232,7 @@ function ExecutionFlow({ executionId }) {
         {/* Left rail: progress + facts, sticky on desktop so a long result
             scrolls against a stable summary. min-w-0 so a grid column can't be
             forced wider than the viewport by unbreakable content. */}
-        <div className="min-w-0 space-y-5 lg:sticky lg:top-20">
+        <div className="order-2 min-w-0 space-y-5 lg:order-1 lg:sticky lg:top-20">
           <Card>
             <CardBody>
               <h2 className="text-sm font-semibold text-fg">Progress</h2>
@@ -245,7 +245,7 @@ function ExecutionFlow({ executionId }) {
         </div>
 
         {/* Right: the main event. */}
-        <div className="min-w-0 space-y-5">
+        <div className="order-1 min-w-0 space-y-5 lg:order-2">
           {status === 'completed' ? (
             <ExecutionResult execution={execution} />
           ) : status === 'failed' ? (
@@ -306,7 +306,7 @@ function ExecutionFacts({ execution }) {
   return (
     <Card>
       <CardBody>
-        <h2 className="text-sm font-semibold text-fg">Details</h2>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-faint">Run details</p>
         <dl className="mt-3 space-y-2 text-sm">
           {rows.map(([label, value]) => (
             <div key={label} className="flex items-baseline justify-between gap-3">

@@ -34,6 +34,7 @@ export function ExecutionResult({ execution }) {
     <div className="space-y-4">
       <Card>
         <CardBody>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-brand">Result</p>
           <div className="flex items-start gap-3">
             <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ok/10 text-ok">
               <CheckCircle2 size={19} aria-hidden="true" />
@@ -108,7 +109,8 @@ export function ExecutionResult({ execution }) {
           the numbers above checkable rather than merely asserted. */}
       <Card>
         <CardBody>
-          <h3 className="text-sm font-semibold text-fg">Where this data came from</h3>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-info">Verification / provenance</p>
+          <h3 className="mt-1 text-base font-semibold text-fg">Where this data came from</h3>
           <dl className="mt-3 space-y-2 text-sm">
             <ProvRow label="Network">
               {networkLabel}{' '}

@@ -5,6 +5,7 @@
 
 // Sort options: `value` is the backend sort key (agentService SORTS).
 export const SORT_OPTIONS = [
+  { value: 'availability', label: 'Executable first' },
   { value: 'trust', label: 'Recommended' },
   { value: 'rating', label: 'Highest rated' },
   { value: 'success', label: 'Most successful' },
@@ -13,7 +14,7 @@ export const SORT_OPTIONS = [
   { value: 'price-high', label: 'Highest price' },
   { value: 'recent', label: 'Recently active' },
 ];
-export const DEFAULT_SORT = 'trust';
+export const DEFAULT_SORT = 'availability';
 
 // Availability (maps to ?status=; 'all' clears it).
 export const STATUS_OPTIONS = [

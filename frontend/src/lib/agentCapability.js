@@ -14,27 +14,39 @@ export const AGENT_CAPABILITIES = Object.freeze({
 
 export const CAPABILITY_META = Object.freeze({
   [AGENT_CAPABILITIES.LOCAL_EXECUTABLE]: {
-    label: 'Local executor',
-    variant: 'warn',
+    label: 'Executable',
+    detail: 'Free testnet run',
+    description: 'Run this agent against live BNB Smart Chain Testnet data.',
+    variant: 'ok',
   },
   [AGENT_CAPABILITIES.INDEXED_CATALOG_VERIFIED]: {
-    label: 'Mainnet agent · catalog verified',
+    label: 'Catalog',
+    detail: 'Discovery only',
+    description: 'The agent identity and public service metadata are available, but task execution is not verified here.',
     variant: 'info',
   },
   [AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE]: {
-    label: 'Mainnet agent · free execution verified',
+    label: 'Executable',
+    detail: 'Free external run',
+    description: 'AgentHub has verified a free, read-only task and result contract for this BSC agent.',
     variant: 'ok',
   },
   [AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID]: {
-    label: 'Mainnet agent · paid execution verified',
+    label: 'Executable',
+    detail: 'Paid external run',
+    description: 'AgentHub has verified a paid task and result contract for this BSC agent.',
     variant: 'ok',
   },
   [AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY]: {
-    label: 'Mainnet agent · payment verified, execution pending',
+    label: 'Paid',
+    detail: 'Payment verified',
+    description: 'The exact payment requirement is verified. Task execution will be enabled after a real paid result is verified.',
     variant: 'warn',
   },
   [AGENT_CAPABILITIES.INDEXED_WATCH_ONLY]: {
-    label: 'Indexed · watch-only',
+    label: 'Watch-only',
+    detail: 'Discovery only',
+    description: 'This listing is discoverable, but AgentHub has not verified that it can accept a task and return a result.',
     variant: 'neutral',
   },
 });
@@ -73,4 +85,37 @@ export function isExecutable(agent) {
 
 export function capabilityMetaFor(agent) {
   return CAPABILITY_META[capabilityFor(agent)] || CAPABILITY_META[AGENT_CAPABILITIES.INDEXED_WATCH_ONLY];
+}
+
+/** Small public badges used in marketplace surfaces. Keep protocol/state names internal. */
+export function capabilityBadgesFor(agent) {
+  const capability = capabilityFor(agent);
+  if (capability === AGENT_CAPABILITIES.LOCAL_EXECUTABLE || capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE) {
+    return [
+      { label: 'Executable', variant: 'ok' },
+      { label: 'Free', variant: 'neutral' },
+    ];
+  }
+  if (capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID) {
+    return [
+      { label: 'Executable', variant: 'ok' },
+      { label: 'Paid', variant: 'brand' },
+    ];
+  }
+  if (capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY) {
+    return [{ label: 'Paid', variant: 'warn' }];
+  }
+  if (capability === AGENT_CAPABILITIES.INDEXED_CATALOG_VERIFIED) {
+    return [{ label: 'Catalog', variant: 'info' }];
+  }
+  return [{ label: 'Watch-only', variant: 'neutral' }];
+}
+
+export function capabilityCopyFor(agent) {
+  const meta = capabilityMetaFor(agent);
+  return {
+    label: meta.label,
+    detail: meta.detail,
+    description: meta.description,
+  };
 }

@@ -65,7 +65,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
   return (
     <Card className={className}>
       <CardBody>
-        <SectionHeading title="Review and confirm" className="mb-3" />
+        <SectionHeading title="Review before you run" description="Check the fee, network, and wallet effect before the final action." className="mb-3" />
 
         <div className="divide-y divide-line">
           <div className="pb-2">
@@ -90,7 +90,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
               </span>
             </div>
             <p className="text-xs leading-relaxed text-faint">
-              {paidReady ? 'Payment is required before the task can run.' : 'Recorded on the hire, not charged to your wallet.'}
+              {paidReady ? 'Payment is required before the task can run.' : 'No funds move at this step.'}
             </p>
           </div>
 
@@ -121,11 +121,22 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
           </div>
         </div>
 
+        {paidReady && (
+          <div className="mt-4 flex gap-2 rounded-lg border border-warn/30 bg-warn/5 p-3">
+            <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warn" aria-hidden="true" />
+            <p className="text-xs leading-relaxed text-muted">
+              {x402Paid
+                ? 'This provider settles on a Mainnet network. Review the token, amount, recipient, and settlement chain carefully before approving anything.'
+                : 'This is a real BSC Mainnet payment. AgentHub will show the exact recipient and amount again before your wallet can approve it.'}
+            </p>
+          </div>
+        )}
+
         {/* Honesty notice — deliberately prominent, not a footnote. */}
         <div className="mt-4 rounded-lg border border-info/25 bg-info/5 p-3">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-info">
             <FlaskConical size={14} aria-hidden="true" />
-              {paidReady ? 'Paid external task' : external ? 'Free external task' : 'Simulated payment'}
+              {paidReady ? 'Paid external task' : external ? 'Free external task' : 'Free testnet run'}
           </p>
           <p className="mt-1.5 text-xs leading-relaxed text-muted">
             {paidReady ? (
@@ -135,7 +146,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
             ) : external ? (
               <>Confirming records this hire in AgentHub and running it makes one read-only external HTTP request. It does <strong className="text-fg">not</strong> send a blockchain transaction, ask you to sign, or require payment.</>
             ) : (
-              <>Confirming records this hire in AgentHub. It does <strong className="text-fg">not</strong> send a blockchain transaction, you will <strong className="text-fg">not</strong> be asked to sign anything, and no {currency} leaves your wallet. The fee above is what this agent would charge.</>
+              <>Confirming records this hire in AgentHub. It does <strong className="text-fg">not</strong> send a blockchain transaction, you will <strong className="text-fg">not</strong> be asked to sign anything, and no {currency} leaves your wallet.</>
             )}
           </p>
         </div>

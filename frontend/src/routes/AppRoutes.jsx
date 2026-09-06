@@ -7,12 +7,15 @@ import ComparePage from '../pages/ComparePage.jsx';
 import HirePage from '../pages/HirePage.jsx';
 import ExecutionPage from '../pages/ExecutionPage.jsx';
 import FindPage from '../pages/FindPage.jsx';
-import PlaceholderPage from '../pages/PlaceholderPage.jsx';
+import DashboardPage from '../pages/DashboardPage.jsx';
+import ActivityPage from '../pages/ActivityPage.jsx';
+import SavedPage from '../pages/SavedPage.jsx';
+import SettingsPage from '../pages/SettingsPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 
 /**
- * Every route in the spec is registered now so navigation works end-to-end.
- * Pages arrive phase by phase; until then they render a consistent placeholder.
+ * Every route in the spec is registered so the shell never sends a judge to a
+ * dead end. Data-light support pages stay honest about what is available.
  */
 export function AppRoutes() {
   return (
@@ -26,22 +29,10 @@ export function AppRoutes() {
         <Route path="/compare" element={<ComparePage />} />
         <Route path="/hire/:agentId" element={<HirePage />} />
         <Route path="/execution/:executionId" element={<ExecutionPage />} />
-        <Route
-          path="/dashboard"
-          element={<PlaceholderPage eyebrow="Overview" title="Dashboard" />}
-        />
-        <Route
-          path="/activity"
-          element={<PlaceholderPage eyebrow="History" title="Activity" />}
-        />
-        <Route
-          path="/saved"
-          element={<PlaceholderPage eyebrow="Bookmarks" title="Saved agents" />}
-        />
-        <Route
-          path="/settings"
-          element={<PlaceholderPage eyebrow="Account" title="Settings" />}
-        />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/activity" element={<ActivityPage />} />
+        <Route path="/saved" element={<SavedPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
 
         <Route path="*" element={<NotFoundPage />} />
       </Route>

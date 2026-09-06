@@ -10,6 +10,7 @@ import { AgentStatus } from './AgentStatus.jsx';
 import { AgentTrustScore } from './AgentTrustScore.jsx';
 import { AgentMetrics } from './AgentMetrics.jsx';
 import { AgentSkills } from './AgentSkills.jsx';
+import { capabilityBadgesFor } from '../../lib/agentCapability.js';
 
 const PRICING_MODEL_LABELS = {
   'per-task': 'per task',
@@ -41,9 +42,10 @@ export function AgentCard({ agent }) {
   } = agent;
 
   const provenance = SOURCE_LABELS[source];
+  const capabilityBadges = capabilityBadgesFor(agent);
 
   return (
-    <Card as={Link} to={`/agents/${agentId}`} interactive className="group flex h-full flex-col p-4 sm:p-5">
+    <Card as={Link} to={`/agents/${agentId}`} interactive className="group flex h-full min-w-0 flex-col p-4 sm:p-5">
       <div className="flex items-start gap-3">
         <AgentAvatar name={name} seed={agentId} src={avatar} size="md" />
         <div className="min-w-0 flex-1">
@@ -56,6 +58,11 @@ export function AgentCard({ agent }) {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:mt-4">
+        {capabilityBadges.map((badge) => (
+          <Badge key={badge.label} variant={badge.variant}>
+            {badge.label}
+          </Badge>
+        ))}
         <AgentTrustScore score={trustScore ?? trust.overall} confidence={trust.confidence} />
         {ratingAvg != null && (
           <span
@@ -85,10 +92,10 @@ export function AgentCard({ agent }) {
             <p className="text-xs text-faint">
               {PRICING_MODEL_LABELS[pricing.model] || pricing.model || 'pricing'}
             </p>
-            <p className="font-semibold text-fg">{formatBnb(pricing.amount)}</p>
+            <p className="font-semibold text-fg">{formatBnb(pricing.amount, pricing.currency || 'BNB')}</p>
           </div>
           <span className="inline-flex items-center gap-1 text-sm font-medium text-muted transition-colors group-hover:text-brand">
-            View
+            View profile
             <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
           </span>
         </div>

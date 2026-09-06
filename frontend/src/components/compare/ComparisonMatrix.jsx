@@ -9,6 +9,7 @@ import { SOURCE_LABELS } from '../../config.js';
 import { cn } from '../../lib/cn.js';
 import { trustTone } from '../../lib/format.js';
 import { COMPARE_SECTIONS, computeBestByRow } from '../../lib/compare.js';
+import { capabilityBadgesFor, isHireable } from '../../lib/agentCapability.js';
 
 /**
  * Side-by-side comparison matrix for 2–4 agents.
@@ -39,6 +40,10 @@ const AGENT_CELL = 'w-56 shrink-0 grow border-l border-line px-4';
 function AgentColumnHeader({ agent, onRemove }) {
   const { agentId, name, tagline, avatar, status, source, trustScore, trust = {} } = agent;
   const provenance = SOURCE_LABELS[source];
+  const capabilityBadges = capabilityBadgesFor(agent);
+  const canHire = isHireable(agent);
+  const paid = capabilityBadges.some((badge) => badge.label === 'Paid');
+  const executable = capabilityBadges.some((badge) => badge.label === 'Executable');
 
   return (
     <div className={cn(AGENT_CELL, 'py-4')}>
@@ -74,6 +79,9 @@ function AgentColumnHeader({ agent, onRemove }) {
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         <AgentStatus status={status} />
         {provenance && <Badge variant={provenance.variant}>{provenance.label}</Badge>}
+        {capabilityBadges.map((badge) => (
+          <Badge key={badge.label} variant={badge.variant}>{badge.label}</Badge>
+        ))}
       </div>
 
       <AgentTrustScore
@@ -82,9 +90,15 @@ function AgentColumnHeader({ agent, onRemove }) {
         className="mt-2.5"
       />
 
-      <ButtonLink to={`/hire/${agentId}`} variant="primary" size="sm" className="mt-3 w-full">
-        Hire
-      </ButtonLink>
+      {canHire ? (
+        <ButtonLink to={`/hire/${agentId}`} variant="primary" size="sm" className="mt-3 w-full">
+          {paid ? 'Review payment' : executable ? 'Run agent' : 'Hire'}
+        </ButtonLink>
+      ) : (
+        <Button variant="secondary" size="sm" className="mt-3 w-full" disabled title="This agent is available for discovery only">
+          Explore only
+        </Button>
+      )}
     </div>
   );
 }

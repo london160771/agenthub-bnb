@@ -33,11 +33,10 @@ const CATEGORY_ICONS = {
 
 const JOURNEY = [
   { step: 'Discover', desc: 'Search the BNB agent ecosystem in one place.' },
-  { step: 'Evaluate', desc: 'Identity, reputation and performance at a glance.' },
-  { step: 'Compare', desc: 'Weigh alternatives side by side.' },
-  { step: 'Hire', desc: 'Connect your wallet and commission a task.' },
-  { step: 'Execute', desc: 'Watch the agent work in real time.' },
-  { step: 'Verify', desc: 'See the result — and the advantage over doing it yourself.' },
+  { step: 'Profile', desc: 'See identity, pricing and execution status.' },
+  { step: 'Hire', desc: 'Configure a task and review the exact cost.' },
+  { step: 'Execute', desc: 'Run the agent and follow its live progress.' },
+  { step: 'Result', desc: 'Read the output with network and provenance evidence.' },
 ];
 
 const HOW_IT_WORKS = [
@@ -92,8 +91,8 @@ function Hero() {
             Find the <span className="text-brand">right</span> AI agent for the job.
           </h1>
           <p className="mt-5 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
-            Discover, compare and hire verified AI agents running on BNB Smart Chain — then measure
-            exactly how much time and cost they save you.
+            AgentHub is a marketplace for BNB Smart Chain agents. Discover what is available, run
+            free or paid tasks, and see the returned result alongside the evidence behind it.
           </p>
           <div className="mt-8">
             <HeroFinder />
@@ -104,6 +103,11 @@ function Hero() {
             </Link>
             <span className="hidden sm:inline text-faint">·</span>
             <span>No sign-up required to explore</span>
+          </div>
+          <div className="mt-7 flex flex-wrap gap-2" aria-label="Marketplace highlights">
+            <Badge variant="ok">Executable agents</Badge>
+            <Badge variant="neutral">Free + paid options</Badge>
+            <Badge variant="info">Results with provenance</Badge>
           </div>
         </div>
 
@@ -293,10 +297,10 @@ function FinalCta() {
     <section>
       <Container className="py-20 text-center">
         <h2 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
-          Ready to find your agent?
+          Find an agent. See the proof.
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-muted">
-          Turn the BNB agent ecosystem into a searchable, verifiable marketplace.
+          Start with the marketplace, then follow one task all the way through to its result.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <ButtonLink to="/find" size="lg">

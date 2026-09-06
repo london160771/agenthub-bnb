@@ -29,7 +29,7 @@ import { getAgent, listAgents } from '../services/agents.js';
 import { preparePayment } from '../services/payments.js';
 import { SOURCE_LABELS, CATEGORIES } from '../config.js';
 import { cn } from '../lib/cn.js';
-import { AGENT_CAPABILITIES, capabilityMetaFor, isExternallyExecutable, isHireable } from '../lib/agentCapability.js';
+import { AGENT_CAPABILITIES, capabilityBadgesFor, capabilityCopyFor, isExternallyExecutable, isHireable } from '../lib/agentCapability.js';
 import { PaidPaymentConfirmation } from '../components/payment/PaidPaymentConfirmation.jsx';
 import {
   formatBnb,
@@ -231,7 +231,8 @@ export default function AgentProfilePage() {
   const canHire = isHireable(agent);
   const isExternalExecutable = isExternallyExecutable(agent);
   const isCatalogVerified = capability === AGENT_CAPABILITIES.INDEXED_CATALOG_VERIFIED;
-  const capabilityMeta = capabilityMetaFor(agent);
+  const capabilityCopy = capabilityCopyFor(agent);
+  const capabilityBadges = capabilityBadgesFor(agent);
 
   return (
     <Container className="py-8 lg:py-12">
@@ -254,6 +255,13 @@ export default function AgentProfilePage() {
             )}
           </div>
 
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {capabilityBadges.map((badge) => (
+              <Badge key={badge.label} variant={badge.variant}>{badge.label}</Badge>
+            ))}
+            <span className="text-sm text-muted">{capabilityCopy.detail}</span>
+          </div>
+
           <h1 className="mt-3 text-2xl font-bold tracking-tight text-fg sm:text-3xl">{name}</h1>
           {tagline && <p className="mt-1 text-muted">{tagline}</p>}
 
@@ -272,13 +280,13 @@ export default function AgentProfilePage() {
 
         <div className="flex w-full shrink-0 gap-2 sm:w-auto sm:flex-col lg:flex-row">
           {!canHire ? (
-            <span className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-info/30 bg-info/10 px-4 py-2.5 text-sm font-medium text-info sm:flex-none">
-              {capabilityMeta.label}
+            <span className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-line-strong bg-panel-2 px-4 py-2.5 text-sm font-medium text-muted sm:flex-none">
+              {capabilityCopy.label}
             </span>
           ) : (
             <ButtonLink to={`/hire/${agentId}`} variant="primary" className="flex-1 sm:flex-none">
               <Zap size={16} aria-hidden="true" />
-              Hire
+              {isCatalogVerified ? 'View options' : isExternalExecutable ? 'Run agent' : 'Hire agent'}
             </ButtonLink>
           )}
           <ButtonLink
@@ -364,6 +372,23 @@ export default function AgentProfilePage() {
         <aside className="space-y-4 sm:space-y-6">
           <Card>
             <CardBody>
+              <SectionHeading title="Execution" className="mb-3" />
+              <div className="flex flex-wrap gap-1.5">
+                {capabilityBadges.map((badge) => (
+                  <Badge key={badge.label} variant={badge.variant}>{badge.label}</Badge>
+                ))}
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-muted">{capabilityCopy.description}</p>
+              {canHire && (
+                <p className="mt-2 text-xs leading-relaxed text-faint">
+                  {isExternalExecutable ? 'The result comes back from the agent’s published service.' : 'The task runs against BNB Smart Chain Testnet data.'}
+                </p>
+              )}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody>
               <SectionHeading title="Pricing" className="mb-3" />
               <p className="font-mono text-2xl font-bold text-fg">{formatBnb(pricing.amount)}</p>
               <p className="text-xs text-faint">
@@ -379,8 +404,8 @@ export default function AgentProfilePage() {
               {!canHire ? (
                 <div className="mt-4 rounded-lg border border-info/20 bg-info/5 p-3 text-xs leading-relaxed text-muted">
                   {isCatalogVerified
-                    ? 'Mainnet agent · catalog verified. AgentCard and A2A service metadata are available; no paid skill execution has been verified.'
-                    : 'Indexed agent from 8004scan. Discoverable here, but watch-only because AgentHub has not verified task execution.'}
+                    ? 'Catalog listing only. Public identity and service metadata are available, but no task execution is verified here yet.'
+                    : 'Discoverable listing only. AgentHub has not verified that this agent can accept a task and return a result.'}
                 </div>
               ) : null}
               {canHire ? (
