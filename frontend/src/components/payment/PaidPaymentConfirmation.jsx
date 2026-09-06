@@ -1,8 +1,9 @@
-import { AlertTriangle, LockKeyhole } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, LockKeyhole, Wallet } from 'lucide-react';
 import { Card, CardBody } from '../ui/Card.jsx';
 import { Badge } from '../ui/Badge.jsx';
 import { Button } from '../ui/Button.jsx';
 import { SectionHeading } from '../ui/PageHeader.jsx';
+import { useWallet } from '../../context/walletContext.js';
 
 function valueOrUnavailable(value) {
   return value == null || value === '' ? 'Unavailable' : String(value);
@@ -18,27 +19,50 @@ function Row({ label, children }) {
 }
 
 /**
- * Generic paid-agent confirmation boundary. The button is intentionally
- * disabled: this component displays a prepared requirement but cannot submit
- * payment or cause a wallet action in Phase 11.3.
+ * Generic paid-agent confirmation boundary. Rendering is side-effect free. The
+ * only path to the wallet is the explicit button below, after the exact
+ * backend-provided request is visible to the user.
  */
-export function PaidPaymentConfirmation({ agent, plan, loading = false, error = null }) {
+export function PaidPaymentConfirmation({
+  agent,
+  plan,
+  task = '',
+  loading = false,
+  error = null,
+  processing = false,
+  onPay,
+}) {
+  const { address, chainId, isConnected, connect, switchToMainnet, sendNativeBnb } = useWallet();
   const requirement = plan?.requirement || {};
+  const request = plan?.paymentRequest;
+  const network = requirement.network || {};
+  const tokenSymbol = requirement.token?.symbol || 'token';
+  const nativeBnb = plan?.protocol === 'native-bnb';
+  const x402 = plan?.protocol === 'x402';
   const failed = Boolean(error) || plan?.state === 'FAILED' || plan?.ok === false;
   const missing = plan?.error?.missing || [];
+  const ready = !loading && !failed && Boolean(request) && plan?.provenance?.paymentVerified === true && nativeBnb;
+  const canConfirm = ready && isConnected && chainId === network.chainId && typeof onPay === 'function' && !processing;
+
+  const handlePay = () => {
+    if (!canConfirm) return;
+    onPay({ sendNativeBnb, walletAddress: address });
+  };
 
   return (
     <Card>
       <CardBody>
         <SectionHeading
-          title="Payment preparation"
-          description="Backend metadata only. No payment is submitted in this phase."
+          title="Confirm payment"
+          description="Review this exact request before opening your wallet. AgentHub does not receive your private key."
           className="mb-3"
         />
 
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Badge variant={failed ? 'bad' : 'info'}>{loading ? 'Loading…' : plan?.state || 'Preparing'}</Badge>
-          {plan?.provenance?.paymentVerified === false && <Badge variant="warn">Advertised · not verified</Badge>}
+          <Badge variant={failed ? 'bad' : processing ? 'warn' : ready ? 'warn' : 'info'}>
+            {loading ? 'Loading…' : processing ? 'Waiting for confirmation…' : plan?.state || 'Preparing'}
+          </Badge>
+          {plan?.provenance?.paymentVerified === true && <Badge variant="ok">Payment facts verified</Badge>}
         </div>
 
         {loading ? (
@@ -47,18 +71,47 @@ export function PaidPaymentConfirmation({ agent, plan, loading = false, error = 
           <>
             <Row label="Agent">{valueOrUnavailable(agent?.name)}</Row>
             <Row label="Protocol">{valueOrUnavailable(plan?.protocol)}</Row>
-            <Row label="Network">{valueOrUnavailable(requirement.network?.name)}</Row>
+            {x402 && <Row label="ERC-8004 identity">BSC Mainnet (chain 56)</Row>}
+            <Row label="Network">{valueOrUnavailable(network.name)} (chain {valueOrUnavailable(network.chainId)})</Row>
             <Row label="Amount">
-              {valueOrUnavailable(requirement.amount)} {valueOrUnavailable(requirement.token?.symbol)}
+              {valueOrUnavailable(requirement.amount)} {valueOrUnavailable(tokenSymbol)}
             </Row>
-            <Row label="Recipient / contract">
-              {valueOrUnavailable(requirement.recipient || requirement.contract)}
-            </Row>
-            <Row label="Wallet required">{requirement.requiresWallet ? 'Yes' : 'No / not stated'}</Row>
-            <Row label="Mainnet transaction required">
-              {requirement.requiresMainnetTx ? 'Yes' : 'No / not stated'}
-            </Row>
-            <Row label="Effect">{valueOrUnavailable(requirement.effect)}</Row>
+            <Row label="Recipient">{valueOrUnavailable(requirement.recipient || requirement.contract)}</Row>
+            {x402 && <Row label="Settlement">{valueOrUnavailable(requirement.settlementNetwork)} · x402 {valueOrUnavailable(requirement.protocolVersion)} {valueOrUnavailable(requirement.scheme)}</Row>}
+            {x402 && <Row label="Token contract">{valueOrUnavailable(requirement.token?.address)}</Row>}
+            {x402 && <Row label="Token approval">{requirement.requiresTokenApproval == null ? 'Not specified by the provider challenge' : requirement.requiresTokenApproval ? 'Required' : 'Not required'}</Row>}
+            <Row label="Payment effect">{valueOrUnavailable(requirement.effect)}</Row>
+            <Row label="Wallet required">{requirement.requiresWallet == null ? 'Unknown' : requirement.requiresWallet ? 'Yes' : 'No'}</Row>
+            <Row label="Mainnet transaction required">{requirement.requiresMainnetTx == null ? 'Unknown' : requirement.requiresMainnetTx ? 'Yes' : 'No'}</Row>
+            {nativeBnb && <Row label="Token approval">Not required</Row>}
+            {task && <Row label="Task">{task}</Row>}
+            {request && nativeBnb && (
+              <div className="mt-3 rounded-lg border border-warn/30 bg-warn/5 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-warn">Wallet transaction request</p>
+                <dl className="mt-2 space-y-1 text-xs text-muted">
+                  <div className="flex justify-between gap-3"><dt>from</dt><dd className="break-all font-mono text-right">{address || 'your connected wallet'}</dd></div>
+                  <div className="flex justify-between gap-3"><dt>to</dt><dd className="break-all font-mono text-right">{request.to}</dd></div>
+                  <div className="flex justify-between gap-3"><dt>value</dt><dd className="break-all font-mono text-right">{request.valueWei} wei (0x{request.value.slice(2)})</dd></div>
+                </dl>
+                <p className="mt-2 text-xs leading-relaxed text-muted">
+                  This opens the wallet’s confirmation screen for the prepared {tokenSymbol} payment. Review the network and recipient in your wallet before approving.
+                </p>
+              </div>
+            )}
+            {request && x402 && (
+              <div className="mt-3 rounded-lg border border-warn/30 bg-warn/5 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-warn">x402 payment challenge</p>
+                <dl className="mt-2 space-y-1 text-xs text-muted">
+                  <div className="flex justify-between gap-3"><dt>scheme</dt><dd className="text-right">{valueOrUnavailable(request.scheme)}</dd></div>
+                  <div className="flex justify-between gap-3"><dt>amount</dt><dd className="text-right">{valueOrUnavailable(request.amountBaseUnits)} base units</dd></div>
+                  <div className="flex justify-between gap-3"><dt>payTo</dt><dd className="break-all font-mono text-right">{valueOrUnavailable(request.payTo)}</dd></div>
+                  <div className="flex justify-between gap-3"><dt>token</dt><dd className="break-all font-mono text-right">{valueOrUnavailable(request.tokenAddress)}</dd></div>
+                </dl>
+                <p className="mt-2 text-xs leading-relaxed text-muted">
+                  The provider challenge is verified, but x402 signing and submission are not enabled. No wallet prompt or payment request will be made in this phase.
+                </p>
+              </div>
+            )}
             {failed && (
               <div className="mt-3 rounded-lg border border-bad/25 bg-bad/5 p-3 text-sm text-muted">
                 <p className="flex items-center gap-1.5 font-medium text-bad">
@@ -71,13 +124,39 @@ export function PaidPaymentConfirmation({ agent, plan, loading = false, error = 
           </>
         )}
 
-        <Button disabled variant="outline" className="mt-4 w-full">
-          <LockKeyhole size={15} aria-hidden="true" />
-          Confirm payment (not enabled)
-        </Button>
-        <p className="mt-2 text-center text-xs text-faint">
-          Confirmation, payment submission, and task execution remain separate future steps.
+        <div className="mt-4">
+          {!onPay ? (
+            <Button variant="outline" className="w-full" disabled>
+              Open Hire flow to pay for a task
+            </Button>
+          ) : x402 ? (
+            <Button variant="outline" className="w-full" disabled>
+              x402 payment preparation only — wallet signing disabled
+            </Button>
+          ) : !isConnected ? (
+            <Button variant="primary" className="w-full" onClick={connect} disabled={loading || processing}>
+              <Wallet size={16} aria-hidden="true" /> Connect wallet to pay
+            </Button>
+          ) : chainId !== network.chainId ? (
+            <Button variant="primary" className="w-full" onClick={switchToMainnet} disabled={loading || processing}>
+              Switch wallet to {network.name || 'the required network'} ({network.chainId || '—'})
+            </Button>
+          ) : (
+            <Button variant="primary" className="w-full" onClick={handlePay} disabled={!canConfirm}>
+              {processing ? 'Waiting for wallet and chain confirmation…' : `Pay ${requirement.amount || ''} ${tokenSymbol} and run task`}
+            </Button>
+          )}
+        </div>
+        <p className="mt-2 flex items-start justify-center gap-1.5 text-center text-xs leading-relaxed text-faint">
+          <LockKeyhole size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+          The payment button is the explicit confirmation boundary. No wallet request is made while this card is merely rendered.
         </p>
+        {processing && (
+          <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-ok">
+            <CheckCircle2 size={13} aria-hidden="true" /> Waiting for a confirmed receipt before calling the external agent.
+          </p>
+        )}
+        {!onPay && <p className="mt-2 text-center text-xs text-faint">Open the Hire flow to pay for a specific task.</p>}
       </CardBody>
     </Card>
   );

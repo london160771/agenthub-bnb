@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  postExecutionPreparation,
   postExecution,
   postExecutionRun,
   getExecution,
@@ -7,6 +8,7 @@ import {
 
 const router = Router();
 
+router.post('/prepare', postExecutionPreparation);
 router.post('/', postExecution);
 router.post('/:executionId/run', postExecutionRun);
 router.get('/:executionId', getExecution);

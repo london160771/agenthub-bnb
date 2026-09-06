@@ -19,6 +19,7 @@
 import { assertRunnableInput, executeForAgent, TaskInputError } from './agentExecutors.js';
 import { ChainReadError, readChainState, withRpcLog } from './blockchainService.js';
 import { claimForRun, getHireableAgent } from './executionService.js';
+import { Agent } from '../models/Agent.js';
 import { AGENT_CAPABILITIES, getAgentCapability } from './agentCapabilities.js';
 import { getExecutionAdapterForAgent } from './adapters/registry.js';
 
@@ -92,6 +93,13 @@ export async function runExecution(executionId) {
           `"${agent.name}" is catalog/watch-only. AgentHub has not verified task execution for this indexed agent, so no local or Mainnet execution was attempted.`,
         );
       }
+      if (
+        (capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY ||
+          capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID) &&
+        doc.payment?.status !== 'confirmed'
+      ) {
+        throw new TaskInputError('The paid task cannot run until its BSC Mainnet payment is confirmed.');
+      }
 
       await markStep(doc, 'analyse', 'active');
       let output;
@@ -110,10 +118,24 @@ export async function runExecution(executionId) {
       }
       await markStep(doc, 'analyse', 'done');
 
+      // A paid adapter may promote its exact indexed identity only after it
+      // has validated and returned the requested external task result.
+      if (externalAdapter?.paid && output?.executionVerified === true) {
+        await Agent.updateOne(
+          { agentId: agent.agentId, source: 'indexed' },
+          { $set: { executionVerified: true, lastVerifiedAt: new Date(), capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID } },
+        );
+      }
+
       // --- Generating result ------------------------------------------------
       await markStep(doc, 'report', 'active');
       // The measured read log, attached at the one place that holds it.
       doc.output = { ...output, reads: output.reads || [...rpcLog] };
+      doc.rawResult = output.rawResponse || null;
+      const { rawResponse: _rawResponse, ...normalizedResult } = output;
+      doc.normalizedResult = normalizedResult;
+      doc.provenance = output.provenance || null;
+      doc.executionVerified = output.executionVerified === true;
       doc.status = 'completed';
       doc.durationMs = Date.now() - startedAt;
       doc.rpcCallCount = rpcLog.length;

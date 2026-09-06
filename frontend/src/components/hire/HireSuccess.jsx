@@ -17,6 +17,7 @@ import { isExternallyExecutable } from '../../lib/agentCapability.js';
 export function HireSuccess({ agent, execution }) {
   const [copied, setCopied] = useState(false);
   const external = isExternallyExecutable(agent);
+  const paid = execution.payment?.status === 'confirmed' && Boolean(execution.transactionHash);
 
   const copyId = async () => {
     try {
@@ -66,9 +67,13 @@ export function HireSuccess({ agent, execution }) {
             </Detail>
             <Detail label="Network">{external ? 'External HTTP · BSC Mainnet data' : DEFAULT_CHAIN.name}</Detail>
             <Detail label="Transaction">
-              {/* Empty on purpose — no transaction was broadcast, so inventing a
-                  hash here would be fabricating on-chain data. */}
-              <span className="text-faint">None — payment simulated</span>
+              {paid ? (
+                <a href={`https://bscscan.com/tx/${execution.transactionHash}`} target="_blank" rel="noreferrer noopener" className="break-all font-mono text-xs text-brand hover:underline">
+                  {execution.transactionHash}
+                </a>
+              ) : (
+                <span className="text-faint">None — payment not yet confirmed</span>
+              )}
             </Detail>
           </dl>
 
@@ -102,10 +107,12 @@ export function HireSuccess({ agent, execution }) {
               and this hire record was saved in the AgentHub database.
             </li>
             <li>
-              <strong className="text-fg">{external ? 'Real:' : 'Simulated:'}</strong>{' '}
-              {external
-                ? 'the external agent request is free and read-only; no transaction was signed or broadcast.'
-                : `the payment. No transaction was signed or broadcast, and no ${DEFAULT_CHAIN.currency} moved.`}
+              <strong className="text-fg">{paid ? 'Real:' : external ? 'Real:' : 'Simulated:'}</strong>{' '}
+              {paid
+                ? 'the payment was confirmed on BSC Mainnet and its transaction hash is recorded; the paid task has not run yet.'
+                : external
+                  ? 'the external agent request is free and read-only; no payment transaction was used.'
+                  : `the payment. No transaction was signed or broadcast, and no ${DEFAULT_CHAIN.currency} moved.`}
             </li>
             <li>
               <strong className="text-fg">Next:</strong> running the task {external ? 'calls the published external HTTP service for BSC Mainnet data' : `reads live data from ${DEFAULT_CHAIN.name}`}. Every value in the result is labelled with where it came from,

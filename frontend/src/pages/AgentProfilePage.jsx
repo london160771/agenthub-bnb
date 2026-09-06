@@ -29,7 +29,7 @@ import { getAgent, listAgents } from '../services/agents.js';
 import { preparePayment } from '../services/payments.js';
 import { SOURCE_LABELS, CATEGORIES } from '../config.js';
 import { cn } from '../lib/cn.js';
-import { AGENT_CAPABILITIES, capabilityMetaFor, isExecutable, isExternallyExecutable } from '../lib/agentCapability.js';
+import { AGENT_CAPABILITIES, capabilityMetaFor, isExternallyExecutable, isHireable } from '../lib/agentCapability.js';
 import { PaidPaymentConfirmation } from '../components/payment/PaidPaymentConfirmation.jsx';
 import {
   formatBnb,
@@ -228,7 +228,7 @@ export default function AgentProfilePage() {
 
   const provenance = SOURCE_LABELS[source];
   const demo = isDemoSource(source);
-  const canHire = isExecutable(agent);
+  const canHire = isHireable(agent);
   const isExternalExecutable = isExternallyExecutable(agent);
   const isCatalogVerified = capability === AGENT_CAPABILITIES.INDEXED_CATALOG_VERIFIED;
   const capabilityMeta = capabilityMetaFor(agent);

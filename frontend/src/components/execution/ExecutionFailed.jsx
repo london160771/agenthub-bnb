@@ -6,12 +6,10 @@ import { Button } from '../ui/Button.jsx';
  * A failed execution. The spec is explicit that failure must be handled
  * gracefully and never leave the user on a spinner.
  *
- * Retry is safe to offer because a run has no side effects beyond the record: it
- * reads the chain and writes a result. Nothing was charged and nothing was sent,
- * so re-running cannot double anything — the copy says so, so a retry doesn't
- * feel risky.
+ * Free/local retry is safe because it only reads data. Paid retries are not
+ * offered here: Sentinels Audit redeems each payment transaction hash once.
  */
-export function ExecutionFailed({ execution, onRetry, retrying }) {
+export function ExecutionFailed({ execution, onRetry, retrying, paid = false }) {
   return (
     <Card>
       <CardBody className="text-center">
@@ -21,10 +19,12 @@ export function ExecutionFailed({ execution, onRetry, retrying }) {
         <h2 className="mt-3 text-lg font-bold tracking-tight text-fg">The task didn&apos;t finish</h2>
         <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-muted">
           {execution.errorMessage ||
-            'The agent stopped before completing. Nothing was charged and nothing was sent on-chain.'}
+            (paid
+              ? 'The paid provider did not return a result. The confirmed payment cannot be reused; start a new hire only if you want another paid attempt.'
+              : 'The agent stopped before completing. Nothing was charged and nothing was sent on-chain.')}
         </p>
 
-        {onRetry && (
+        {onRetry && !paid && (
           <div className="mt-5">
             <Button variant="primary" onClick={onRetry} disabled={retrying}>
               <RefreshCw size={15} aria-hidden="true" className={retrying ? 'animate-spin' : ''} />

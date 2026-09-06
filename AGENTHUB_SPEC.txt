@@ -1463,13 +1463,19 @@ PHASE 10 — COMPLETED 2026-08-29 — Yield / Grid / Rebalancing (T1.7-T1.9)
 → Rebalancing: read-only drift via targetAllocation text "0xA:60,0xB:40" → holdings + BUY/SELL plan
 [See PROJECT_HANDOFF §8D]
 
-PHASE 11.2 — COMMITTED INVENTORY EXPANSION (2026-09-04) / PHASE 11.3 — IN PROGRESS — Indexed-agent capabilities and paid preparation
+PHASE 11.2 — COMMITTED INVENTORY EXPANSION (2026-09-04) / PHASE 11.3 COMMITTED / PHASE 11.6-11.7 IN PROGRESS — Indexed-agent capabilities and paid preparation
 → Backend-authoritative capability states distinguish seeded/local-executable, indexed/catalog-verified, indexed/executable-free, indexed/executable-paid, and indexed/watch-only; only exact ERC-8004 identities with independently verified adapter task/result evidence enter an executable state
-→ Brain's public AgentCard GET and external HTTP/A2A catalog retrieval are retained; this is discovery/catalog evidence only, not paid skill execution. Five exact indexed identities currently have free read-only task/result adapters; no paid execution state is promoted without sending payment.
-→ Brain indexed identities are BSC Mainnet records (chain 56) and remain catalog-verified/watch-only because only its AgentCard/catalog retrieval is verified; Assay Yield (56:331752), Assay Grid (56:331751), SMEAI Health (56:331625), SMEAI LP (56:331698), and HODL.DANCE (56:96231) are indexed/executable-free read-only external adapters
+→ Brain's public AgentCard GET and external HTTP/A2A catalog retrieval are retained; this is discovery/catalog evidence only, not paid skill execution. Seven exact indexed identities currently have free read-only task/result adapters; no paid execution state is promoted without a real paid result.
+→ Brain indexed identities are BSC Mainnet records (chain 56) and remain catalog-verified/watch-only because only its AgentCard/catalog retrieval is verified; Assay Yield (56:331752), Assay Grid (56:331751), SMEAI Health (56:331625), SMEAI LP (56:331698), HODL.DANCE (56:96231), Range Pilot Venus Borrow Buffer Watch (56:322090), and Range Pilot Venus Yield Lens (56:322046) are indexed/executable-free read-only external adapters
 → ERC-8183 quote/calldata/preparation runtime was removed; no payment route, signer, private key, or Mainnet transaction path exists
 → Phase 11.3 adds only backend-authoritative, read-only payment requirement normalization and no-broadcast adapters for x402, ERC-8183, and native BNB; incomplete paid metadata fails closed and no payment state reaches submission
+→ Phase 11.4 verified Sentinels Audit's public MCP payment contract: native BNB, chain 56, 0.2 BNB, exact recipient, and paymentTxHash required; it is `indexed/executable-paid-ready`, not paid-task executable
+→ Phase 11.6 adds a generic native-BNB wallet boundary and receipt verifier for the paid flow; no payment was sent and Sentinels Audit remains `indexed/executable-paid-ready` until a real paid result is returned
+→ Paid execution records preserve verified payment evidence, external MCP endpoint/provenance, raw result and measured duration; confirmed payment hashes cannot be reused for retries
 → Seeded agents remain development/fallback and use the existing BNB Smart Chain Testnet executor (chain 97)
+→ Phase 11.7 adds backend-authoritative capability normalization and `POST /api/executions/prepare` for free/paid preparation; indexed records without independent task/result evidence remain catalog/watch-only, and paid preparation never broadcasts
+→ Phase 11.8 adds one exact-identity Range Pilot adapter covering two independently verified free read-only HTTP task/result contracts (`56:322090` Venus Borrow Buffer Watch and `56:322046` Venus Yield Lens); both return block-pinned BSC Mainnet assessment receipts and remain external HTTP, not blockchain transactions
+→ Phase 11.9 adds read-only x402 v2 challenge normalization for Quick Intel (`56:6255`): the identity is BSC Mainnet (56), while the selected explicitly offered settlement option is Base Mainnet (8453), 0.03 USDC (30,000 base units); preparation is verified, but signing, payment, and paid execution remain disabled
 [See PROJECT_HANDOFF §8E and the Codex cleanup handoff]
 
 SUPERSEDED REMAINING ROADMAP (2026-09-02 — user-approved priority order, replaces old §§39 Phase 9-11):

@@ -20,6 +20,11 @@ export function createExecution(body, opts) {
   return api.post('/executions', body, opts);
 }
 
+/** POST /api/executions/prepare — backend-authoritative free/paid preparation. */
+export function prepareExecution(body, opts) {
+  return api.post('/executions/prepare', body, opts);
+}
+
 /** GET /api/executions/:executionId */
 export function getExecution(executionId, opts) {
   return api.get(`/executions/${encodeURIComponent(executionId)}`, opts);

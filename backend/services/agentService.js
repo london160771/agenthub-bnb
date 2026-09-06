@@ -6,6 +6,7 @@
  */
 import { Agent, AGENT_CATEGORIES } from '../models/Agent.js';
 import { decorateAgent } from './agentCapabilities.js';
+import { capabilityDetailsFor } from './agentCapabilityModel.js';
 
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 24;
@@ -24,6 +25,11 @@ export const AGENT_SORT_KEYS = Object.keys(SORTS);
 
 // Exclude Mongo internals; the public identifier is `agentId`.
 const PROJECTION = '-__v -_id';
+
+function decorateForApi(agent) {
+  if (!agent) return agent;
+  return { ...decorateAgent(agent), capabilityDetails: capabilityDetailsFor(agent) };
+}
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -86,7 +92,7 @@ export async function listAgents(opts = {}) {
   ]);
 
   return {
-    items: items.map(decorateAgent),
+    items: items.map(decorateForApi),
     total,
     page,
     limit,
@@ -96,7 +102,7 @@ export async function listAgents(opts = {}) {
 
 export async function getAgentById(agentId) {
   const agent = await Agent.findOne({ agentId }).select(PROJECTION).lean();
-  return decorateAgent(agent);
+  return decorateForApi(agent);
 }
 
 /**

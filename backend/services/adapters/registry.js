@@ -12,17 +12,21 @@ import { assayGridAdapter } from './assayGridAdapter.js';
 import { smeaiHealthAdapter } from './smeaiHealthAdapter.js';
 import { smeaiLpAdapter } from './smeaiLpAdapter.js';
 import { hodlDanceAdapter } from './hodlDanceAdapter.js';
+import { sentinelsAuditAdapter } from './sentinelsAuditAdapter.js';
+import { rangePilotAdapter } from './rangePilotAdapter.js';
+import { quickIntelAdapter } from './quickIntelAdapter.js';
 import { isExternallyExecutableAgent } from '../agentCapabilities.js';
+import { isPaymentReadyAgent } from '../agentCapabilities.js';
 
 const catalogAdapters = [brainA2aAdapter];
-const executionAdapters = [assayYieldAdapter, assayGridAdapter, smeaiHealthAdapter, smeaiLpAdapter, hodlDanceAdapter];
+const executionAdapters = [assayYieldAdapter, assayGridAdapter, smeaiHealthAdapter, smeaiLpAdapter, hodlDanceAdapter, sentinelsAuditAdapter, rangePilotAdapter, quickIntelAdapter];
 
 export function getCatalogAdapterForAgent(agent) {
   return catalogAdapters.find((adapter) => adapter.canHandle(agent)) || null;
 }
 
 export function getExecutionAdapterForAgent(agent) {
-  if (!isExternallyExecutableAgent(agent)) return null;
+  if (!isExternallyExecutableAgent(agent) && !isPaymentReadyAgent(agent)) return null;
   return executionAdapters.find((adapter) => adapter.canHandle(agent)) || null;
 }
 

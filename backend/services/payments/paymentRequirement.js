@@ -1,9 +1,11 @@
 import { PAYMENT_PROTOCOLS, PAYMENT_STATES } from './paymentStates.js';
 
 const MAINNET_CHAIN_ID = 56;
+const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const NETWORKS = Object.freeze({
   56: { chainId: 56, name: 'BNB Smart Chain Mainnet', currency: 'BNB' },
   97: { chainId: 97, name: 'BNB Smart Chain Testnet', currency: 'tBNB' },
+  8453: { chainId: 8453, name: 'Base Mainnet', currency: 'ETH' },
 });
 
 const PAID_PROTOCOLS = new Set([
@@ -68,9 +70,14 @@ export function normalizePaymentRequirement(agent) {
 
   const payment = agent?.payment || {};
   const chainId = integer(payment.chainId);
+  const tokenDecimals = integer(payment.tokenDecimals);
+  const amountBaseUnits = text(payment.amountBaseUnits);
+  const derivedAmount = amountBaseUnits && tokenDecimals != null && /^\d+$/.test(amountBaseUnits)
+    ? Number(amountBaseUnits) / (10 ** tokenDecimals)
+    : null;
   const amount = typeof payment.amount === 'number' && Number.isFinite(payment.amount) && payment.amount > 0
     ? payment.amount
-    : null;
+    : derivedAmount;
   const token = text(payment.token || payment.currency);
   const recipient = text(payment.recipient);
   const contract = text(payment.contract);
@@ -89,15 +96,40 @@ export function normalizePaymentRequirement(agent) {
     );
   }
 
+  if (protocol === PAYMENT_PROTOCOLS.NATIVE_BNB) {
+    if (token.toUpperCase() !== 'BNB') {
+      return fail('PAYMENT_TOKEN_MISMATCH', 'Native-BNB payment requires the BNB token symbol.', ['payment.token=BNB']);
+    }
+    if (!ADDRESS_RE.test(recipient)) {
+      return fail('PAYMENT_RECIPIENT_INVALID', 'Native-BNB payment requires a concrete recipient address.', ['payment.recipient']);
+    }
+    if (payment.tokenAddress || contract) {
+      return fail('PAYMENT_NATIVE_TRANSFER_INVALID', 'Native-BNB payment cannot include an ERC-20 token or contract calldata target.');
+    }
+  }
+
+  if (protocol === PAYMENT_PROTOCOLS.X402 && payment.status === 'verified') {
+    const x402 = payment.x402 || {};
+    if (x402.version !== 2) missing.push('payment.x402.version=2');
+    if (String(x402.scheme || '').toLowerCase() !== 'exact') missing.push('payment.x402.scheme=exact');
+    if (!amountBaseUnits || !/^\d+$/.test(amountBaseUnits)) missing.push('payment.amountBaseUnits');
+    if (!ADDRESS_RE.test(text(payment.tokenAddress))) missing.push('payment.tokenAddress');
+    if (tokenDecimals == null) missing.push('payment.tokenDecimals');
+    if (!text(payment.settlementNetwork)) missing.push('payment.settlementNetwork');
+  }
+
   const identityChainId = integer(Number(String(agent?.erc8004Id || '').split(':')[0]));
-  if (identityChainId != null && identityChainId !== chainId) {
+  // x402 explicitly permits settlement on a chain different from the
+  // ERC-8004 identity chain. Other indexed payment protocols remain bound to
+  // the identity chain until their settlement facts say otherwise.
+  if ((protocol !== PAYMENT_PROTOCOLS.X402 || payment.status !== 'verified') && identityChainId != null && identityChainId !== chainId) {
     return fail(
       'PAYMENT_NETWORK_MISMATCH',
       'Payment network does not match the agent identity network.',
       [`agent identity chain ${identityChainId}`, `payment chain ${chainId}`],
     );
   }
-  if (agent?.source === 'indexed' && chainId !== MAINNET_CHAIN_ID) {
+  if (agent?.source === 'indexed' && (protocol !== PAYMENT_PROTOCOLS.X402 || payment.status !== 'verified') && chainId !== MAINNET_CHAIN_ID) {
     return fail(
       'INDEXED_PAYMENT_NOT_MAINNET',
       'Indexed Mainnet agents may only declare payment requirements on BNB Smart Chain Mainnet.',
@@ -117,12 +149,17 @@ export function normalizePaymentRequirement(agent) {
     token: {
       symbol: token,
       address: text(payment.tokenAddress) || null,
-      decimals: integer(payment.tokenDecimals),
+      decimals: tokenDecimals,
     },
     recipient: recipient || null,
     contract: contract || null,
     requiresWallet: typeof payment.requiresWallet === 'boolean' ? payment.requiresWallet : null,
     requiresMainnetTx: typeof payment.requiresMainnetTx === 'boolean' ? payment.requiresMainnetTx : null,
+    amountBaseUnits: amountBaseUnits || null,
+    settlementNetwork: text(payment.settlementNetwork) || network.name,
+    scheme: protocol === PAYMENT_PROTOCOLS.X402 ? text(payment.x402?.scheme).toLowerCase() || null : null,
+    protocolVersion: protocol === PAYMENT_PROTOCOLS.X402 ? payment.x402?.version || null : null,
+    challenge: protocol === PAYMENT_PROTOCOLS.X402 ? payment.x402 || null : null,
     effect: text(payment.effect) || 'Payment would authorize the requested external agent task.',
     advertised: payment.status === 'advertised',
     paymentVerified: payment.status === 'verified',

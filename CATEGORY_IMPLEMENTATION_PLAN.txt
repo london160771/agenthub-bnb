@@ -3,15 +3,16 @@ AGENTHUB — CATEGORY IMPLEMENTATION PLAN
 Four hackathon categories: Rebalancing · Grid Trading · Yield Optimisation ·
 Health Factor Monitoring
 ================================================================================
-Status: PLAN/HANDOFF at 2026-09-04; T1.1-T1.5 shipped in Phase 7, T1.6 shipped in Phase 9 (§8C), and T1.7-T1.9 shipped in committed Phase 10 (§8D, e157e15) — real testnet tables, plan-only, no tx. Phase 11 cleanup is committed at 689355c1, Phase 11.1B at 4fa02d9, and Phase 11.2 at 7ee2561: five indexed/executable-free read-only external task/result adapters are verified, including HODL.DANCE; Brain remains catalog-only; no indexed/executable-paid candidate has been verified without payment; ERC-8183 runtime preparation remains removed. Phase 11.3 generic paid-agent preparation is the current uncommitted work and does not submit payment.
+Status: PLAN/HANDOFF at 2026-09-06; T1.1-T1.5 shipped in Phase 7, T1.6 shipped in Phase 9 (§8C), and T1.7-T1.9 shipped in committed Phase 10 (§8D, e157e15) — real testnet tables, plan-only, no tx. Phase 11 cleanup is committed at 689355c1, Phase 11.1B at 4fa02d9, Phase 11.2 at 7ee2561, and Phase 11.3 at 5d6ab67: seven indexed/executable-free read-only external task/result adapters are now verified, including HODL.DANCE and two Range Pilot services; Brain remains catalog-only; Sentinels Audit has a verified native-BNB payment requirement but no paid task result yet. Phase 11.6 adds the generic native-BNB wallet/receipt boundary and paid MCP adapter; Phase 11.7 adds backend-authoritative capability normalization and generic execution preparation; Phase 11.8 adds the two independently verified Range Pilot read-only adapters; no payment was sent.
 Audit date: 2026-08-26 (T1.6 update 2026-08-28, T1.7-T1.9 update 2026-08-29, Phase 11/11.2 updates 2026-09-04 without rewriting the 2026-08-26 audit)
 Supersedes the pessimistic verdicts in CATEGORY_GAP_REPORT.md — see "WHAT
 CHANGED" below.
 
 CODEX TAKEOVER NOTE (2026-09-02):
 Phase 10 is COMPLETED (18 seeded, Yield/Grid/Rebalance tables, hasSimulated=false, Venus reconciliation intact).
-Phase 11.1B is committed at 4fa02d9 and Phase 11.2 is committed at 7ee2561. Phase 11.3 is the current UNCOMMITTED working-tree work — audit `git status` + `git diff` before trusting any current Phase 11 comment.
+Phase 11.1B is committed at 4fa02d9, Phase 11.2 at 7ee2561, and Phase 11.3 at 5d6ab67. Phase 11.4 findings, Phase 11.6 paid-flow implementation, Phase 11.7 generic marketplace execution, and Phase 11.8 inventory expansion are current UNCOMMITTED working-tree work — audit `git status` + `git diff` before trusting any current Phase 11 comment.
 Seeded agents retained as development/fallback and must not be confused with real executable Mainnet agents (source='seeded' vs 'indexed').
+Phase 11.9 is the current uncommitted work: Quick Intel has a verified x402 v2 exact challenge on Base Mainnet (chain 8453), while its ERC-8004 identity remains BSC Mainnet (chain 56). No x402 signing or payment is enabled.
 User-approved priority order now supersedes old §9 TIER 1 remaining:
 1. Turn indexed agents into executable agents / real marketplace
 2. Increase quality real BSC Mainnet agent inventory
@@ -774,6 +775,10 @@ WHICH ARE INTENDED TO REPRESENT REAL BSC AGENTS.
   external adapters;
   AgentHub still has no owned on-chain ERC-8004 identity verifier or
   registry-contract reader.
+  Phase 11.4 verified Sentinels Audit's public MCP payment contract as native
+  BNB on chain 56 at 0.2 BNB to its published recipient. This is a
+  `indexed/executable-paid-ready` payment state only; the paid audit result has
+  not been verified and no payment transaction was sent.
   Earlier versions of this document described the pre-Phase-8 state; that
   historical conclusion is superseded by the current client/importer above.
 

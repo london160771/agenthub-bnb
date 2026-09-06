@@ -1,6 +1,6 @@
 /**
  * HTTP layer for hire records. Parses and validates the request body, enforces
- * the testnet-only safety rules, and delegates to executionService.
+ * local testnet / paid Mainnet network rules, and delegates to executionService.
  *
  * Mirrors agentController: ensureDb() guard, asyncHandler wrapper, ApiError
  * factories for failures.
@@ -20,7 +20,9 @@ import {
   getAgentCapability,
   AGENT_CAPABILITIES,
   isExternallyExecutableAgent,
+  isPaymentReadyAgent,
 } from '../services/agentCapabilities.js';
+import { prepareExecution } from '../services/executionPreparationService.js';
 
 /** Shape check only — this is not an EIP-55 checksum validation. */
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -29,6 +31,7 @@ const MAX_INPUT_KEYS = 12;
 // Generous enough for the optional free-text "notes" field the hire form offers,
 // while still bounding what a single value can write into the record.
 const MAX_INPUT_VALUE_LENGTH = 500;
+const MAX_SOLIDITY_SOURCE_LENGTH = 50_000;
 
 function ensureDb() {
   if (!isDbConnected()) {
@@ -69,9 +72,10 @@ function parseInput(raw) {
     } else if (typeof value === 'boolean') {
       out[key] = value;
     } else if (typeof value === 'string') {
-      if (value.length > MAX_INPUT_VALUE_LENGTH) {
+      const maxLength = key === 'solidityCode' ? MAX_SOLIDITY_SOURCE_LENGTH : MAX_INPUT_VALUE_LENGTH;
+      if (value.length > maxLength) {
         throw ApiError.badRequest(
-          `"input.${key}" must be ${MAX_INPUT_VALUE_LENGTH} characters or fewer.`,
+          `"input.${key}" must be ${maxLength} characters or fewer.`,
         );
       }
       out[key] = value.trim();
@@ -81,6 +85,27 @@ function parseInput(raw) {
   }
   return out;
 }
+
+/** POST /api/executions/prepare — normalize a safe next step without running it. */
+export const postExecutionPreparation = asyncHandler(async (req, res) => {
+  ensureDb();
+  const body = req.body || {};
+  const agentId = typeof body.agentId === 'string' ? body.agentId.trim() : '';
+  if (!agentId) throw ApiError.badRequest('"agentId" is required.');
+
+  const task = typeof body.task === 'string' ? body.task.trim() : '';
+  if (!task) throw ApiError.badRequest('"task" is required.');
+  if (task.length > MAX_TASK_LENGTH) {
+    throw ApiError.badRequest(`"task" must be ${MAX_TASK_LENGTH} characters or fewer.`);
+  }
+
+  const input = parseInput(body.input);
+  const walletAddress = typeof body.userAddress === 'string' ? body.userAddress.trim() : null;
+  const agent = await getHireableAgent(agentId);
+  if (!agent) throw ApiError.notFound(`No agent found with id "${agentId}".`);
+
+  sendSuccess(res, prepareExecution({ agent, task, input, walletAddress }));
+});
 
 /** POST /api/executions — hire an agent (creates a pending execution). */
 export const postExecution = asyncHandler(async (req, res) => {
@@ -112,7 +137,9 @@ export const postExecution = asyncHandler(async (req, res) => {
   }
   const capability = getAgentCapability(agent);
   const external = isExternallyExecutableAgent(agent);
-  if (capability !== AGENT_CAPABILITIES.LOCAL_EXECUTABLE && !external) {
+  const paid = isPaymentReadyAgent(agent) || capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID;
+  const remote = external || paid;
+  if (capability !== AGENT_CAPABILITIES.LOCAL_EXECUTABLE && !remote) {
     throw ApiError.badRequest(
       `"${agent.name}" is discoverable in AgentHub but is not executable here. ` +
         'Only seeded/local-executable or independently verified external agents can run here.',
@@ -120,19 +147,22 @@ export const postExecution = asyncHandler(async (req, res) => {
   }
 
   /**
-   * Local hires are tied to the testnet wallet gate. External hires make a
-   * read-only HTTP request to a verified Mainnet agent and do not use the
-   * connected wallet's network or submit a transaction; 56 and 97 are accepted
-   * only as the wallet context the client reports.
+   * Local hires are tied to the testnet wallet gate. Free external hires make a
+   * read-only HTTP request to a verified Mainnet agent; paid external hires use
+   * the backend-authoritative settlement chain for the separately confirmed
+   * payment.
    */
   if (body.chainId != null) {
     const chainId = Number(body.chainId);
     if (!Number.isInteger(chainId)) throw ApiError.badRequest('"chainId" must be a number.');
-    const allowed = external ? [56, HIRE_CHAIN_ID] : [HIRE_CHAIN_ID];
+    const paymentChainId = paid ? Number(agent.payment?.chainId) : null;
+    const allowed = remote ? (paid ? [paymentChainId].filter(Number.isInteger) : [56, HIRE_CHAIN_ID]) : [HIRE_CHAIN_ID];
     if (!allowed.includes(chainId)) {
       throw ApiError.badRequest(
-        external
-          ? 'External read-only hires accept a BSC Mainnet or Testnet wallet context; no transaction uses that wallet.'
+        remote
+          ? paid
+            ? `Paid external hires require the provider settlement network (chain ${paymentChainId || 'unknown'}) for the confirmed payment.`
+            : 'External read-only hires accept a BSC Mainnet or Testnet wallet context; no transaction uses that wallet.'
           : `Hiring is only available on BNB Smart Chain Testnet (chain ${HIRE_CHAIN_ID}).`,
         { received: chainId, expected: allowed },
       );
@@ -159,8 +189,8 @@ export const postExecution = asyncHandler(async (req, res) => {
  *
  * Responds as soon as the run is claimed rather than waiting for it to finish, so
  * the client can render the timeline while it happens. A `failed` execution is
- * reset and re-run, which makes this the retry endpoint too — safe because a run
- * only reads the chain and writes this record. Nothing is charged or broadcast.
+ * reset and re-run, which makes this the retry endpoint too. Paid executions
+ * must already carry a separately verified payment receipt.
  */
 export const postExecutionRun = asyncHandler(async (req, res) => {
   ensureDb();
@@ -171,7 +201,21 @@ export const postExecutionRun = asyncHandler(async (req, res) => {
     throw ApiError.notFound(`No execution found with id "${executionId}".`);
   }
 
+  if (existing.payment?.status === 'awaiting_confirmation') {
+    throw ApiError.badRequest(
+      'This paid task cannot run until its backend-verified payment is confirmed by AgentHub.',
+    );
+  }
+  if (existing.payment?.protocol && existing.payment.status !== 'confirmed' && existing.payment.status !== 'none') {
+    throw ApiError.badRequest('This paid task does not have a confirmed payment.');
+  }
+
   if (existing.status === 'failed') {
+    if (existing.payment?.status === 'confirmed') {
+      throw ApiError.conflict(
+        'This paid task cannot be retried with the same payment transaction. Start a new hire if the provider supports another paid attempt.',
+      );
+    }
     await resetForRetry(executionId);
   } else if (existing.status === 'running') {
     // Already in flight. Not an error — the client should just keep polling.

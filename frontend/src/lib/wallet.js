@@ -3,8 +3,9 @@
  *
  * Scope note: this module reads and formats public wallet data (addresses,
  * chain ids) and builds the parameter objects for the two standard wallet RPC
- * calls we use. It never touches private keys, seed phrases or signatures, and
- * it never builds a transaction.
+ * calls we use. It never touches private keys, seed phrases or signatures. A
+ * payment transaction is built from backend-authoritative facts and submitted
+ * only by the explicit confirmation boundary in WalletProvider.
  */
 
 /**

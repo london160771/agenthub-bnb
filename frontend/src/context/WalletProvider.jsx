@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CHAINS, DEFAULT_CHAIN } from '../config.js';
-import { chainParamsFor, parseChainId, toHexChainId, walletErrorMessage } from '../lib/wallet.js';
+import { chainParamsFor, isAddress, parseChainId, toHexChainId, walletErrorMessage } from '../lib/wallet.js';
 import { WalletContext } from './walletContext.js';
 
 /**
@@ -15,10 +15,10 @@ import { WalletContext } from './walletContext.js';
  *   - wallet_switchEthereumChain → point the wallet at testnet
  *   - wallet_addEthereumChain    → teach it testnet first, if it needs that
  *
- * WHAT THIS DELIBERATELY DOES NOT DO: it never calls `eth_sendTransaction`,
- * never calls a signing method, and never asks for a private key, seed phrase or
- * password. Connecting a wallet only reveals a public address; it cannot move
- * funds. Nothing in AgentHub spends BNB in this phase.
+ * WHAT THIS DELIBERATELY DOES NOT DO: it never calls a signing method and
+ * never asks for a private key, seed phrase or password. The one write-capable
+ * method below is locked behind an explicit paid-agent confirmation call and
+ * receives only a backend-authoritative recipient and value.
  *
  * State lives in context rather than in the button because ConnectWalletButton
  * is mounted twice (desktop + mobile navbar) and the hire page has to agree with
@@ -169,12 +169,8 @@ export function WalletProvider({ children }) {
     }
   }, [readChain]);
 
-  /**
-   * Ask the wallet to point at BNB testnet. If the wallet has never heard of
-   * chain 0x61 it answers with code 4902, and we follow up with an add request
-   * carrying the network parameters verified in config.js.
-   */
-  const switchToDefaultChain = useCallback(async () => {
+  /** Point the wallet at a known AgentHub network after an explicit user action. */
+  const switchToChain = useCallback(async (chain) => {
     const provider = getProvider();
     if (!provider) return false;
     setSwitching(true);
@@ -182,16 +178,16 @@ export function WalletProvider({ children }) {
     try {
       await provider.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: toHexChainId(DEFAULT_CHAIN.id) }],
+        params: [{ chainId: toHexChainId(chain.id) }],
       });
-      setChainId(DEFAULT_CHAIN.id);
+      setChainId(chain.id);
       return true;
     } catch (err) {
       if (err?.code === 4902) {
         try {
           await provider.request({
             method: 'wallet_addEthereumChain',
-            params: [chainParamsFor(DEFAULT_CHAIN)],
+            params: [chainParamsFor(chain)],
           });
           setChainId(await readChain(provider));
           return true;
@@ -206,6 +202,52 @@ export function WalletProvider({ children }) {
       setSwitching(false);
     }
   }, [readChain]);
+
+  const switchToDefaultChain = useCallback(() => switchToChain(DEFAULT_CHAIN), [switchToChain]);
+  const switchToMainnet = useCallback(() => switchToChain(CHAINS.mainnet), [switchToChain]);
+
+  /**
+   * Submit and wait for one native-BNB transfer. `confirmed` is required so a
+   * caller cannot accidentally turn preparation or rendering into a wallet
+   * write. The wallet extension owns the approval/signing UI; AgentHub never
+   * receives or handles the private key.
+   */
+  const sendNativeBnb = useCallback(async ({ to, value, confirmed = false } = {}) => {
+    const provider = getProvider();
+    if (!provider || !address) throw new Error('Connect a browser wallet before paying.');
+    if (!confirmed) throw new Error('Explicit payment confirmation is required before opening the wallet.');
+    if (chainId !== CHAINS.mainnet.id) throw new Error('Switch the wallet to BNB Smart Chain Mainnet (chain 56) before paying.');
+    if (!isAddress(to)) throw new Error('The payment recipient is invalid.');
+    if (typeof value !== 'string' || !/^0x[0-9a-f]+$/i.test(value) || BigInt(value) <= 0n) {
+      throw new Error('The payment amount is invalid.');
+    }
+
+    const transactionHash = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [{ from: address, to, value }],
+    });
+    if (typeof transactionHash !== 'string' || !/^0x[0-9a-f]{64}$/i.test(transactionHash)) {
+      throw new Error('The wallet returned an invalid transaction hash.');
+    }
+
+    const deadline = Date.now() + 120_000;
+    while (Date.now() < deadline) {
+      const receipt = await provider.request({
+        method: 'eth_getTransactionReceipt',
+        params: [transactionHash],
+      });
+      if (receipt) {
+        if (String(receipt.status || '').toLowerCase() !== '0x1') {
+          throw new Error('The BSC Mainnet payment transaction failed.');
+        }
+        return { transactionHash, receipt };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    const error = new Error('The payment was submitted but was not confirmed within two minutes.');
+    error.transactionHash = transactionHash;
+    throw error;
+  }, [address, chainId]);
 
   /**
    * Clears our own session state and remembers that the user explicitly wants to
@@ -240,6 +282,8 @@ export function WalletProvider({ children }) {
       connect,
       disconnect,
       switchToDefaultChain,
+      switchToMainnet,
+      sendNativeBnb,
       clearError,
     };
   }, [
@@ -252,6 +296,8 @@ export function WalletProvider({ children }) {
     connect,
     disconnect,
     switchToDefaultChain,
+    switchToMainnet,
+    sendNativeBnb,
     clearError,
   ]);
 

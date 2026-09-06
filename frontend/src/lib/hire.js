@@ -327,7 +327,93 @@ export const HIRE_FIELDS = {
  */
 export function fieldsFor(agent) {
   const external = isExternallyExecutable(agent);
-  const externalBase = external && agent?.executionAdapter === 'assay-yield'
+  const rangePilotHealth = external && agent?.executionAdapter === 'range-pilot' && agent?.erc8004Id === '56:322090';
+  const rangePilotYield = external && agent?.executionAdapter === 'range-pilot' && agent?.erc8004Id === '56:322046';
+  const externalBase = agent?.executionAdapter === 'quick-intel'
+    ? [
+        {
+          key: 'chain',
+          label: 'Settlement network',
+          type: 'select',
+          required: true,
+          options: [{ value: 'base', label: 'Base Mainnet (x402 settlement)' }],
+          default: 'base',
+          help: 'Selected from Quick Intel’s live x402 challenge. The ERC-8004 identity remains on BSC Mainnet.',
+        },
+        {
+          key: 'tokenAddress',
+          label: 'Token contract to scan',
+          type: 'address',
+          required: true,
+          placeholder: '0x…',
+          help: 'Quick Intel’s read-only security scan requires an EVM token contract address.',
+        },
+      ]
+    : agent?.executionAdapter === 'sentinels-audit'
+    ? [
+        {
+          key: 'solidityCode',
+          label: 'Solidity source code',
+          type: 'textarea',
+          required: true,
+          placeholder: 'pragma solidity ^0.8.20;\n\ncontract Example { ... }',
+          help: 'The source is sent to Sentinels Audit only after your confirmed BSC Mainnet payment.',
+          maxLength: 50000,
+        },
+        {
+          key: 'contractName',
+          label: 'Contract name',
+          type: 'text',
+          required: false,
+          placeholder: 'Optional contract name',
+          maxLength: 120,
+        },
+      ]
+    : rangePilotHealth
+      ? [
+          {
+            key: 'accountAddress',
+            label: 'Public account to assess',
+            type: 'address',
+            required: true,
+            placeholder: '0x…',
+            help: 'Read-only public account reference for the Venus BSC Mainnet assessment.',
+            wallet: true,
+            default: 'wallet',
+          },
+          {
+            key: 'warningRatio',
+            label: 'Warning ratio',
+            type: 'number',
+            required: false,
+            default: 1.25,
+            min: 1,
+            max: 3,
+            step: 0.01,
+            help: 'Optional warning threshold from the provider’s documented 1.00–3.00 range.',
+          },
+        ]
+      : rangePilotYield
+        ? [
+            {
+              key: 'assetId',
+              label: 'Assessment set',
+              type: 'select',
+              required: true,
+              options: [{ value: 'usd-stablecoins', label: 'Venus stablecoins' }],
+              default: 'usd-stablecoins',
+              help: 'The provider publishes this fixed, read-only allowlist.',
+            },
+            {
+              key: 'markets',
+              label: 'Venus markets (optional)',
+              type: 'text',
+              required: false,
+              placeholder: 'core-vUSDC, core-vUSDT',
+              help: 'Optional. Choose from the provider’s core-vUSDC and core-vUSDT allowlist.',
+            },
+          ]
+        : external && agent?.executionAdapter === 'assay-yield'
     ? [
         {
           key: 'markets',

@@ -19,6 +19,22 @@ const StepSchema = new Schema(
   { _id: false },
 );
 
+/** Payment evidence for paid external hires; absent/none for free and local runs. */
+const PaymentExecutionSchema = new Schema(
+  {
+    protocol: { type: String, default: null },
+    status: { type: String, enum: ['none', 'awaiting_confirmation', 'confirmed', 'failed'], default: 'none' },
+    amount: { type: Number, default: null, min: 0 },
+    token: { type: String, default: null },
+    chainId: { type: Number, default: null, min: 1 },
+    recipient: { type: String, default: null },
+    transactionHash: { type: String, default: '' },
+    verifiedAt: { type: Date, default: null },
+    blockNumber: { type: Number, default: null, min: 0 },
+  },
+  { _id: false },
+);
+
 /**
  * A manual-vs-agent measurement, recorded by a human after actually doing the
  * task both ways. See AGENT_ADVANTAGE.md for the protocol and the rubric.
@@ -157,9 +173,21 @@ const ExecutionSchema = new Schema(
     currency: { type: String, default: 'BNB' },
     durationMs: { type: Number, default: null, min: 0 },
 
-    // Network + transaction context (testnet during development).
+    // Network + transaction context. Local executors use chain 97; paid
+    // external hires use a confirmed BSC Mainnet payment on chain 56.
     chain: { type: String, default: 'bnb-testnet' },
     transactionHash: { type: String, default: '' },
+    agentEndpoint: { type: String, default: '' },
+    executionProtocol: { type: String, enum: ['local', 'http', 'a2a', 'mcp', null], default: null },
+    paymentProtocol: { type: String, enum: ['none', 'x402', 'erc8183', 'native-bnb', 'custom', null], default: null },
+    // Preserved separately so a raw provider response and its AgentHub
+    // normalization can be audited without having to reverse-engineer output.
+    rawResult: { type: Schema.Types.Mixed, default: null },
+    normalizedResult: { type: Schema.Types.Mixed, default: null },
+    provenance: { type: Schema.Types.Mixed, default: null },
+    paymentEvidence: { type: Schema.Types.Mixed, default: null },
+    executionVerified: { type: Boolean, default: false },
+    payment: { type: PaymentExecutionSchema, default: () => ({}) },
 
     // --- Measurement of the agent run ---------------------------------------
     // These three exist so agent-side timing is reconstructible from stored
@@ -197,5 +225,9 @@ const ExecutionSchema = new Schema(
 
 ExecutionSchema.index({ userAddress: 1, createdAt: -1 });
 ExecutionSchema.index({ agentId: 1, createdAt: -1 });
+ExecutionSchema.index(
+  { transactionHash: 1 },
+  { unique: true, partialFilterExpression: { transactionHash: { $type: 'string', $ne: '' } } },
+);
 
 export const Execution = mongoose.model('Execution', ExecutionSchema);

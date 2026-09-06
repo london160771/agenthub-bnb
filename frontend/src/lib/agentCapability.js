@@ -8,6 +8,7 @@ export const AGENT_CAPABILITIES = Object.freeze({
   INDEXED_CATALOG_VERIFIED: 'indexed/catalog-verified',
   INDEXED_EXECUTABLE_FREE: 'indexed/executable-free',
   INDEXED_EXECUTABLE_PAID: 'indexed/executable-paid',
+  INDEXED_EXECUTABLE_PAID_READY: 'indexed/executable-paid-ready',
   INDEXED_WATCH_ONLY: 'indexed/watch-only',
 });
 
@@ -28,6 +29,10 @@ export const CAPABILITY_META = Object.freeze({
     label: 'Mainnet agent · paid execution verified',
     variant: 'ok',
   },
+  [AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY]: {
+    label: 'Mainnet agent · payment verified, execution pending',
+    variant: 'warn',
+  },
   [AGENT_CAPABILITIES.INDEXED_WATCH_ONLY]: {
     label: 'Indexed · watch-only',
     variant: 'neutral',
@@ -44,6 +49,22 @@ export function isLocallyExecutable(agent) {
 export function isExternallyExecutable(agent) {
   const capability = capabilityFor(agent);
   return capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE || capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID;
+}
+
+/** Paid requirements are verified, so the user may begin payment confirmation. */
+export function isPaymentReady(agent) {
+  return capabilityFor(agent) === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY;
+}
+
+/** Selected settlement chain for a verified paid requirement. */
+export function paymentChainIdFor(agent) {
+  const chainId = Number(agent?.payment?.chainId);
+  return Number.isInteger(chainId) && chainId > 0 ? chainId : 56;
+}
+
+/** A Hire page is available for free executors and paid agents ready for payment. */
+export function isHireable(agent) {
+  return isLocallyExecutable(agent) || isExternallyExecutable(agent) || isPaymentReady(agent);
 }
 
 export function isExecutable(agent) {

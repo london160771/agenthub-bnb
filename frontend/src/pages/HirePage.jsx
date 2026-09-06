@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, PauseCircle, SearchX } from 'lucide-react';
 import { Container } from '../components/ui/Container.jsx';
 import { Card, CardBody } from '../components/ui/Card.jsx';
@@ -12,9 +13,11 @@ import { HireSummary } from '../components/hire/HireSummary.jsx';
 import { TaskConfigForm } from '../components/hire/TaskConfigForm.jsx';
 import { HireConfirmPanel } from '../components/hire/HireConfirmPanel.jsx';
 import { HireSuccess } from '../components/hire/HireSuccess.jsx';
+import { PaidPaymentConfirmation } from '../components/payment/PaidPaymentConfirmation.jsx';
 import { useApi } from '../hooks/useApi.js';
 import { getAgent } from '../services/agents.js';
-import { createExecution } from '../services/executions.js';
+import { createExecution, prepareExecution, runExecution } from '../services/executions.js';
+import { confirmPayment } from '../services/payments.js';
 import { DEFAULT_CHAIN } from '../config.js';
 import {
   buildTaskSummary,
@@ -23,16 +26,16 @@ import {
   validateHireInput,
 } from '../lib/hire.js';
 import { useWallet } from '../context/walletContext.js';
-import { isExecutable, isExternallyExecutable } from '../lib/agentCapability.js';
+import { isExternallyExecutable, isHireable, isPaymentReady, paymentChainIdFor } from '../lib/agentCapability.js';
 
 /**
  * HIRE (spec §39 phase 5): configure a task → review cost and network →
  * confirm → a persisted hire record.
  *
- * What is real here: the wallet connection, the address, the detected chain, and
- * the execution record written to our database. What is simulated: the payment.
- * Nothing on this page signs or broadcasts a transaction — see HireConfirmPanel,
- * which says so to the user as well.
+ * Free/local hires record a task without payment. A paid indexed hire first
+ * creates a pending execution, then opens a separate exact-payment confirmation
+ * card; only that card can ask the injected wallet to submit the verified BNB
+ * transfer, after which the backend verifies the receipt before task execution.
  */
 export default function HirePage() {
   const { agentId } = useParams();
@@ -42,6 +45,7 @@ export default function HirePage() {
 }
 
 function HireFlow({ agentId }) {
+  const navigate = useNavigate();
   const { address, chainId, isConnected, isCorrectChain } = useWallet();
 
   const { data: agent, error, loading, refetch } = useApi(
@@ -58,6 +62,12 @@ function HireFlow({ agentId }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [execution, setExecution] = useState(null);
+  const [paymentPlan, setPaymentPlan] = useState(null);
+  const [paymentExecution, setPaymentExecution] = useState(null);
+  const [paymentTransactionHash, setPaymentTransactionHash] = useState(null);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
 
   const defaults = useMemo(
     () => (agent ? defaultValuesFor(agent, address) : {}),
@@ -81,6 +91,9 @@ function HireFlow({ agentId }) {
     [agent, values],
   );
 
+  const paidReady = isPaymentReady(agent);
+  const paymentChainId = paymentChainIdFor(agent);
+
   const handleSubmit = async () => {
     if (!agent) return;
 
@@ -98,20 +111,60 @@ function HireFlow({ agentId }) {
       return;
     }
 
-    // Belt and braces: the confirm button is already gated on both of these.
-    if (!isConnected || (!isExternallyExecutable(agent) && !isCorrectChain)) return;
+    // Belt and braces: the confirm button is already gated on these network
+    // requirements. Paid hires must be prepared on the payment network.
+    if (!isConnected || (paidReady ? chainId !== paymentChainId : (!isExternallyExecutable(agent) && !isCorrectChain))) return;
 
     setErrors({});
     setSubmitError(null);
     setSubmitting(true);
     try {
+      if (paidReady) {
+        const plan = await prepareExecution({
+          agentId: agent.agentId,
+          task: taskSummary,
+          input: toInputPayload(agent, values),
+          userAddress: address,
+        });
+        if (!plan?.ok) {
+          const error = new Error(plan?.error?.message || 'Payment preparation stopped.');
+          error.details = { missing: plan?.error?.missing || [] };
+          throw error;
+        }
+        const created = await createExecution({
+          agentId: agent.agentId,
+          userAddress: address,
+        chainId,
+          task: taskSummary,
+          input: toInputPayload(agent, values),
+        });
+        setPaymentPlan(plan);
+        setPaymentExecution(created);
+        setPaymentTransactionHash(null);
+        setPaymentConfirmed(false);
+        setPaymentError(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      const input = toInputPayload(agent, values);
+      const plan = await prepareExecution({
+        agentId: agent.agentId,
+        task: taskSummary,
+        input,
+        userAddress: address,
+      });
+      if (!plan?.ok) {
+        const error = new Error(plan?.error?.message || 'Execution preparation stopped.');
+        error.details = { missing: plan?.error?.missing || [], blockers: plan?.blockers || [] };
+        throw error;
+      }
       const created = await createExecution({
         agentId: agent.agentId,
         userAddress: address,
         // Reported so the backend can refuse anything that isn't testnet.
         chainId: chainId ?? DEFAULT_CHAIN.id,
         task: taskSummary,
-        input: toInputPayload(agent, values),
+        input,
       });
       setExecution(created);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -119,6 +172,38 @@ function HireFlow({ agentId }) {
       setSubmitError(err);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handlePaidPayment = async ({ sendNativeBnb, walletAddress }) => {
+    if (!paymentPlan?.paymentRequest || !paymentExecution || paymentProcessing) return;
+    setPaymentProcessing(true);
+    setPaymentError(null);
+    try {
+      let transactionHash = paymentTransactionHash;
+      if (!transactionHash) {
+        const submitted = await sendNativeBnb({
+          to: paymentPlan.paymentRequest.to,
+          value: paymentPlan.paymentRequest.value,
+          confirmed: true,
+        });
+        transactionHash = submitted.transactionHash;
+        setPaymentTransactionHash(transactionHash);
+      }
+      if (!paymentConfirmed) {
+        await confirmPayment(paymentExecution.executionId, { transactionHash, userAddress: walletAddress });
+        setPaymentConfirmed(true);
+      }
+      await runExecution(paymentExecution.executionId);
+      navigate(`/execution/${paymentExecution.executionId}?new=1`);
+    } catch (err) {
+      // A submitted transaction can time out while its receipt is still
+      // recoverable. Keep that hash so retrying confirms/reuses it instead of
+      // asking the user to pay a second time.
+      if (!paymentTransactionHash && err?.transactionHash) setPaymentTransactionHash(err.transactionHash);
+      setPaymentError(err);
+    } finally {
+      setPaymentProcessing(false);
     }
   };
 
@@ -168,7 +253,7 @@ function HireFlow({ agentId }) {
 
   if (!agent) return null;
 
-  if (!isExecutable(agent)) {
+  if (!isHireable(agent)) {
     return (
       <Container className="py-8 lg:py-12">
         {backLink}
@@ -188,6 +273,44 @@ function HireFlow({ agentId }) {
                 </ButtonLink>
               </div>
             }
+          />
+        </div>
+      </Container>
+    );
+  }
+
+  if (paymentExecution && paymentPlan) {
+    return (
+      <Container className="py-8 lg:py-12">
+        {backLink}
+        <PageHeader
+          className="mt-6"
+          eyebrow="Payment required"
+          title={`Pay to hire ${agent.name}`}
+          description="Your task is saved as pending. Review the exact payment request, approve it in your wallet, then AgentHub will verify the payment before calling the external agent."
+        />
+        <div className="mt-6 grid gap-5 sm:mt-8 lg:grid-cols-[1fr_420px] lg:items-start">
+          <div className="space-y-5">
+            <HireSummary agent={agent} />
+            <Card>
+              <CardBody>
+                <p className="text-xs font-medium uppercase tracking-wide text-faint">Task to be paid for</p>
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted">
+                  {taskSummary}
+                </p>
+                <p className="mt-3 text-xs leading-relaxed text-faint">
+                  The submitted task stays in the pending AgentHub execution and is sent to the external agent only after any required payment is verified.
+                </p>
+              </CardBody>
+            </Card>
+          </div>
+          <PaidPaymentConfirmation
+            agent={agent}
+            plan={paymentPlan}
+            task={taskSummary}
+            processing={paymentProcessing}
+            error={paymentError}
+            onPay={handlePaidPayment}
           />
         </div>
       </Container>
@@ -241,7 +364,9 @@ function HireFlow({ agentId }) {
         className="mt-6"
         eyebrow="Hire"
         title={`Hire ${agent.name}`}
-        description="Tell the agent what to do, review the cost, then confirm. Nothing is charged in this build — the payment step is simulated."
+        description={paidReady
+          ? 'Provide the task input, review the exact payment request, then explicitly approve it in your wallet.'
+          : 'Tell the agent what to do, review the cost, then confirm. Nothing is charged in this build — the payment step is simulated.'}
       />
 
       {/* Mobile-first: one column, in reading order (who → what → confirm).

@@ -21,16 +21,17 @@ export function createNoBroadcastPaymentAdapter(protocol) {
         protocol,
         task,
         requirement,
+        paymentRequest: null,
         quote: {
-          kind: 'advertised-requirement',
+          kind: requirement.paymentVerified ? 'verified-requirement' : 'advertised-requirement',
           amount: requirement.amount,
           token: requirement.token,
-          verified: false,
+          verified: requirement.paymentVerified === true,
         },
         confirmation: {
           required: true,
           enabled: false,
-          reason: 'Payment submission is not enabled in Phase 11.3.',
+          reason: 'Payment submission is available only through the explicit wallet boundary.',
         },
         provenance: {
           payment: 'backend agent.payment metadata',

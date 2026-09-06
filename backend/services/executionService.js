@@ -8,12 +8,19 @@
  * because they must hold for every caller:
  *   1. Cost is read from the agent document on the server, never from the
  *      request body — a tampered client cannot change what a hire costs.
- *   2. The network is a server constant, and no transaction hash is invented.
+ *   2. Local and external networks are separated, and no transaction hash is
+ *      invented; a paid hash is written only after receipt verification.
  */
 import { randomUUID } from 'node:crypto';
 import { Agent } from '../models/Agent.js';
 import { Execution } from '../models/Execution.js';
-import { isExternallyExecutableAgent } from './agentCapabilities.js';
+import {
+  AGENT_CAPABILITIES,
+  getAgentCapability,
+  isExternallyExecutableAgent,
+  isPaymentReadyAgent,
+  isRemoteAgent,
+} from './agentCapabilities.js';
 
 const PROJECTION = '-__v -_id';
 
@@ -184,23 +191,44 @@ export async function findRecentDuplicate({ userAddress, agentId, task }) {
  */
 export async function createExecution({ agentId, userAddress, task, input, agent }) {
   const now = new Date();
+  const capability = getAgentCapability(agent);
   const external = isExternallyExecutableAgent(agent);
+  const remote = isRemoteAgent(agent);
+  const paid = capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID || isPaymentReadyAgent(agent);
+  const paymentChainId = paid ? Number(agent.payment?.chainId) : null;
+  const paymentNetwork = paid ? String(agent.payment?.settlementNetwork || '').trim() : '';
+  const payment = paid
+    ? {
+        protocol: agent.paymentProtocol,
+        status: 'awaiting_confirmation',
+        amount: agent.payment?.amount ?? null,
+        token: agent.payment?.token || agent.payment?.currency || null,
+        chainId: agent.payment?.chainId ?? null,
+        recipient: agent.payment?.recipient || agent.payment?.contract || null,
+        transactionHash: '',
+      }
+    : { status: 'none' };
   const doc = {
     executionId: newExecutionId(),
     agentId,
     userAddress,
     task,
     input,
-    steps: buildSteps(now, external),
+    steps: buildSteps(now, remote),
     status: 'pending',
     // Server-authoritative price: whatever the agent actually charges.
     cost: agent.pricing?.amount ?? 0,
     // Testnet fees are in tBNB regardless of how the agent labels its price.
-    currency: external ? 'none' : HIRE_CURRENCY,
-    chain: external ? 'bnb-mainnet' : HIRE_CHAIN,
-    // Nothing is signed or broadcast in this phase, so there is no hash to
-    // record. Left empty rather than fabricated.
+    currency: remote ? (paid ? (agent.payment?.token || agent.payment?.currency || 'token') : 'none') : HIRE_CURRENCY,
+    chain: remote
+      ? (paid ? (paymentChainId === 56 ? 'bnb-mainnet' : `external-${paymentNetwork || `chain-${paymentChainId || 'unknown'}`}`) : 'bnb-mainnet')
+      : HIRE_CHAIN,
     transactionHash: '',
+    agentEndpoint: remote ? agent.endpoint || '' : '',
+    executionProtocol: remote ? agent.executionProtocol || null : 'local',
+    paymentProtocol: paid ? agent.paymentProtocol : 'none',
+    paymentEvidence: null,
+    payment,
   };
 
   try {

@@ -249,16 +249,16 @@ function ExecutionFlow({ executionId }) {
           {status === 'completed' ? (
             <ExecutionResult execution={execution} />
           ) : status === 'failed' ? (
-            <ExecutionFailed execution={execution} onRetry={startRun} retrying={busy} />
+            <ExecutionFailed execution={execution} onRetry={startRun} retrying={busy} paid={execution.payment?.status === 'confirmed'} />
           ) : timedOut ? (
             <ErrorState
               message="This run is taking much longer than expected and may be stuck. Nothing was charged — you can start it again."
               onRetry={startRun}
             />
           ) : polling ? (
-            <RunningNotice status={status} external={execution.chain === 'bnb-mainnet'} />
+            <RunningNotice status={status} external={execution.chain === 'bnb-mainnet'} paid={execution.payment?.status === 'confirmed'} />
           ) : (
-            <PendingPrompt onStart={startRun} busy={busy} external={execution.chain === 'bnb-mainnet'} />
+            <PendingPrompt onStart={startRun} busy={busy} external={execution.chain === 'bnb-mainnet'} paid={execution.payment?.status === 'confirmed'} />
           )}
 
           <FaucetNote external={execution.chain === 'bnb-mainnet'} />
@@ -271,6 +271,7 @@ function ExecutionFlow({ executionId }) {
 /** The hire's facts: id, recorded fee, network, measured duration. */
 function ExecutionFacts({ execution }) {
   const external = execution.chain === 'bnb-mainnet';
+  const paid = execution.payment?.status === 'confirmed' && Boolean(execution.transactionHash);
   const rows = [
     [
       'Execution ID',
@@ -280,14 +281,25 @@ function ExecutionFacts({ execution }) {
     ],
     ['Recorded fee', execution.cost === 0 ? 'Free' : formatBnb(execution.cost, execution.currency || DEFAULT_CHAIN.currency)],
     ['Network', external ? 'External HTTP · BSC Mainnet data' : DEFAULT_CHAIN.name],
+    paid && ['Payment', `${execution.payment.protocol} · ${execution.payment.amount} ${execution.payment.token} · chain ${execution.payment.chainId}`],
     execution.durationMs != null && ['Duration', formatMs(execution.durationMs)],
     [
       'Transaction',
-      // Empty on purpose: no transaction was broadcast, so showing a hash here
-      // would be fabricating on-chain data.
-      <span key="tx" className="text-faint">
-        {external ? 'None — external HTTP only' : 'None — payment simulated'}
-      </span>,
+      paid ? (
+        <a
+          key="tx"
+          href={`https://bscscan.com/tx/${execution.transactionHash}`}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="break-all font-mono text-xs text-brand hover:underline"
+        >
+          {execution.transactionHash}
+        </a>
+      ) : (
+        <span key="tx" className="text-faint">
+          {external ? 'None — external HTTP only' : 'None — payment simulated'}
+        </span>
+      ),
     ],
   ].filter(Boolean);
 
@@ -308,7 +320,7 @@ function ExecutionFacts({ execution }) {
   );
 }
 
-function RunningNotice({ status, external = false }) {
+function RunningNotice({ status, external = false, paid = false }) {
   return (
     <Card>
       <CardBody className="flex flex-col items-center py-14 text-center">
@@ -320,7 +332,9 @@ function RunningNotice({ status, external = false }) {
         </h2>
         <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-muted">
           {external
-            ? 'It is calling the published external HTTP service for BSC Mainnet data. This usually takes a couple of seconds — each step ticks over as it finishes.'
+            ? paid
+              ? 'The confirmed payment is linked to this run. It is calling the paid external MCP service and will show the returned audit result.'
+              : 'It is calling the published external HTTP service for BSC Mainnet data. This usually takes a couple of seconds — each step ticks over as it finishes.'
             : `It&apos;s reading live data from ${DEFAULT_CHAIN.name}. This usually takes a couple of seconds — each step ticks over as it finishes.`}
         </p>
       </CardBody>
@@ -328,13 +342,13 @@ function RunningNotice({ status, external = false }) {
   );
 }
 
-function PendingPrompt({ onStart, busy, external = false }) {
+function PendingPrompt({ onStart, busy, external = false, paid = false }) {
   return (
     <Card>
       <CardBody className="flex flex-col items-center py-14 text-center">
         <h2 className="text-base font-semibold text-fg">This task hasn&apos;t run yet</h2>
         <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-muted">
-          It&apos;s queued and ready. Running it {external ? 'calls the verified external HTTP service for BSC Mainnet data' : `reads public data from ${DEFAULT_CHAIN.name}`} — no funds move and nothing is signed.
+          It&apos;s queued and ready. Running it {external ? (paid ? 'calls the paid verified external MCP service after the confirmed payment' : 'calls the verified external HTTP service for BSC Mainnet data') : `reads public data from ${DEFAULT_CHAIN.name}`} — {paid ? 'the payment is already confirmed; no additional wallet action is needed.' : 'no funds move and nothing is signed.'}
         </p>
         <div className="mt-5">
           <Button variant="primary" onClick={onStart} disabled={busy}>

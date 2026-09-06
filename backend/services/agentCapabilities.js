@@ -10,6 +10,7 @@ export const AGENT_CAPABILITIES = Object.freeze({
   INDEXED_CATALOG_VERIFIED: 'indexed/catalog-verified',
   INDEXED_EXECUTABLE_FREE: 'indexed/executable-free',
   INDEXED_EXECUTABLE_PAID: 'indexed/executable-paid',
+  INDEXED_EXECUTABLE_PAID_READY: 'indexed/executable-paid-ready',
   INDEXED_WATCH_ONLY: 'indexed/watch-only',
 });
 
@@ -32,30 +33,107 @@ const BRAIN_CATALOG_IDENTITIES = new Set([
 // The identity is the allowlist key; names, hostnames, AgentCards and HTTP
 // status codes are not enough to enter this set. Each adapter still validates
 // the task response at runtime before an execution can complete. Paid adapters
-// must declare the paid capability only after task/result and payment protocol
-// evidence are verified; none is currently allowlisted.
+// must declare paid-ready only after the persisted payment contract evidence is
+// verified; paid execution is promoted only after a validated task result.
 const VERIFIED_EXECUTION_IDENTITIES = new Map([
   [
+    '56:258641',
+    { adapterKey: 'sentinels-audit', endpoint: 'https://smartsentinels.net/api/audit-mcp', executionProtocol: 'mcp', paymentProtocol: 'native-bnb', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY },
+  ],
+  [
     '56:331752',
-    { adapterKey: 'assay-yield', endpoint: 'https://assay-ten-iota.vercel.app/api/agents/yield', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
+    { adapterKey: 'assay-yield', endpoint: 'https://assay-ten-iota.vercel.app/api/agents/yield', executionProtocol: 'http', paymentProtocol: 'none', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
   ],
   [
     '56:331751',
-    { adapterKey: 'assay-grid', endpoint: 'https://assay-ten-iota.vercel.app/api/agents/grid', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
+    { adapterKey: 'assay-grid', endpoint: 'https://assay-ten-iota.vercel.app/api/agents/grid', executionProtocol: 'http', paymentProtocol: 'none', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
   ],
   [
     '56:331625',
-    { adapterKey: 'smeai-health', endpoint: 'https://smeai-dev.vercel.app/api/a2a', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
+    { adapterKey: 'smeai-health', endpoint: 'https://smeai-dev.vercel.app/api/a2a', executionProtocol: 'a2a', paymentProtocol: 'none', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
   ],
   [
     '56:331698',
-    { adapterKey: 'smeai-lp', endpoint: 'https://smeai-dev.vercel.app/api/a2a/lp', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
+    { adapterKey: 'smeai-lp', endpoint: 'https://smeai-dev.vercel.app/api/a2a/lp', executionProtocol: 'a2a', paymentProtocol: 'none', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
   ],
   [
     '56:96231',
-    { adapterKey: 'hodl-dance', endpoint: 'https://hodl.dance/.well-known/agent-card.json', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
+    { adapterKey: 'hodl-dance', endpoint: 'https://hodl.dance/.well-known/agent-card.json', executionProtocol: 'http', paymentProtocol: 'none', capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE },
+  ],
+  [
+    '56:322090',
+    {
+      adapterKey: 'range-pilot',
+      endpoint: 'https://range-pilot-watch.onrender.com/docs/agents/venus-borrow-buffer.html',
+      taskEndpoint: 'https://range-pilot-watch.onrender.com/agents/venus-borrow-buffer/assess',
+      executionProtocol: 'http',
+      paymentProtocol: 'none',
+      capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE,
+    },
+  ],
+  [
+    '56:322046',
+    {
+      adapterKey: 'range-pilot',
+      endpoint: 'https://range-pilot-watch.onrender.com/docs/agents/venus-yield.html',
+      taskEndpoint: 'https://range-pilot-watch.onrender.com/agents/venus-yield/assess',
+      executionProtocol: 'http',
+      paymentProtocol: 'none',
+      capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE,
+    },
+  ],
+  [
+    '56:6255',
+    {
+      adapterKey: 'quick-intel',
+      endpoint: 'https://x402.quickintel.io/v1/scan/full',
+      executionProtocol: 'http',
+      paymentProtocol: 'x402',
+      capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY,
+    },
   ],
 ]);
+
+const PAID_READY_PROTOCOLS = new Set(['x402', 'erc8183', 'native-bnb', 'custom']);
+
+function isPaidReadyRecord(agent) {
+  if (agent?.source !== 'indexed') return false;
+  const identityChainId = Number(String(agent.erc8004Id || '').split(':')[0]);
+  if (identityChainId !== 56 || !String(agent.endpoint || '').trim()) return false;
+  if (!['http', 'a2a', 'mcp'].includes(String(agent.executionProtocol || '').toLowerCase())) return false;
+
+  const protocol = String(agent.paymentProtocol || '').trim().toLowerCase();
+  const payment = agent.payment || {};
+  const verification = payment.verification || {};
+  const amount = Number(payment.amount);
+  const token = String(payment.token || payment.currency || '').trim();
+  const destination = String(payment.recipient || payment.contract || '').trim();
+  const executionRecord = executionRecordFor(agent);
+  const x402 = payment.x402 || {};
+  const x402Complete = protocol === 'x402' &&
+    x402.version === 2 &&
+    String(x402.scheme || '').toLowerCase() === 'exact' &&
+    /^\d+$/.test(String(payment.amountBaseUnits || '')) &&
+    /^0x[a-fA-F0-9]{40}$/.test(String(payment.tokenAddress || '')) &&
+    Number.isInteger(payment.tokenDecimals) &&
+    Boolean(payment.settlementNetwork);
+  const settlementChain = Number(payment.chainId);
+  return (
+    Boolean(executionRecord) &&
+    PAID_READY_PROTOCOLS.has(protocol) &&
+    payment.status === 'verified' &&
+    verification.status === 'verified' &&
+    String(verification.endpoint || '').replace(/\/$/, '') === String(agent.endpoint || '').replace(/\/$/, '') &&
+    Boolean(verification.source) &&
+    Boolean(verification.method) &&
+    Boolean(verification.verifiedAt) &&
+    (settlementChain === 56 || (x402Complete && settlementChain === 8453)) &&
+    Number.isFinite(amount) && amount > 0 &&
+    Boolean(token) &&
+    Boolean(destination) &&
+    (protocol !== 'x402' || x402Complete)
+  );
+}
 
 function isBrainCatalogRecord(agent) {
   return (
@@ -74,7 +152,17 @@ function executionRecordFor(agent) {
   // identity is still required, and a conflicting persisted endpoint fails
   // closed rather than silently routing to a different service.
   const persisted = String(agent.endpoint || '').replace(/\/$/, '');
-  return !persisted || persisted === record.endpoint ? record : null;
+  if (persisted && persisted !== record.endpoint.replace(/\/$/, '')) return null;
+  return record;
+}
+
+/**
+ * Return the backend-owned execution evidence for an indexed identity.
+ * Callers may use the returned protocol/adapter details for normalization, but
+ * must not treat this as a task result: adapters still validate every response.
+ */
+export function getVerifiedExecutionDefinition(agent) {
+  return executionRecordFor(agent);
 }
 /** Return the only capability state the API is allowed to expose for an agent. */
 export function getAgentCapability(agent) {
@@ -82,11 +170,27 @@ export function getAgentCapability(agent) {
   if (agent.source === 'seeded' || agent.source === 'demo') {
     return AGENT_CAPABILITIES.LOCAL_EXECUTABLE;
   }
+  if (isPaidReadyRecord(agent)) {
+    if (agent.executionVerified === true) return AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID;
+    return AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY;
+  }
   if (isBrainCatalogRecord(agent)) {
     return AGENT_CAPABILITIES.INDEXED_CATALOG_VERIFIED;
   }
-  if (executionRecordFor(agent)) {
-    return executionRecordFor(agent)?.capability || AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE;
+  const executionRecord = executionRecordFor(agent);
+  if (executionRecord) {
+    // A paid identity may be known by adapter allowlist, but it is not
+    // payment-ready until the persisted backend facts pass the full
+    // fail-closed validation above. Never let a stale capability or identity
+    // match bypass that requirement.
+    const paidCapabilities = new Set([
+      AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID,
+      AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY,
+    ]);
+    if (paidCapabilities.has(executionRecord.capability)) {
+      return AGENT_CAPABILITIES.INDEXED_WATCH_ONLY;
+    }
+    return executionRecord.capability || AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE;
   }
   return AGENT_CAPABILITIES.INDEXED_WATCH_ONLY;
 }
@@ -104,8 +208,23 @@ export function isExternallyExecutableAgent(agent) {
   return capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE || capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID;
 }
 
+/** A verified payment contract exists, so the user may begin the pay-then-run flow. */
+export function isPaymentReadyAgent(agent) {
+  return getAgentCapability(agent) === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY;
+}
+
+/** Any indexed external task path, including one waiting for its first payment. */
+export function isRemoteAgent(agent) {
+  const capability = getAgentCapability(agent);
+  return (
+    capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE ||
+    capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID ||
+    capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY
+  );
+}
+
 export function getExternalAdapterKey(agent) {
-  return isExternallyExecutableAgent(agent) ? executionRecordFor(agent)?.adapterKey || null : null;
+  return isRemoteAgent(agent) ? executionRecordFor(agent)?.adapterKey || null : null;
 }
 
 /** Add the computed capability without persisting or trusting client input. */

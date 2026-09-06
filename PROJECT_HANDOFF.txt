@@ -2,13 +2,13 @@
 AGENTHUB — PROJECT HANDOFF
 For transferring this project to another Claude account, Codex, or any other AI.
 ================================================================================
-Written: 2026-08-26  ·  Last updated: 2026-09-04, during Phase 11.3 payment architecture — see §8H
+Written: 2026-08-26  ·  Last updated: 2026-09-06, during Phase 11.7 generic marketplace execution — see §8K
 Repo: C:\Users\uk\OneDrive\Desktop\agenthub-bnb
 Remote: https://github.com/london160771/agenthub-bnb.git  (branch: main)
 
 CODEX TAKEOVER — READ THIS FIRST (2026-09-02):
 This handoff was written for Muse (Anthropic) and is now being handed to Codex (OpenAI).
-The Phase 11 cleanup checkpoint is committed at `689355c1b44d53a6cee1c15dfb7fc8f0dd24e8ab`; the Phase 11.1B checkpoint is committed at `4fa02d9d9e9dbf5357fc90e7de2f0ecc18677ece`; Phase 11.2 is committed at `7ee2561`. Phase 11.3 payment architecture is the current UNCOMMITTED working-tree work. Audit `git status` + `git diff` before trusting any current Phase 11 comment.
+The Phase 11 cleanup checkpoint is committed at `689355c1b44d53a6cee1c15dfb7fc8f0dd24e8ab`; the Phase 11.1B checkpoint is committed at `4fa02d9d9e9dbf5357fc90e7de2f0ecc18677ece`; Phase 11.2 is committed at `7ee2561`; Phase 11.3 is committed at `5d6ab67`. Phase 11.4 findings, Phase 11.6 paid-flow implementation, and Phase 11.7 generic marketplace execution are current UNCOMMITTED working-tree work. Audit `git status` + `git diff` before trusting any current Phase 11 comment.
 Muse's incomplete ERC-8183 preparation was removed. Brain catalog evidence is retained, but paid skill execution remains unverified.
 Preserve Phase 7 (Venus reconciliation, hasSimulated=false) and Phase 10 (Yield/Grid/Rebalance tables) functionality.
 Do NOT cross the BSC Mainnet 56 transaction boundary (eth_sendTransaction / approve / fund) without explicit user approval.
@@ -63,7 +63,7 @@ keccak256, so contract function selectors CANNOT be computed at runtime — see 
 --------------------------------------------------------------------------------
 3. COMPLETED PHASES
 --------------------------------------------------------------------------------
-Phases 1-10 are COMPLETED and Phase 11 is IN PROGRESS. Phases 1-9 committed & pushed at 3f5ee47; Phase 10 committed at e157e15; Phase 11 cleanup checkpoint committed at 689355c1; Phase 11.1B committed at 4fa02d9; Phase 11.2 committed at 7ee2561. Phase 11.3 is uncommitted until review.
+Phases 1-10 are COMPLETED and Phase 11 is IN PROGRESS. Phases 1-9 committed & pushed at 3f5ee47; Phase 10 committed at e157e15; Phase 11 cleanup checkpoint committed at 689355c1; Phase 11.1B committed at 4fa02d9; Phase 11.2 committed at 7ee2561; Phase 11.3 committed at 5d6ab67. Phase 11.4, 11.6, and 11.7 are uncommitted until review.
 
   e157e15  Phase 10 — Yield/Grid/Rebalancing real testnet tables (see §8D)
   3f5ee47  Phase 9 — structured execution tables + renderer (T1.6, see §8C)
@@ -85,9 +85,10 @@ Phases 1-10 are COMPLETED and Phase 11 is IN PROGRESS. Phases 1-9 committed & pu
 --------------------------------------------------------------------------------
 4. CURRENT PHASE / STATUS
 --------------------------------------------------------------------------------
-PHASE 11 (Indexed-agent capability cleanup) and Phase 11.2 are committed. Phase
-11.3 (generic paid-agent preparation) is IN PROGRESS / UNCOMMITTED WORKING TREE.
-Details in §8E, §8G and §8H. The retained Brain integration verifies a public
+PHASE 11 (Indexed-agent capability cleanup), Phase 11.2 and Phase 11.3 are
+committed. Phase 11.4 findings, Phase 11.6 (first paid-flow implementation),
+and Phase 11.7 (generic marketplace execution) are IN PROGRESS / UNCOMMITTED
+WORKING TREE. Details in §8E, §8G, §8H, §8I, §8J and §8K. The retained Brain integration verifies a public
 AgentCard and external HTTP/A2A catalog response for BSC Mainnet identities
 (chain 56). It does not verify paid skill execution. No Mainnet transaction,
 signing or private key exists in the repo.
@@ -598,7 +599,8 @@ DELIBERATELY LEFT OUT: multi-pool Venus, farm MasterChef, DEX getReserves, repea
 --------------------------------------------------------------------------------
 STATUS: cleanup checkpoint committed at `689355c1`; Phase 11.1B is committed at
 `4fa02d9`; Phase 11.2 inventory expansion is committed at `7ee2561`. Phase 11.3
-generic paid-agent preparation is the current uncommitted work. No Mainnet
+generic paid-agent preparation is committed at `5d6ab67`; Phase 11.4 findings
+and Phase 11.6 paid-flow implementation are the current uncommitted work. No Mainnet
 transaction was sent, signed or broadcast. No private key is stored.
 
 WHAT IS RETAINED
@@ -771,7 +773,7 @@ dispatches only seeded/local-executable agents, while the external runner uses
 only exact verified adapter identities and records HTTP provenance separately.
 
 --------------------------------------------------------------------------------
-8H. PHASE 11.3 — GENERIC PAID-AGENT EXECUTION FRAMEWORK (UNCOMMITTED)
+8H. PHASE 11.3 — GENERIC PAID-AGENT EXECUTION FRAMEWORK (COMMITTED)
 --------------------------------------------------------------------------------
 Phase 11.3 adds a protocol-neutral, read-only payment preparation layer. Agent
 records now carry `executionProtocol` (`http`, `a2a`, `mcp`) and
@@ -791,12 +793,143 @@ paid metadata, showing the agent, protocol, network, amount, token, destination,
 wallet/transaction requirements and effect without opening a wallet or sending
 anything.
 
-Current candidates such as Sentinels Trading Analyst and Quick Intel expose
-advertised x402 metadata but lack complete structured payment requirements, so
-they remain indexed/watch-only and the preparation response is `FAILED` rather
-than inventing missing values. Sentinels Audit has an operational MCP endpoint
-but no explicit structured payment protocol in the indexed record, so it also
-fails closed. No payment, signature, private key or Mainnet transaction exists.
+At the Phase 11.3 snapshot, candidates such as Sentinels Trading Analyst and
+Quick Intel exposed advertised x402 metadata but lacked complete structured
+payment requirements, so they remained indexed/watch-only and preparation
+failed rather than inventing missing values. Sentinels Audit had an operational
+MCP endpoint but its structured payment facts had not yet been verified. Phase
+11.4 records the subsequent direct MCP verification in §8I. No payment,
+signature, private key or Mainnet transaction exists.
+
+--------------------------------------------------------------------------------
+8I. PHASE 11.4 — VERIFIED PAID-AGENT REQUIREMENTS (FINDINGS)
+--------------------------------------------------------------------------------
+Safe discovery probes were run against Sentinels Trading Analyst, Quick Intel,
+and Sentinels Audit. Trading Analyst's public MCP discovery confirms a free
+preview and advertises a 0.1 $U ERC-8183 hire, but its AgentCore AgentCard
+requires bearer authentication and no complete payment challenge was exposed.
+It remains indexed/watch-only. Quick Intel returns a real x402 v2 HTTP 402
+challenge, but its accepted networks currently omit BSC chain 56; its route
+therefore cannot be used as a BSC Mainnet payment requirement in AgentHub.
+
+Sentinels Audit exposes a public MCP discovery response and tools/list contract
+with a complete BSC payment requirement: native BNB, chainId 56, amount 0.2
+BNB, recipient `0x4E21F74143660ee576F4D2aC26BD30729a849f55`, wallet required,
+and a payment transaction hash required by the paid audit tool. These facts were
+ persisted only for the matching ERC-8004 identity `56:258641` and unchanged
+ endpoint. Its capability is now `indexed/executable-paid-ready`: payment
+ requirements are verified, but paid task/result execution is not verified. The
+ Phase 11.4 snapshot kept Hire/Execute blocked; Phase 11.6 now exposes a guarded
+ payment-required Hire path without treating it as execution.
+
+No payment, signature, approval, funding, private key, or Mainnet transaction
+was used during verification. The generic preparation route reaches
+`AWAITING_USER_CONFIRMATION` with `executionVerified: false`.
+
+--------------------------------------------------------------------------------
+8J. PHASE 11.6 — FIRST REAL PAID AGENT FLOW (UNCOMMITTED)
+--------------------------------------------------------------------------------
+Sentinels Audit remains the first paid target. Its live public MCP was
+re-verified: native BNB on BSC Mainnet chain 56, exactly 0.2 BNB
+(200000000000000000 wei) to `0x4E21F74143660ee576F4D2aC26BD30729a849f55`; the
+paid tool requires `solidityCode` and `paymentTxHash`. The public MCP
+GET/initialize/tools/list probes returned this contract, but no paid task was
+invoked.
+
+Phase 11.6 adds a generic native-BNB payment boundary. A paid hire creates a
+pending execution, the frontend displays the backend-authoritative recipient,
+amount, chain, wallet request and task, and only an explicit payment button may
+open the injected wallet. The wallet waits for a receipt; the backend then
+checks BSC chain 56, sender, direct native transfer, recipient, value and
+successful receipt before the Sentinels Audit MCP task is called.
+
+Execution records retain payment protocol, amount, chain, recipient,
+transaction hash, endpoint, raw external result and measured duration. A paid
+agent is promoted from `indexed/executable-paid-ready` to
+`indexed/executable-paid` only after the paid adapter returns a validated task
+result. No payment was sent in Phase 11.6, so this promotion has not occurred.
+Confirmed paid executions cannot reuse the same transaction hash for retries;
+the provider documents each hash as redeemable once.
+
+--------------------------------------------------------------------------------
+8K. PHASE 11.7 — GENERIC MARKETPLACE EXECUTION (UNCOMMITTED)
+--------------------------------------------------------------------------------
+Phase 11.7 adds the backend-authoritative `capabilityDetails` model and the
+generic `POST /api/executions/prepare` path. It returns a free
+`READY_TO_EXECUTE` plan or a paid `AWAITING_USER_CONFIRMATION` plan without
+opening a wallet or contacting an external agent. Indexed records expose their
+ERC-8004 identity chain, observed execution protocol/endpoint, adapter evidence,
+payment status, and explicit blockers.
+
+The exact-identity adapters remain the only execution evidence: Assay Yield,
+Assay Grid, SMEAI Health, SMEAI LP, HODL.DANCE, and Sentinels Audit. The model
+does not upgrade an indexed record from a name, URL, AgentCard, catalog, or HTTP
+status. Free external work remains external HTTP/A2A/MCP and is not a
+blockchain transaction. Paid protocols remain preparation-only except for the
+existing explicit native-BNB wallet boundary; no payment was sent in Phase
+11.7.
+
+Execution records now retain execution/payment protocols, payment evidence,
+raw provider result, normalized result, provenance, and result verification
+separately. Confirmed paid executions remain protected from accidental
+double-payment on retry. The live persisted audit at the start of Phase 11.8
+was 68 agents: 18 seeded and 50 indexed; 3 indexed/executable-free, 1
+indexed/executable-paid-ready, 0 indexed/executable-paid, 2
+indexed/catalog-verified, and 44 indexed/watch-only.
+
+--------------------------------------------------------------------------------
+8L. PHASE 11.8 — RANGE PILOT FREE EXECUTION EXPANSION (UNCOMMITTED)
+--------------------------------------------------------------------------------
+Phase 11.8 added one shared, exact-identity `range-pilot` adapter for two
+published Range Pilot read-only services. `56:322090` (Venus Borrow Buffer
+Watch) accepts `accountAddress` and an optional bounded `warningRatio` at
+`/agents/venus-borrow-buffer/assess`; `56:322046` (Venus Yield Lens) accepts
+the documented `usd-stablecoins` set and `core-vUSDC`/`core-vUSDT` allowlist at
+`/agents/venus-yield/assess`. Both returned completed, block-pinned BSC
+Mainnet (chain 56) assessment receipts through real HTTP POST probes, with no
+wallet, payment, signing, or transaction path.
+
+The two identities now compute as `indexed/executable-free` through the same
+backend capability model. The live audit after the change is 68 agents: 18
+seeded and 50 indexed; 5 indexed/executable-free, 1
+indexed/executable-paid-ready, 0 indexed/executable-paid, 2
+indexed/catalog-verified, and 42 indexed/watch-only. No paid candidate was
+upgraded: Quick Intel exposes a real x402 challenge at $0.03 USDC but offers
+settlement options on other networks (not BSC chain 56), while BORT exposes
+paid BSC model metadata; neither was paid or integrated. Sentinels Trading,
+Sentinels Security Scout, ChainHelix, and ERC-8183 sellers remain blocked by
+payment, authentication, missing endpoint, or missing result evidence.
+
+The Range Pilot adapter preserves raw responses, provider receipt IDs,
+block/timestamp evidence, measured execution duration, and external HTTP
+provenance. Its output is an assessment, not AgentHub RPC execution,
+transaction calldata, or a financial recommendation.
+
+--------------------------------------------------------------------------------
+8M. PHASE 11.9 — CHEAP PAID AGENT ENABLEMENT (CURRENT, UNCOMMITTED)
+--------------------------------------------------------------------------------
+The live 3001 runtime was restarted from the current checkout before this
+phase. The two Range Pilot agents were exercised through AgentHub with real,
+free HTTP POST tasks and returned completed BSC Mainnet (chain 56) receipts:
+`56:322090` completed a Venus borrow-buffer assessment and `56:322046`
+completed a Venus stablecoin-yield assessment. No wallet, payment, signing, or
+transaction was involved.
+
+Quick Intel `56:6255` returned a live HTTP 402 challenge. AgentHub now stores a
+verified x402 v2 exact requirement for the explicitly offered Base Mainnet
+settlement option: 30,000 USDC base units (`$0.03`), USDC contract and payTo
+from the challenge, and six token decimals independently read from Base. The
+ERC-8004 identity remains on BSC Mainnet (chain 56); payment settlement is
+Base (chain 8453). The challenge does not disclose an ERC-20 approval, permit,
+or transfer-with-authorization method, so those fields remain unknown.
+
+Quick Intel computes as `indexed/executable-paid-ready`, not
+`indexed/executable-paid`. Its preparation card exposes the challenge only;
+x402 signing/submission is disabled and no wallet request is made. The adapter
+fails closed until a future generic x402 payment executor supplies a valid
+provider payment proof. BORT, Brain, and Sentinels LP remain watch-only because
+their published metadata does not yet prove a complete safe task/payment
+contract.
 
 --------------------------------------------------------------------------------
 9A. 8004SCAN API VERIFICATION (COMPLETE — DISCOVERY INTEGRATION SHIPPED IN PHASE 8)

@@ -8,7 +8,7 @@ import { DEFAULT_CHAIN } from '../../config.js';
 import { formatBnb } from '../../lib/format.js';
 import { shortAddress } from '../../lib/wallet.js';
 import { useWallet } from '../../context/walletContext.js';
-import { isExternallyExecutable } from '../../lib/agentCapability.js';
+import { isExternallyExecutable, isPaymentReady, paymentChainIdFor } from '../../lib/agentCapability.js';
 
 const PRICING_MODEL_LABELS = {
   'per-task': 'Per task',
@@ -31,14 +31,14 @@ function Row({ label, children }) {
  * The gate has four rungs, and the primary button only appears on the last one:
  *   no wallet extension → disconnected → wrong network → ready.
  *
- * The fee shown here is recorded on the hire record. It is NOT charged: this
- * build sends no transaction and asks for no signature. That is stated in the
- * panel itself, not just in documentation.
+ * Free/local fees are recorded only. A verified paid external agent is routed
+ * to a separate payment card; this review panel never opens the wallet.
  */
 export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, className }) {
   const {
     hasProvider,
     address,
+    chainId,
     isConnected,
     isCorrectChain,
     chainLabel,
@@ -47,13 +47,20 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
     error: walletError,
     connect,
     switchToDefaultChain,
+    switchToMainnet,
   } = useWallet();
 
   const price = agent.pricing?.amount ?? 0;
-  const free = price === 0;
   const external = isExternallyExecutable(agent);
-  // Testnet funds are tBNB, not BNB — labelling them "BNB" would be misleading.
-  const currency = DEFAULT_CHAIN.currency;
+  const paidReady = isPaymentReady(agent);
+  const x402Paid = paidReady && agent.paymentProtocol === 'x402';
+  // Testnet funds are tBNB; paid agents use the token and settlement network
+  // recorded by the backend, which may differ from the identity chain.
+  const currency = paidReady ? (agent.payment?.token || agent.payment?.currency || 'token') : DEFAULT_CHAIN.currency;
+  const amount = paidReady ? agent.payment?.amount : price;
+  const free = !paidReady && amount === 0;
+  const paymentChainId = paymentChainIdFor(agent);
+  const feeLabel = `${amount == null ? 'Unavailable' : amount} ${currency}`;
 
   return (
     <Card className={className}>
@@ -64,14 +71,11 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
           <div className="pb-2">
             <Row label="Agent fee">
               <span className="font-mono font-semibold">
-                {free ? 'Free' : formatBnb(price, currency)}
+                {free ? 'Free' : x402Paid ? feeLabel : formatBnb(amount, currency)}
               </span>
             </Row>
-            {/* Spec §12 asks for a fee breakdown. The honest network fee in this
-                build is nothing, because no transaction is broadcast — so it is
-                stated as none rather than filled with a plausible gas estimate. */}
             <Row label="Network fee (gas)">
-              <span className="text-faint">None — nothing is broadcast</span>
+              <span className="text-faint">{paidReady ? (x402Paid ? 'Not available until x402 signing is enabled' : 'Wallet estimates before approval') : 'None — nothing is broadcast'}</span>
             </Row>
             <Row label="Pricing model">
               {external ? 'Free external service' : PRICING_MODEL_LABELS[agent.pricing?.model] || agent.pricing?.model || '—'}
@@ -82,20 +86,31 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
             <div className="flex items-baseline justify-between gap-3 py-1.5">
               <span className="shrink-0 text-sm font-semibold text-fg">Total</span>
               <span className="text-right font-mono text-base font-bold text-fg">
-                {free ? 'Free' : formatBnb(price, currency)}
+                {free ? 'Free' : x402Paid ? feeLabel : formatBnb(amount, currency)}
               </span>
             </div>
             <p className="text-xs leading-relaxed text-faint">
-              Recorded on the hire, not charged to your wallet.
+              {paidReady ? 'Payment is required before the task can run.' : 'Recorded on the hire, not charged to your wallet.'}
             </p>
           </div>
 
           <div className="py-2">
             <Row label="Network">
-              <Badge variant={external || isCorrectChain ? 'ok' : 'neutral'}>
-                {external ? 'External HTTP · BSC Mainnet data · 56' : `${DEFAULT_CHAIN.name} · ${DEFAULT_CHAIN.id}`}
+              <Badge variant={paidReady || external || isCorrectChain ? 'ok' : 'neutral'}>
+                {paidReady ? `${x402Paid ? (agent.payment?.settlementNetwork || 'External settlement') : 'BSC Mainnet'} · ${paymentChainId}` : external ? 'External HTTP · BSC Mainnet data · 56' : `${DEFAULT_CHAIN.name} · ${DEFAULT_CHAIN.id}`}
               </Badge>
             </Row>
+            {paidReady && (
+              <>
+                {x402Paid && <Row label="ERC-8004 identity">BSC Mainnet · 56</Row>}
+                <Row label="Recipient">
+                  <span className="break-all font-mono text-xs">{agent.payment?.recipient || 'Unavailable'}</span>
+                </Row>
+                <Row label="Transfer">{x402Paid ? 'x402 exact payment authorization' : 'One native BNB transfer'}</Row>
+                <Row label="Transaction">{x402Paid ? `Settlement on ${agent.payment?.settlementNetwork || 'the verified provider network'}` : 'Real BSC Mainnet transaction'}</Row>
+                <Row label="Token approval">{x402Paid ? 'Not specified by provider challenge' : 'Not required'}</Row>
+              </>
+            )}
             <Row label="Your wallet">
               {isConnected ? (
                 <span className="font-mono text-xs">{shortAddress(address)}</span>
@@ -110,10 +125,14 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
         <div className="mt-4 rounded-lg border border-info/25 bg-info/5 p-3">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-info">
             <FlaskConical size={14} aria-hidden="true" />
-            {external ? 'Free external task' : 'Simulated payment'}
+              {paidReady ? 'Paid external task' : external ? 'Free external task' : 'Simulated payment'}
           </p>
           <p className="mt-1.5 text-xs leading-relaxed text-muted">
-            {external ? (
+            {paidReady ? (
+              x402Paid
+                ? <>This review step does <strong className="text-fg">not</strong> open your wallet. The exact x402 challenge is shown above; signing and submission are disabled in this phase.</>
+                : <>This review step does <strong className="text-fg">not</strong> open your wallet. The exact native BNB transfer is shown above; only the explicit payment button can open the wallet.</>
+            ) : external ? (
               <>Confirming records this hire in AgentHub and running it makes one read-only external HTTP request. It does <strong className="text-fg">not</strong> send a blockchain transaction, ask you to sign, or require payment.</>
             ) : (
               <>Confirming records this hire in AgentHub. It does <strong className="text-fg">not</strong> send a blockchain transaction, you will <strong className="text-fg">not</strong> be asked to sign anything, and no {currency} leaves your wallet. The fee above is what this agent would charge.</>
@@ -123,7 +142,15 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
 
         {/* The wallet gate. */}
         <div className="mt-4">
-          {!hasProvider ? (
+          {x402Paid ? (
+            <>
+              <Button variant="primary" size="lg" className="w-full" onClick={onSubmit} disabled>
+                <Zap size={17} aria-hidden="true" />
+                x402 payment preparation only
+              </Button>
+              <p className="mt-2 text-xs leading-relaxed text-faint">The verified challenge is shown for review. x402 signing and submission are disabled in this phase, so no wallet request can be opened.</p>
+            </>
+          ) : !hasProvider ? (
             <>
               <a
                 href="https://metamask.io/download/"
@@ -167,7 +194,19 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
                 funds.
               </p>
             </>
-          ) : !external && !isCorrectChain ? (
+          ) : paidReady && chainId !== paymentChainId ? (
+            <>
+              <div className="mb-3 flex gap-2 rounded-lg border border-warn/30 bg-warn/5 p-3">
+                <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warn" aria-hidden="true" />
+                <p className="text-xs leading-relaxed text-muted">
+                   Your wallet must be on the payment settlement network (chain {paymentChainId}) before a payment request can be opened.
+                </p>
+              </div>
+              <Button variant="primary" size="lg" className="w-full" onClick={switchToMainnet} disabled={switching}>
+                {switching ? 'Check your wallet…' : `Switch to payment network (${paymentChainId})`}
+              </Button>
+            </>
+          ) : !external && !paidReady && !isCorrectChain ? (
             <>
               <div className="mb-3 flex gap-2 rounded-lg border border-warn/30 bg-warn/5 p-3">
                 <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warn" aria-hidden="true" />
@@ -200,11 +239,11 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
                 disabled={submitting}
               >
                 <Zap size={17} aria-hidden="true" />
-                {submitting ? 'Creating hire…' : external ? 'Run external task' : free ? 'Confirm hire (free)' : 'Confirm hire'}
+                {submitting ? 'Preparing…' : paidReady ? 'Review payment' : external ? 'Run external task' : free ? 'Confirm hire (free)' : 'Confirm hire'}
               </Button>
               <p className="mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-faint">
                 <Info size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
-                No signature request will appear.
+                 {paidReady ? 'No wallet request appears until you review and explicitly approve the payment.' : 'No signature request will appear.'}
               </p>
             </>
           )}
@@ -229,7 +268,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
           </div>
         )}
 
-        {!external && DEFAULT_CHAIN.faucet && (
+        {!external && !paidReady && DEFAULT_CHAIN.faucet && (
           <p className="mt-4 border-t border-line pt-3 text-xs leading-relaxed text-faint">
             Want test funds in your wallet to see a real balance?{' '}
             <a

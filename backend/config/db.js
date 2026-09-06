@@ -5,20 +5,193 @@ import { seedAgentCatalogue } from '../services/agentSeeder.js';
 let connected = false;
 let memoryServer = null;
 let indexedRefreshPromise = null;
+let connectionListenersBound = false;
+let reconnectTimer = null;
+let reconnectAttempt = 0;
+let hasConnectedOnce = false;
+let shutdownRequested = false;
+let mongoClientListenersBound = false;
+let connectInFlight = false;
+
+const DB_CONNECT_OPTIONS = Object.freeze({
+  serverSelectionTimeoutMS: 8000,
+  connectTimeoutMS: 10000,
+  heartbeatFrequencyMS: 10000,
+});
+const RECONNECT_BASE_DELAY_MS = 1000;
+const RECONNECT_MAX_DELAY_MS = 30000;
 
 export function isDbConnected() {
-  return connected && mongoose.connection.readyState === 1;
+  // Mongoose's live state is authoritative. The appConnected flag is only
+  // retained for diagnostics and must not make a healthy connection appear
+  // unavailable after a missed or reordered lifecycle event.
+  return mongoose.connection.readyState === 1;
+}
+
+function connectionState() {
+  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  return {
+    appConnected: connected,
+    mongooseReadyState: mongoose.connection.readyState,
+    mongooseReadyStateName: states[mongoose.connection.readyState] || 'unknown',
+  };
+}
+
+function topologySummary(topology) {
+  if (!topology) return undefined;
+  const servers = topology.servers instanceof Map
+    ? [...topology.servers.entries()].map(([address, server]) => ({
+        address,
+        type: server?.description?.type,
+        error: server?.description?.error?.message,
+      }))
+    : undefined;
+  return {
+    type: topology.type,
+    compatible: topology.compatible,
+    logicalSessionTimeoutMinutes: topology.logicalSessionTimeoutMinutes,
+    servers,
+  };
+}
+
+function clientTopologySummary() {
+  const client = mongoose.connection.getClient?.();
+  return topologySummary(client?.topology?.description);
+}
+
+function errorSummary(error) {
+  return {
+    name: error?.name,
+    message: error?.message,
+    code: error?.code,
+    codeName: error?.codeName,
+    reason: topologySummary(error?.reason),
+  };
+}
+
+function logConnectionEvent(event, details = {}) {
+  console.warn(`[db] MongoDB ${event}`, JSON.stringify({
+    ...connectionState(),
+    topology: clientTopologySummary(),
+    ...details,
+  }));
+}
+
+function bindMongoClientEvents() {
+  if (mongoClientListenersBound) return;
+  const client = mongoose.connection.getClient?.();
+  if (!client) return;
+  mongoClientListenersBound = true;
+
+  client.on('serverDescriptionChanged', (event) => {
+    logConnectionEvent('serverDescriptionChanged', {
+      address: event?.address,
+      previous: event?.previousDescription?.type,
+      current: event?.newDescription?.type,
+      error: event?.newDescription?.error?.message,
+    });
+  });
+  client.on('topologyDescriptionChanged', (event) => {
+    logConnectionEvent('topologyDescriptionChanged', {
+      previousType: event?.previousDescription?.type,
+      currentType: event?.newDescription?.type,
+    });
+  });
+  client.on('serverHeartbeatStarted', (event) => {
+    console.log('[db] MongoDB serverHeartbeatStarted', JSON.stringify({ address: event?.connectionId }));
+  });
+  client.on('serverHeartbeatSucceeded', (event) => {
+    console.log('[db] MongoDB serverHeartbeatSucceeded', JSON.stringify({
+      address: event?.connectionId,
+      durationMS: event?.duration,
+    }));
+  });
+  client.on('serverHeartbeatFailed', (event) => {
+    logConnectionEvent('serverHeartbeatFailed', {
+      address: event?.connectionId,
+      failure: errorSummary(event?.failure),
+    });
+  });
 }
 
 function bindConnectionEvents() {
+  if (connectionListenersBound) return;
+  connectionListenersBound = true;
+
+  mongoose.connection.on('connecting', () => {
+    logConnectionEvent(hasConnectedOnce ? 'reconnecting' : 'connecting');
+  });
+  mongoose.connection.on('connected', () => {
+    connected = true;
+    bindMongoClientEvents();
+    if (!hasConnectedOnce) {
+      console.log('[db] MongoDB connected');
+      hasConnectedOnce = true;
+    }
+    reconnectAttempt = 0;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+  });
   mongoose.connection.on('disconnected', () => {
     connected = false;
-    console.warn('[db] MongoDB disconnected');
+    logConnectionEvent('disconnected');
+    scheduleReconnect();
   });
   mongoose.connection.on('reconnected', () => {
     connected = true;
-    console.log('[db] MongoDB reconnected');
+    bindMongoClientEvents();
+    logConnectionEvent('reconnected');
+    reconnectAttempt = 0;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
   });
+  mongoose.connection.on('error', (err) => {
+    logConnectionEvent('connection error', { error: errorSummary(err) });
+  });
+}
+
+function scheduleReconnect() {
+  if (!env.mongoUri || shutdownRequested || reconnectTimer || connectInFlight || isDbConnected()) return;
+  if (mongoose.connection.readyState === 2) return;
+
+  reconnectAttempt += 1;
+  const delay = Math.min(
+    RECONNECT_BASE_DELAY_MS * 2 ** Math.min(reconnectAttempt - 1, 5),
+    RECONNECT_MAX_DELAY_MS,
+  );
+  console.warn(`[db] MongoDB reconnecting in ${delay}ms (attempt ${reconnectAttempt})`);
+  reconnectTimer = setTimeout(async () => {
+    reconnectTimer = null;
+    if (
+      shutdownRequested ||
+      connectInFlight ||
+      isDbConnected() ||
+      mongoose.connection.readyState === 2
+    ) return;
+
+    connectInFlight = true;
+    try {
+      logConnectionEvent('reconnect attempt', { attempt: reconnectAttempt });
+      await mongoose.connect(env.mongoUri, DB_CONNECT_OPTIONS);
+      bindMongoClientEvents();
+      connected = true;
+    } catch (err) {
+      connected = false;
+      connectInFlight = false;
+      logConnectionEvent('reconnect failed', {
+        attempt: reconnectAttempt,
+        error: errorSummary(err),
+      });
+      scheduleReconnect();
+    } finally {
+      connectInFlight = false;
+    }
+  }, delay);
+  reconnectTimer.unref?.();
 }
 
 /**
@@ -31,7 +204,7 @@ async function startInMemoryMongo() {
   const { MongoMemoryServer } = await import('mongodb-memory-server');
   memoryServer = await MongoMemoryServer.create();
   const uri = memoryServer.getUri();
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 8000 });
+  await mongoose.connect(uri, DB_CONNECT_OPTIONS);
   console.log('[db] Using in-memory MongoDB (development, no MONGODB_URI set)');
 
   const { inserted } = await seedAgentCatalogue({ wipe: false });
@@ -74,18 +247,22 @@ export function getIndexedRefreshPromise() {
  */
 export async function connectDatabase({ refresh = true } = {}) {
   mongoose.set('strictQuery', true);
+  shutdownRequested = false;
+  bindConnectionEvents();
 
   try {
     if (env.mongoUri) {
-      await mongoose.connect(env.mongoUri, { serverSelectionTimeoutMS: 8000 });
+      connectInFlight = true;
+      await mongoose.connect(env.mongoUri, DB_CONNECT_OPTIONS);
+      bindMongoClientEvents();
       connected = true;
-      bindConnectionEvents();
-      console.log('[db] Connected to MongoDB');
 
       const { inserted } = await seedAgentCatalogue({ wipe: false });
       if (inserted > 0) {
         console.log(`[db] Added ${inserted} missing curated agents to MongoDB`);
       }
+      const { restoreVerifiedPaymentMetadata } = await import('../services/indexedAgentIngestion.js');
+      await restoreVerifiedPaymentMetadata();
       if (refresh) scheduleIndexedRefresh({ reason: 'MongoDB connected' });
       return true;
     }
@@ -104,9 +281,13 @@ export async function connectDatabase({ refresh = true } = {}) {
     if (refresh) scheduleIndexedRefresh({ reason: 'in-memory development database' });
     return true;
   } catch (err) {
-    console.error('[db] Connection failed:', err.message);
+    logConnectionEvent('initial connection failed', { error: errorSummary(err) });
     connected = false;
+    connectInFlight = false;
+    scheduleReconnect();
     return false;
+  } finally {
+    connectInFlight = false;
   }
 }
 
@@ -115,6 +296,11 @@ export async function connectDatabase({ refresh = true } = {}) {
  * Used by scripts and tests so the process can exit.
  */
 export async function disconnectDatabase() {
+  shutdownRequested = true;
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
   await mongoose.disconnect();
   if (memoryServer) {
     await memoryServer.stop();

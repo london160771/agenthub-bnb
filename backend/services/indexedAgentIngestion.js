@@ -9,7 +9,8 @@ import { Agent } from '../models/Agent.js';
 import { listAgents, getAgentDetail } from './scan8004Client.js';
 import { classifyAgent } from './agentClassifier.js';
 import { computeTrust } from './trustScoreService.js';
-import { getAgentCapability } from './agentCapabilities.js';
+import { getAgentCapability, getVerifiedExecutionDefinition } from './agentCapabilities.js';
+import { getVerifiedPaymentMetadata, VERIFIED_PAYMENT_RECORDS } from './verifiedPaymentMetadata.js';
 
 const SEARCHES = [
   // Keep targeted provider searches ahead of broad terms so known paid
@@ -277,6 +278,103 @@ function toAgentDoc(norm, detail = null) {
   return { doc: base, evidence: { chainId, tokenId } };
 }
 
+/**
+ * Do not let a later 8004scan refresh erase payment facts verified directly
+ * from a published service. Preserve them only while the exact endpoint is
+ * unchanged; an endpoint change must be reviewed as a new requirement.
+ */
+function preserveVerifiedPayment(existing, doc) {
+  const known = getVerifiedPaymentMetadata(doc);
+  let mergedDoc = doc;
+  if (known) {
+    const verifiedAt = doc.payment?.verification?.verifiedAt || doc.lastVerifiedAt || new Date();
+    mergedDoc = {
+      ...doc,
+      endpoint: doc.endpoint || known.endpoint,
+      executionProtocol: doc.executionProtocol || known.executionProtocol || null,
+      paymentProtocol: known.paymentProtocol,
+      payment: {
+        ...doc.payment,
+        ...known.payment,
+        verification: { ...known.payment.verification, verifiedAt },
+      },
+      lastVerifiedAt: doc.lastVerifiedAt || verifiedAt,
+    };
+  }
+
+  const current = existing?.payment;
+  if (current?.status !== 'verified') {
+    mergedDoc.capability = getAgentCapability(mergedDoc);
+    return mergedDoc;
+  }
+
+  const existingEndpoint = String(existing?.endpoint || '').replace(/\/$/, '');
+  const incomingEndpoint = String(mergedDoc.endpoint || '').replace(/\/$/, '');
+  // Missing upstream endpoint data is not evidence that a previously verified
+  // endpoint disappeared. Preserve the saved contract in that case. A new,
+  // conflicting endpoint remains a fail-closed boundary and must be reviewed.
+  if (!existingEndpoint || (incomingEndpoint && existingEndpoint !== incomingEndpoint)) return mergedDoc;
+
+  const merged = {
+    ...mergedDoc,
+    endpoint: incomingEndpoint ? mergedDoc.endpoint : existing.endpoint,
+    serviceEndpoints: mergedDoc.serviceEndpoints?.length ? mergedDoc.serviceEndpoints : existing.serviceEndpoints,
+    // An exact backend-owned verification record must win over an older
+    // persisted copy of the same payment facts. Keep any unrelated saved
+    // fields, but never let stale or incomplete upstream/current data replace
+    // the verified amount, token, network, recipient, or x402 challenge.
+    payment: getVerifiedPaymentMetadata(mergedDoc)
+      ? { ...current, ...mergedDoc.payment, status: 'verified' }
+      : { ...mergedDoc.payment, ...current, status: 'verified' },
+    paymentProtocol: existing.paymentProtocol || mergedDoc.paymentProtocol,
+    executionProtocol: existing.executionProtocol || mergedDoc.executionProtocol,
+    executionVerified: existing.executionVerified === true || mergedDoc.executionVerified === true,
+    lastVerifiedAt: existing.lastVerifiedAt || mergedDoc.lastVerifiedAt,
+  };
+  merged.capability = getAgentCapability(merged);
+  return merged;
+}
+
+/** Restore independently verified payment facts into the canonical Agent row. */
+export async function restoreVerifiedPaymentMetadata({ logger = console } = {}) {
+  let restored = 0;
+  for (const record of VERIFIED_PAYMENT_RECORDS) {
+    const existing = await Agent.findOne({ erc8004Id: record.erc8004Id }).lean();
+    if (!existing) continue;
+
+    const execution = getVerifiedExecutionDefinition(existing);
+    const recoverySource = !existing.endpoint && execution
+      ? { ...existing, endpoint: execution.endpoint, executionProtocol: existing.executionProtocol || execution.executionProtocol }
+      : existing;
+    const merged = preserveVerifiedPayment(existing, recoverySource);
+    const changed = (
+      merged.endpoint !== existing.endpoint ||
+      merged.executionProtocol !== existing.executionProtocol ||
+      merged.paymentProtocol !== existing.paymentProtocol ||
+      JSON.stringify(merged.payment) !== JSON.stringify(existing.payment) ||
+      merged.capability !== existing.capability
+    );
+
+    if (!changed) continue;
+    await Agent.updateOne(
+      { _id: existing._id },
+      {
+        $set: {
+          endpoint: merged.endpoint,
+          executionProtocol: merged.executionProtocol,
+          paymentProtocol: merged.paymentProtocol,
+          payment: merged.payment,
+          lastVerifiedAt: merged.lastVerifiedAt,
+          capability: merged.capability,
+        },
+      },
+    );
+    restored++;
+    logger.log(`[ingest] restored verified payment metadata for ${existing.erc8004Id}`);
+  }
+  return { restored };
+}
+
 async function collectCandidates({ limitPerSearch = 20, maxTotal = 120, logger = console } = {}) {
   const seen = new Map();
   let rateLimited = false;
@@ -345,9 +443,11 @@ export async function refreshIndexedAgents({ limit = 40, limitPerSearch = 20, dr
     }
 
     try {
+      const existing = await Agent.findOne({ erc8004Id: doc.erc8004Id }).lean();
+      const persistedDoc = preserveVerifiedPayment(existing, doc);
       const result = await Agent.updateOne(
-        { erc8004Id: doc.erc8004Id },
-        { $set: doc, $setOnInsert: { createdAt: new Date() } },
+        { erc8004Id: persistedDoc.erc8004Id },
+        { $set: persistedDoc, $setOnInsert: { createdAt: new Date() } },
         { upsert: true },
       );
       processed++;
@@ -363,4 +463,4 @@ export async function refreshIndexedAgents({ limit = 40, limitPerSearch = 20, dr
   return { beforeIndexed, afterIndexed, seen: seen.size, selected: selected.length, processed, inserted, updated, failed, skipped, rateLimited };
 }
 
-export { collectCandidates, normalizeRegistryAgent, toAgentDoc, SEARCHES };
+export { collectCandidates, normalizeRegistryAgent, toAgentDoc, preserveVerifiedPayment, SEARCHES };

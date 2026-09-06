@@ -31,6 +31,17 @@ const PricingSchema = new Schema(
   { _id: false },
 );
 
+const PaymentVerificationSchema = new Schema(
+  {
+    status: { type: String, enum: ['verified'], default: null },
+    source: { type: String, default: null },
+    method: { type: String, default: null },
+    endpoint: { type: String, default: null },
+    verifiedAt: { type: Date, default: null },
+  },
+  { _id: false },
+);
+
 const PaymentSchema = new Schema(
   {
     type: { type: String, enum: ['free', 'x402', 'erc8183', 'native-bnb', 'other', 'unknown'], default: 'unknown' },
@@ -39,13 +50,24 @@ const PaymentSchema = new Schema(
     token: { type: String, default: null },
     tokenAddress: { type: String, default: null },
     tokenDecimals: { type: Number, default: null, min: 0, max: 255 },
+    // Exact integer-denominated amount when the provider publishes one (for
+    // example an x402 USDC challenge). The display amount remains separate.
+    amountBaseUnits: { type: String, default: null },
     currency: { type: String, default: null },
     chainId: { type: Number, default: null, min: 1 },
+    // Settlement may differ from the ERC-8004 identity chain, as it does for
+    // Quick Intel. `chainId` is the selected settlement chain for payment.
+    settlementNetwork: { type: String, default: null },
     recipient: { type: String, default: null },
     contract: { type: String, default: null },
     requiresWallet: { type: Boolean, default: null },
     requiresMainnetTx: { type: Boolean, default: null },
+    requiresTokenApproval: { type: Boolean, default: null },
     effect: { type: String, default: null },
+    // Provider challenge and supported settlement options. This is metadata,
+    // never a signed payload or transaction calldata.
+    x402: { type: Schema.Types.Mixed, default: null },
+    verification: { type: PaymentVerificationSchema, default: () => ({}) },
   },
   { _id: false },
 );
@@ -124,6 +146,8 @@ const AgentSchema = new Schema(
     source: { type: String, enum: AGENT_SOURCES, default: 'seeded', index: true },
     // Snapshot only; API capability remains computed by agentCapabilities.js.
     capability: { type: String, default: null },
+    // Set only after a dedicated adapter has returned a validated real task result.
+    executionVerified: { type: Boolean, default: false },
     lastIndexedAt: { type: Date, default: null },
     lastVerifiedAt: { type: Date, default: null },
   },
