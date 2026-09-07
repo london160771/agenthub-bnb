@@ -13,6 +13,7 @@ export const NAV_LINKS = [
   { label: 'Compare', to: '/compare' },
   { label: 'Activity', to: '/activity' },
   { label: 'Dashboard', to: '/dashboard' },
+  { label: 'Docs', to: '/docs' },
 ];
 
 // Mobile bottom navigation (icon names resolved in MobileNav).
@@ -22,6 +23,7 @@ export const MOBILE_NAV = [
   { label: 'Find', to: '/find', icon: 'sparkles' },
   { label: 'Activity', to: '/activity', icon: 'activity' },
   { label: 'Profile', to: '/dashboard', icon: 'user' },
+  { label: 'Docs', to: '/docs', icon: 'docs' },
 ];
 
 // Agent categories used across discovery, filters and the finder.

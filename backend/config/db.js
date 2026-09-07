@@ -5,6 +5,8 @@ import { seedAgentCatalogue } from '../services/agentSeeder.js';
 let connected = false;
 let memoryServer = null;
 let indexedRefreshPromise = null;
+let indexedRefreshInFlightPromise = null;
+let indexedRefreshInterval = null;
 let connectionListenersBound = false;
 let reconnectTimer = null;
 let reconnectAttempt = 0;
@@ -20,6 +22,7 @@ const DB_CONNECT_OPTIONS = Object.freeze({
 });
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
+export const AGENT_REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000;
 
 export function isDbConnected() {
   // Mongoose's live state is authoritative. The appConnected flag is only
@@ -214,23 +217,56 @@ async function startInMemoryMongo() {
 
 }
 
-function scheduleIndexedRefresh({ reason }) {
+function scheduleIndexedRefresh({ reason, scheduled = false }) {
+  if (indexedRefreshInFlightPromise) {
+    if (scheduled) console.log('[db] Scheduled 8004scan refresh skipped: already running');
+    return indexedRefreshInFlightPromise;
+  }
+
   const scanAuthMode = env.scan8004ApiKey ? 'configured API key' : 'anonymous tier';
-  console.log(`[db] Starting incremental 8004scan refresh (${scanAuthMode}; ${reason})...`);
-  indexedRefreshPromise = import('../services/indexedAgentIngestion.js')
+  if (scheduled) {
+    console.log('[db] Scheduled 8004scan refresh started');
+  } else {
+    console.log(`[db] Starting incremental 8004scan refresh (${scanAuthMode}; ${reason})...`);
+  }
+
+  const refreshPromise = import('../services/indexedAgentIngestion.js')
     .then(({ refreshIndexedAgents }) => refreshIndexedAgents({ limit: 40 }))
     .then((result) => {
-      console.log(
-        `[db] Indexed refresh complete: before=${result.beforeIndexed} after=${result.afterIndexed} ` +
-          `processed=${result.processed} inserted=${result.inserted} updated=${result.updated} failed=${result.failed}`,
-      );
+      const summary =
+        `before=${result.beforeIndexed} after=${result.afterIndexed} ` +
+        `processed=${result.processed} inserted=${result.inserted} updated=${result.updated} failed=${result.failed}`;
+      if (scheduled) {
+        console.log(`[db] Scheduled 8004scan refresh completed: ${summary}`);
+      } else {
+        console.log(`[db] Indexed refresh complete: ${summary}`);
+      }
       return result;
     })
     .catch((err) => {
-      console.warn(`[db] Indexed refresh skipped: ${err.message}`);
+      if (scheduled) {
+        console.warn(`[db] Scheduled 8004scan refresh failed: ${err.message}`);
+      } else {
+        console.warn(`[db] Indexed refresh skipped: ${err.message}`);
+      }
       return null;
     });
+
+  indexedRefreshInFlightPromise = refreshPromise.finally(() => {
+    indexedRefreshInFlightPromise = null;
+  });
+  indexedRefreshPromise = indexedRefreshInFlightPromise;
   return indexedRefreshPromise;
+}
+
+function startIndexedRefreshSchedule() {
+  if (indexedRefreshInterval) return;
+
+  indexedRefreshInterval = setInterval(() => {
+    if (shutdownRequested) return;
+    scheduleIndexedRefresh({ reason: '12-hour schedule', scheduled: true });
+  }, AGENT_REFRESH_INTERVAL_MS);
+  indexedRefreshInterval.unref?.();
 }
 
 /** Used by verification scripts that need to wait for the background refresh. */
@@ -263,7 +299,10 @@ export async function connectDatabase({ refresh = true } = {}) {
       }
       const { restoreVerifiedPaymentMetadata } = await import('../services/indexedAgentIngestion.js');
       await restoreVerifiedPaymentMetadata();
-      if (refresh) scheduleIndexedRefresh({ reason: 'MongoDB connected' });
+      if (refresh) {
+        scheduleIndexedRefresh({ reason: 'MongoDB connected' });
+        startIndexedRefreshSchedule();
+      }
       return true;
     }
 
@@ -278,7 +317,10 @@ export async function connectDatabase({ refresh = true } = {}) {
     await startInMemoryMongo();
     connected = true;
     bindConnectionEvents();
-    if (refresh) scheduleIndexedRefresh({ reason: 'in-memory development database' });
+    if (refresh) {
+      scheduleIndexedRefresh({ reason: 'in-memory development database' });
+      startIndexedRefreshSchedule();
+    }
     return true;
   } catch (err) {
     logConnectionEvent('initial connection failed', { error: errorSummary(err) });
@@ -297,6 +339,10 @@ export async function connectDatabase({ refresh = true } = {}) {
  */
 export async function disconnectDatabase() {
   shutdownRequested = true;
+  if (indexedRefreshInterval) {
+    clearInterval(indexedRefreshInterval);
+    indexedRefreshInterval = null;
+  }
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;

@@ -11,6 +11,7 @@ import DashboardPage from '../pages/DashboardPage.jsx';
 import ActivityPage from '../pages/ActivityPage.jsx';
 import SavedPage from '../pages/SavedPage.jsx';
 import SettingsPage from '../pages/SettingsPage.jsx';
+import DocsPage from '../pages/DocsPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 
 /**
@@ -33,6 +34,7 @@ export function AppRoutes() {
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/saved" element={<SavedPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/docs" element={<DocsPage />} />
 
         <Route path="*" element={<NotFoundPage />} />
       </Route>

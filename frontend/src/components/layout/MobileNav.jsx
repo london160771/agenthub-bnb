@@ -1,9 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { Activity, Compass, Home, Sparkles, User } from 'lucide-react';
+import { Activity, BookOpen, Compass, Home, Sparkles, User } from 'lucide-react';
 import { MOBILE_NAV } from '../../config.js';
 import { cn } from '../../lib/cn.js';
 
-const ICONS = { home: Home, compass: Compass, sparkles: Sparkles, activity: Activity, user: User };
+const ICONS = { home: Home, compass: Compass, sparkles: Sparkles, activity: Activity, user: User, docs: BookOpen };
 
 /** Fixed bottom tab bar shown on small screens only. */
 export function MobileNav() {

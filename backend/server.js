@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 
 import { env, isProd } from './config/env.js';
-import { connectDatabase } from './config/db.js';
+import { connectDatabase, disconnectDatabase } from './config/db.js';
 import apiRouter from './routes/index.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
@@ -33,9 +33,30 @@ app.use('/api', apiRouter);
 app.use(notFound);
 app.use(errorHandler);
 
+let httpServer = null;
+let shutdownInProgress = false;
+
+async function shutdown(signal) {
+  if (shutdownInProgress) return;
+  shutdownInProgress = true;
+  try {
+    await new Promise((resolve) => {
+      if (!httpServer) return resolve();
+      httpServer.close(resolve);
+    });
+    await disconnectDatabase();
+    console.log(`[server] Shutdown complete after ${signal}`);
+  } catch (err) {
+    console.error(`[server] Shutdown failed after ${signal}: ${err.message}`);
+  }
+}
+
+process.once('SIGINT', () => void shutdown('SIGINT'));
+process.once('SIGTERM', () => void shutdown('SIGTERM'));
+
 async function start() {
   await connectDatabase();
-  app.listen(env.port, () => {
+  httpServer = app.listen(env.port, () => {
     console.log(`[server] AgentHub API listening on http://localhost:${env.port}`);
     console.log(`[server] Environment: ${env.nodeEnv}`);
   });

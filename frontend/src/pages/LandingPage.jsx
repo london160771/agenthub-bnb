@@ -227,66 +227,99 @@ function HowItWorks() {
   );
 }
 
+const AGENT_ADVANTAGE_HIGHLIGHTS = [
+  {
+    agent: 'Assay Grid',
+    category: 'Trading / grid analysis',
+    manual: '27.658 s',
+    agentTime: '1.733 s',
+    speedup: '15.96×',
+    quality: '20/25 → 23/25',
+  },
+  {
+    agent: 'Venus Yield Lens',
+    category: 'Yield optimisation',
+    manual: '29.617391 s',
+    agentTime: '2.221 s',
+    speedup: '13.34×',
+    quality: '20/25 → 23/25',
+  },
+  {
+    agent: 'SMEAI Health Factor Monitor',
+    category: 'Liquidation / health-factor risk',
+    manual: '134.4137659 s',
+    agentTime: '2.797 s',
+    speedup: '48.06×',
+    quality: '23/25 → 23/25',
+  },
+];
+
 function AgentAdvantage() {
   return (
-    <section className="border-b border-line">
-      <Container className="grid items-center gap-10 py-16 lg:grid-cols-2">
-        <div>
-          <Badge variant="brand" className="mb-4">
-            Agent Advantage
-          </Badge>
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Prove hiring an agent beats doing it yourself.
-          </h2>
-          <p className="mt-4 max-w-lg leading-relaxed text-muted">
-            Every execution records what the agent actually did: when it started, how long it took,
-            what it charged, and every on-chain read it made. The manual half of that comparison has
-            to be done by a person, so the numbers below stay empty until someone has sat down and
-            done the same task by hand.
-          </p>
-          <div className="mt-6">
-            <ButtonLink to="/discover" variant="outline">
-              Explore BNB agents
-              <ArrowRight size={18} aria-hidden="true" />
-            </ButtonLink>
+    <section className="border-b border-line bg-panel/40">
+      <Container className="py-16">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <Badge variant="brand" className="mb-4">
+              Agent Advantage · Verified benchmarks
+            </Badge>
+            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              The marketplace, measured against the manual workflow.
+            </h2>
+            <p className="mt-4 leading-relaxed text-muted">
+              Three real external ERC-8004 agents were compared with frozen manual baselines. Each
+              AgentHub run completed in under three seconds, with BSC Mainnet provenance and no
+              simulated output.
+            </p>
           </div>
+          <ButtonLink to="/docs#agent-advantage" variant="outline" className="w-fit">
+            View Agent Advantage Report
+            <ArrowRight size={18} aria-hidden="true" />
+          </ButtonLink>
         </div>
 
-        {/*
-          This card previously showed "~14 min / 6 steps" vs "2.8 sec / 1 request".
-          Those were invented for illustration, and an invented benchmark in a
-          submission about verifiable data is exactly the wrong thing to ship — a
-          reader would reasonably take them for measurements. They are removed
-          rather than replaced: the slots stay visible so the comparison is
-          legible, but nothing fills them until a human records a real run.
-        */}
-        <Card className="p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-muted">Manual vs agent</p>
-            <Badge variant="neutral">Not yet measured</Badge>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-lg border border-line bg-base p-4">
-              <p className="text-xs uppercase tracking-wide text-faint">Manual</p>
-              <p className="mt-2 text-3xl font-bold text-faint" aria-label="No measurement recorded">
-                —
-              </p>
-              <p className="mt-1 text-sm text-muted">Timed by hand, not estimated</p>
-            </div>
-            <div className="rounded-lg border border-brand/30 bg-brand/5 p-4">
-              <p className="text-xs uppercase tracking-wide text-brand">Agent</p>
-              <p className="mt-2 text-3xl font-bold text-faint" aria-label="No measurement recorded">
-                —
-              </p>
-              <p className="mt-1 text-sm text-muted">Measured per execution</p>
-            </div>
-          </div>
-          <p className="mt-4 border-t border-line pt-4 text-xs leading-relaxed text-faint">
-            Figures appear here only once the same task has been run both ways and the evidence
-            recorded — three tasks, real data, a stated scoring rubric. Nothing on this page is
-            estimated or modelled.
-          </p>
-        </Card>
+        <div className="mt-6 flex flex-wrap gap-2" aria-label="Agent Advantage facts">
+          <Badge variant="neutral">3 external ERC-8004 benchmarks</Badge>
+          <Badge variant="ok">BSC Mainnet provenance</Badge>
+          <Badge variant="info">No simulated outputs</Badge>
+          <Badge variant="neutral">$0 direct cost</Badge>
+        </div>
+
+        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+          {AGENT_ADVANTAGE_HIGHLIGHTS.map((item) => (
+            <Card key={item.agent} className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-faint">{item.category}</p>
+                  <h3 className="mt-1.5 text-lg font-semibold tracking-tight text-fg">{item.agent}</h3>
+                </div>
+                <Badge variant="info" className="shrink-0">External</Badge>
+              </div>
+
+              <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-faint">Manual</p>
+                  <p className="mt-1 font-mono text-lg font-semibold text-muted">{item.manual}</p>
+                </div>
+                <ArrowRight size={16} className="mb-1 text-faint" aria-hidden="true" />
+                <div className="text-right">
+                  <p className="text-xs uppercase tracking-wide text-brand">AgentHub</p>
+                  <p className="mt-1 font-mono text-lg font-semibold text-brand">{item.agentTime}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm">
+                <span className="font-semibold text-fg">{item.speedup} faster</span>
+                <span className="text-muted">Quality {item.quality}</span>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        <p className="mt-5 text-xs leading-relaxed text-faint">
+          Measured execution time and rubric scores come from the approved report. This evidence
+          measures workflow efficiency, not profitability or guaranteed returns.
+        </p>
       </Container>
     </section>
   );
