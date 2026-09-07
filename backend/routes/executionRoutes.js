@@ -3,6 +3,7 @@ import {
   postExecutionPreparation,
   postExecution,
   postExecutionRun,
+  getExecutions,
   getExecution,
 } from '../controllers/executionController.js';
 
@@ -10,6 +11,7 @@ const router = Router();
 
 router.post('/prepare', postExecutionPreparation);
 router.post('/', postExecution);
+router.get('/', getExecutions);
 router.post('/:executionId/run', postExecutionRun);
 router.get('/:executionId', getExecution);
 

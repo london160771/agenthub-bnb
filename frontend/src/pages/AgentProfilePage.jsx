@@ -29,7 +29,7 @@ import { getAgent, listAgents } from '../services/agents.js';
 import { preparePayment } from '../services/payments.js';
 import { SOURCE_LABELS, CATEGORIES } from '../config.js';
 import { cn } from '../lib/cn.js';
-import { AGENT_CAPABILITIES, capabilityBadgesFor, capabilityCopyFor, isExternallyExecutable, isHireable } from '../lib/agentCapability.js';
+import { AGENT_CAPABILITIES, capabilityBadgesFor, capabilityCopyFor, displayPricingFor, isExternallyExecutable, isHireable, networkContextFor } from '../lib/agentCapability.js';
 import { PaidPaymentConfirmation } from '../components/payment/PaidPaymentConfirmation.jsx';
 import {
   formatBnb,
@@ -213,7 +213,6 @@ export default function AgentProfilePage() {
     skills = [],
     protocols = [],
     tags = [],
-    pricing = {},
     metrics = {},
     trust = {},
     trustScore,
@@ -224,6 +223,7 @@ export default function AgentProfilePage() {
     endpoint,
     lastActiveAt,
     capability,
+    capabilityDetails,
   } = agent;
 
   const provenance = SOURCE_LABELS[source];
@@ -233,6 +233,8 @@ export default function AgentProfilePage() {
   const isCatalogVerified = capability === AGENT_CAPABILITIES.INDEXED_CATALOG_VERIFIED;
   const capabilityCopy = capabilityCopyFor(agent);
   const capabilityBadges = capabilityBadgesFor(agent);
+  const displayPricing = displayPricingFor(agent);
+  const networkContext = networkContextFor({ ...agent, capabilityDetails });
 
   return (
     <Container className="py-8 lg:py-12">
@@ -381,7 +383,11 @@ export default function AgentProfilePage() {
               <p className="mt-3 text-sm leading-relaxed text-muted">{capabilityCopy.description}</p>
               {canHire && (
                 <p className="mt-2 text-xs leading-relaxed text-faint">
-                  {isExternalExecutable ? 'The result comes back from the agent’s published service.' : 'The task runs against BNB Smart Chain Testnet data.'}
+                  {networkContext.settlement && networkContext.settlement !== networkContext.execution
+                    ? `ERC-8004 identity / execution: ${networkContext.execution}. Payment settlement: ${networkContext.settlement}.`
+                    : isExternalExecutable
+                      ? `External execution on ${networkContext.execution || 'the verified service network'}.`
+                      : `The task runs against ${networkContext.execution || 'the configured testnet'} data.`}
                 </p>
               )}
             </CardBody>
@@ -390,15 +396,15 @@ export default function AgentProfilePage() {
           <Card>
             <CardBody>
               <SectionHeading title="Pricing" className="mb-3" />
-              <p className="font-mono text-2xl font-bold text-fg">{formatBnb(pricing.amount)}</p>
+              <p className="font-mono text-2xl font-bold text-fg">{formatBnb(displayPricing.amount, displayPricing.currency || 'BNB')}</p>
               <p className="text-xs text-faint">
-                {PRICING_MODEL_LABELS[pricing.model] || pricing.model || '—'}
+                {PRICING_MODEL_LABELS[displayPricing.model] || displayPricing.model || '—'}
               </p>
               <div className="mt-3 border-t border-line pt-2">
-                <InfoRow label="Currency" value={pricing.currency || 'BNB'} />
+                <InfoRow label="Currency" value={displayPricing.isFree ? '—' : displayPricing.currency} />
                 <InfoRow
                   label="Avg cost / run"
-                  value={metrics.avgCost != null ? formatBnb(metrics.avgCost) : '—'}
+                  value={displayPricing.isFree ? 'Free' : metrics.avgCost != null ? formatBnb(metrics.avgCost, displayPricing.currency || 'BNB') : 'Not measured yet'}
                 />
               </div>
               {!canHire ? (

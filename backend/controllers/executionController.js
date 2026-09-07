@@ -11,6 +11,7 @@ import {
   createExecution,
   findRecentDuplicate,
   getExecutionById,
+  listCompletedExecutions,
   getHireableAgent,
   resetForRetry,
   HIRE_CHAIN_ID,
@@ -85,6 +86,23 @@ function parseInput(raw) {
   }
   return out;
 }
+
+/** GET /api/executions?userAddress=0x... — completed activity for one wallet. */
+export const getExecutions = asyncHandler(async (req, res) => {
+  ensureDb();
+  const userAddress = typeof req.query.userAddress === 'string' ? req.query.userAddress.trim() : '';
+  if (!ADDRESS_RE.test(userAddress)) {
+    throw ApiError.badRequest('"userAddress" must be a 0x-prefixed, 40-character wallet address.');
+  }
+
+  const rawLimit = req.query.limit == null ? 20 : Number(req.query.limit);
+  if (!Number.isInteger(rawLimit) || rawLimit < 1 || rawLimit > 50) {
+    throw ApiError.badRequest('"limit" must be an integer from 1 to 50.');
+  }
+
+  const items = await listCompletedExecutions({ userAddress, limit: rawLimit });
+  sendSuccess(res, { items, total: items.length });
+});
 
 /** POST /api/executions/prepare — normalize a safe next step without running it. */
 export const postExecutionPreparation = asyncHandler(async (req, res) => {

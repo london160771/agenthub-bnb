@@ -81,6 +81,7 @@ export const getAgents = asyncHandler(async (req, res) => {
     skill: q.skill ? String(q.skill) : null,
     page: parseIntParam(q.page, { min: 1, fallback: 1, name: 'page' }),
     limit: parseIntParam(q.limit, { min: 1, max: 100, fallback: 24, name: 'limit' }),
+    includeSummary: q.includeSummary === 'true',
   });
 
   sendSuccess(res, result);

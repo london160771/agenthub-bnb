@@ -11,6 +11,7 @@ import { listAgents } from '../../services/agents.js';
 import { formatBnb } from '../../lib/format.js';
 import { MAX_COMPARE } from '../../lib/compare.js';
 import { cn } from '../../lib/cn.js';
+import { displayPricingFor } from '../../lib/agentCapability.js';
 
 const RESULT_LIMIT = 6;
 
@@ -101,7 +102,7 @@ export function AddAgentPicker({ selectedIds = [], query, onQueryChange, onAdd, 
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-fg">{agent.name}</p>
                           <p className="truncate text-xs text-muted">
-                            {formatBnb(agent.pricing?.amount)}
+                            {formatBnb(displayPricingFor(agent).amount, displayPricingFor(agent).currency || 'BNB')}
                             {agent.tagline ? ` · ${agent.tagline}` : ''}
                           </p>
                         </div>

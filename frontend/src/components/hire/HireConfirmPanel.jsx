@@ -78,7 +78,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
               <span className="text-faint">{paidReady ? (x402Paid ? 'Not available until x402 signing is enabled' : 'Wallet estimates before approval') : 'None — nothing is broadcast'}</span>
             </Row>
             <Row label="Pricing model">
-              {external ? 'Free external service' : PRICING_MODEL_LABELS[agent.pricing?.model] || agent.pricing?.model || '—'}
+              {paidReady ? 'Per task' : external ? 'Free external service' : PRICING_MODEL_LABELS[agent.pricing?.model] || agent.pricing?.model || '—'}
             </Row>
           </div>
 
@@ -226,7 +226,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
                   <strong className="text-fg">
                     {chainLabel || 'a network AgentHub doesn’t recognise'}
                   </strong>
-                  . AgentHub is testnet-only, so hiring is disabled until you switch to{' '}
+                  . This built-in agent runs on BSC Testnet, so hiring is disabled until you switch to{' '}
                   {DEFAULT_CHAIN.name}.
                 </p>
               </div>

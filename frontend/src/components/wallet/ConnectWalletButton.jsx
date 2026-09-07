@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ChevronDown, Copy, Check, LogOut, Wallet } from 'lucide-react';
+import { ChevronDown, Copy, Check, LogOut, Wallet } from 'lucide-react';
 import { Button } from '../ui/Button.jsx';
 import { Badge } from '../ui/Badge.jsx';
-import { DEFAULT_CHAIN } from '../../config.js';
 import { cn } from '../../lib/cn.js';
 import { shortAddress } from '../../lib/wallet.js';
 import { useWallet } from '../../context/walletContext.js';
@@ -14,22 +13,19 @@ import { useWallet } from '../../context/walletContext.js';
  * wallet to switch networks. It never requests a signature, never sends a
  * transaction, and cannot move funds.
  *
- * Four states: no wallet installed · disconnected · connected to the wrong
- * network · connected to BNB testnet.
+ * This is a global wallet/session control, so it stays network-neutral. Hire
+ * and payment surfaces apply their own action-specific chain requirements.
  */
 export function ConnectWalletButton({ className }) {
   const {
     hasProvider,
     address,
     isConnected,
-    isCorrectChain,
     chainLabel,
     connecting,
-    switching,
     error,
     connect,
     disconnect,
-    switchToDefaultChain,
   } = useWallet();
 
   const [open, setOpen] = useState(false);
@@ -124,7 +120,7 @@ export function ConnectWalletButton({ className }) {
     );
   }
 
-  // 3 + 4. Connected — the chip reflects whether we're on the expected network.
+  // Connected — the global chip is deliberately neutral about network.
   return (
     <div ref={boxRef} className={cn('relative', className)}>
       <button
@@ -133,16 +129,10 @@ export function ConnectWalletButton({ className }) {
         aria-expanded={open}
         className={cn(
           'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors',
-          isCorrectChain
-            ? 'border-line bg-panel-2 text-fg hover:border-line-strong'
-            : 'border-bad/40 bg-bad/10 text-bad hover:bg-bad/15',
+          'border-line bg-panel-2 text-fg hover:border-line-strong',
         )}
       >
-        {isCorrectChain ? (
-          <span className="h-2 w-2 rounded-full bg-ok" aria-hidden="true" />
-        ) : (
-          <AlertTriangle size={14} aria-hidden="true" />
-        )}
+        <span className="h-2 w-2 rounded-full bg-ok" aria-hidden="true" />
         <span className="font-mono text-xs">{shortAddress(address)}</span>
         <ChevronDown size={14} aria-hidden="true" />
       </button>
@@ -154,29 +144,12 @@ export function ConnectWalletButton({ className }) {
 
           <div className="mt-3 flex items-center justify-between gap-2">
             <span className="text-faint">Network</span>
-            {isCorrectChain ? (
-              <Badge variant="ok">{DEFAULT_CHAIN.name}</Badge>
-            ) : (
-              <Badge variant="bad">{chainLabel || 'Unknown network'}</Badge>
-            )}
+            <Badge variant="info">{chainLabel || 'Unknown network'}</Badge>
           </div>
 
-          {!isCorrectChain && (
-            <div className="mt-3 rounded-lg border border-bad/30 bg-bad/10 p-2.5">
-              <p className="text-bad">
-                AgentHub is testnet-only. Switch to {DEFAULT_CHAIN.name} to hire an agent.
-              </p>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="mt-2 w-full"
-                onClick={switchToDefaultChain}
-                disabled={switching}
-              >
-                {switching ? 'Check wallet…' : `Switch to ${DEFAULT_CHAIN.shortName}`}
-              </Button>
-            </div>
-          )}
+          <p className="mt-3 rounded-lg border border-line bg-panel p-2.5 text-muted">
+            Network checks appear only when you start an agent or review a payment. AgentHub supports multiple networks.
+          </p>
 
           {error && <p className="mt-3 text-bad">{error}</p>}
 

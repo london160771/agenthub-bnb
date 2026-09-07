@@ -195,7 +195,7 @@ function weiToDecimalString(hexWei, decimals = 18) {
  * Confirm the endpoint really is testnet before trusting anything it says.
  *
  * A misconfigured BNB_TESTNET_RPC_URL pointing at mainnet would otherwise
- * produce real-looking mainnet data inside a build that promises testnet-only.
+ * produce real-looking mainnet data inside a built-in testnet execution path.
  * This is the accidental-mainnet safeguard on the read path.
  */
 export async function assertTestnet() {

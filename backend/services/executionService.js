@@ -24,7 +24,7 @@ import {
 
 const PROJECTION = '-__v -_id';
 
-/** The only network this build hires on. Testnet-only — see AGENTS.md. */
+/** Network required by built-in/local hires; external agents use their own context. */
 export const HIRE_CHAIN = 'bnb-testnet';
 /** BNB Smart Chain Testnet, verified against official BNB Chain docs. */
 export const HIRE_CHAIN_ID = 97;
@@ -89,6 +89,42 @@ export async function getHireableAgent(agentId) {
 
 export async function getExecutionById(executionId) {
   return Execution.findOne({ executionId }).select(PROJECTION).lean();
+}
+
+/**
+ * Completed records for the connected wallet. Activity is intentionally a
+ * read of persisted execution facts; pending or failed attempts do not appear
+ * in the judge-facing history list.
+ */
+export async function listCompletedExecutions({ userAddress, limit = 20 } = {}) {
+  const normalizedAddress = String(userAddress || '').toLowerCase();
+  const executions = await Execution.find({
+    userAddress: normalizedAddress,
+    status: 'completed',
+  })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .select(PROJECTION)
+    .lean();
+
+  const agentIds = [...new Set(executions.map((execution) => execution.agentId).filter(Boolean))];
+  const agents = await Agent.find({ agentId: { $in: agentIds } })
+    .select('agentId name avatar source capability pricing payment')
+    .lean();
+  const agentById = new Map(agents.map((agent) => [agent.agentId, agent]));
+
+  return executions.map((execution) => ({
+    ...execution,
+    agent: agentById.get(execution.agentId)
+      ? {
+          agentId: agentById.get(execution.agentId).agentId,
+          name: agentById.get(execution.agentId).name,
+          avatar: agentById.get(execution.agentId).avatar,
+          source: agentById.get(execution.agentId).source,
+          capability: agentById.get(execution.agentId).capability,
+        }
+      : null,
+  }));
 }
 
 /**

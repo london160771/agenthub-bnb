@@ -10,7 +10,7 @@ import { AgentStatus } from './AgentStatus.jsx';
 import { AgentTrustScore } from './AgentTrustScore.jsx';
 import { AgentMetrics } from './AgentMetrics.jsx';
 import { AgentSkills } from './AgentSkills.jsx';
-import { capabilityBadgesFor } from '../../lib/agentCapability.js';
+import { capabilityBadgesFor, displayPricingFor } from '../../lib/agentCapability.js';
 
 const PRICING_MODEL_LABELS = {
   'per-task': 'per task',
@@ -33,7 +33,6 @@ export function AgentCard({ agent }) {
     status,
     source,
     skills = [],
-    pricing = {},
     metrics = {},
     trust = {},
     trustScore,
@@ -43,6 +42,7 @@ export function AgentCard({ agent }) {
 
   const provenance = SOURCE_LABELS[source];
   const capabilityBadges = capabilityBadgesFor(agent);
+  const displayPricing = displayPricingFor(agent);
 
   return (
     <Card as={Link} to={`/agents/${agentId}`} interactive className="group flex h-full min-w-0 flex-col p-4 sm:p-5">
@@ -90,9 +90,9 @@ export function AgentCard({ agent }) {
         <div className="mt-3 flex items-end justify-between">
           <div>
             <p className="text-xs text-faint">
-              {PRICING_MODEL_LABELS[pricing.model] || pricing.model || 'pricing'}
+              {PRICING_MODEL_LABELS[displayPricing.model] || displayPricing.model || 'pricing'}
             </p>
-            <p className="font-semibold text-fg">{formatBnb(pricing.amount, pricing.currency || 'BNB')}</p>
+            <p className="font-semibold text-fg">{formatBnb(displayPricing.amount, displayPricing.currency || 'BNB')}</p>
           </div>
           <span className="inline-flex items-center gap-1 text-sm font-medium text-muted transition-colors group-hover:text-brand">
             View profile

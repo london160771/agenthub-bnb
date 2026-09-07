@@ -15,7 +15,7 @@ import { AgentStatus } from '../components/agents/AgentStatus.jsx';
 import { SOURCE_LABELS, CATEGORIES } from '../config.js';
 import { searchFinder } from '../services/finder.js';
 import { formatBnb } from '../lib/format.js';
-import { capabilityBadgesFor, isHireable } from '../lib/agentCapability.js';
+import { capabilityBadgesFor, displayPricingFor, isHireable } from '../lib/agentCapability.js';
 
 const EXAMPLES = [
   'I need an agent that monitors my Venus lending position and warns me before liquidation.',
@@ -35,6 +35,7 @@ function RecommendationCard({ item }) {
   const { agent, match } = item;
   const sourceMeta = SOURCE_LABELS[agent.source] || SOURCE_LABELS.seeded;
   const capabilityBadges = capabilityBadgesFor(agent);
+  const displayPricing = displayPricingFor(agent);
   const canHire = isHireable(agent);
   const isCatalogVerified = agent.capability === 'indexed/catalog-verified';
 
@@ -72,7 +73,7 @@ function RecommendationCard({ item }) {
         <div className="mt-2 flex flex-wrap gap-2 text-xs text-faint">
           <span className="inline-flex items-center gap-1"><Shield size={12} /> Trust {agent.trustScore ?? agent.trust?.overall ?? '—'}</span>
           <span className="inline-flex items-center gap-1"><ActivityIcon size={12} /> {agent.metrics?.successRate ?? '—'}% success</span>
-          <span className="inline-flex items-center gap-1"><Coins size={12} /> {formatBnb(agent.pricing?.amount)}</span>
+          <span className="inline-flex items-center gap-1"><Coins size={12} /> {formatBnb(displayPricing.amount, displayPricing.currency || 'BNB')}</span>
         </div>
       </div>
 

@@ -67,6 +67,15 @@ export function formatDate(dateInput, opts = { month: 'short', year: 'numeric' }
   return d.toLocaleDateString('en-US', opts);
 }
 
+/** ISO date → a readable date and time. Uses toLocaleString because timeStyle
+ * is not valid for Date.prototype.toLocaleDateString. */
+export function formatDateTime(dateInput) {
+  if (!dateInput) return '—';
+  const d = new Date(dateInput);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
 /** Relative time from an ISO date string, e.g. "3h ago", "2d ago". */
 export function relativeTime(dateInput) {
   if (!dateInput) return 'unknown';

@@ -5,11 +5,15 @@ import { Card, CardBody } from '../components/ui/Card.jsx';
 import { ButtonLink } from '../components/ui/Button.jsx';
 import { Badge } from '../components/ui/Badge.jsx';
 import { ErrorState } from '../components/ui/ErrorState.jsx';
+import { Skeleton } from '../components/ui/Skeleton.jsx';
 import { AgentGrid } from '../components/marketplace/AgentGrid.jsx';
 import { useApi } from '../hooks/useApi.js';
 import { listAgents } from '../services/agents.js';
 import { CATEGORIES } from '../config.js';
 import { isExecutable, isPaymentReady } from '../lib/agentCapability.js';
+import { useWallet } from '../context/walletContext.js';
+import { listExecutions } from '../services/executions.js';
+import { ExecutionHistoryList } from '../components/activity/ExecutionHistoryList.jsx';
 
 function SnapshotStat({ label, value, detail }) {
   return (
@@ -24,9 +28,14 @@ function SnapshotStat({ label, value, detail }) {
 }
 
 export default function DashboardPage() {
+  const { address } = useWallet();
   const { data, error, loading, refetch } = useApi(
     (signal) => listAgents({ limit: 100 }, { signal }),
     [],
+  );
+  const { data: activityData, error: activityError, loading: activityLoading } = useApi(
+    (signal) => address ? listExecutions({ userAddress: address, limit: 3 }, { signal }) : Promise.resolve({ items: [] }),
+    [address],
   );
 
   const agents = data?.items || [];
@@ -39,7 +48,7 @@ export default function DashboardPage() {
       <PageHeader
         eyebrow="Overview"
         title="Your AgentHub workspace"
-        description="A quick starting point for discovering agents and following a task from hire to result. Personal history and saved agents stay empty until real records exist."
+        description="A quick starting point for discovering agents and following a task from hire to result. Personal history reflects only completed records from your connected wallet."
       />
 
       <section className="mt-6 grid gap-4 sm:grid-cols-3" aria-label="Marketplace summary">
@@ -103,7 +112,7 @@ export default function DashboardPage() {
                 <History size={17} className="mt-0.5 shrink-0 text-faint" aria-hidden="true" />
                 <div>
                   <p className="text-sm font-medium text-fg">Recent executions</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted">Run a verified agent to create a result record.</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted">{activityData?.total ? `${activityData.total} completed result${activityData.total === 1 ? '' : 's'} in this wallet.` : address ? 'No completed executions yet.' : 'Connect a wallet to see your execution history.'}</p>
                 </div>
               </div>
             </div>
@@ -132,6 +141,11 @@ export default function DashboardPage() {
             </CardBody>
           </Card>
         )}
+      </section>
+
+      <section className="mt-8">
+        <SectionHeading title="Recent executions" description="Completed runs from the connected wallet." actions={<ButtonLink to="/activity" variant="ghost" size="sm">Open activity <ArrowRight size={14} /></ButtonLink>} />
+        {activityError ? <ErrorState error={activityError} /> : activityLoading ? <div className="space-y-3"><Skeleton className="h-28 w-full rounded-xl" /></div> : activityData?.items?.length ? <ExecutionHistoryList items={activityData.items} /> : <Card className="border-dashed"><CardBody className="py-8 text-center"><p className="text-sm font-medium text-fg">No completed executions yet.</p><p className="mt-1 text-sm text-muted">Run an executable agent to create a real result record.</p><ButtonLink to="/discover" variant="outline" size="sm" className="mt-4">Browse executable agents</ButtonLink></CardBody></Card>}
       </section>
     </Container>
   );

@@ -15,6 +15,7 @@ import { useApi } from '../hooks/useApi.js';
 import { listAgents, getAgentFacets } from '../services/agents.js';
 import { DEFAULT_SORT, priceBucketById } from '../lib/marketplace.js';
 import { cn } from '../lib/cn.js';
+import { AGENT_CAPABILITIES } from '../lib/agentCapability.js';
 
 const PAGE_SIZE = 12;
 
@@ -58,11 +59,35 @@ export default function DiscoverPage() {
           maxPrice: bucket.max ?? undefined,
           page,
           limit: PAGE_SIZE,
+          includeSummary: true,
         },
         { signal },
       );
     },
     [q, category, sort, status, verified, trust, success, price, page],
+  );
+
+  // The summary request covers the filtered result set before pagination. The
+  // limit is below the backend maximum for this marketplace, so counts remain
+  // honest even when the visible page only contains twelve cards.
+  const { data: summaryData } = useApi(
+    (signal) => {
+      const bucket = priceBucketById(price);
+      return listAgents({
+        q: q || undefined,
+        category: category || undefined,
+        sort: DEFAULT_SORT,
+        status: status !== 'all' ? status : undefined,
+        verified: verified ? true : undefined,
+        minTrust: trust !== 'all' ? Number(trust) : undefined,
+        minSuccess: success !== 'all' ? Number(success) : undefined,
+        minPrice: bucket.min ?? undefined,
+        maxPrice: bucket.max ?? undefined,
+        page: 1,
+        limit: 100,
+      }, { signal });
+    },
+    [q, category, status, verified, trust, success, price],
   );
 
   const updateParams = useCallback(
@@ -86,6 +111,13 @@ export default function DiscoverPage() {
 
   const total = data?.total ?? 0;
   const pages = data?.pages ?? 1;
+  const capabilitySummary = data?.capabilitySummary || summaryData?.capabilitySummary || (summaryData?.items || []).reduce((summary, agent) => {
+    if (agent.capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE) summary.freeExecutable += 1;
+    else if (agent.capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID || agent.capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY) summary.paid += 1;
+    else if (agent.capability === AGENT_CAPABILITIES.LOCAL_EXECUTABLE) summary.builtIn += 1;
+    else summary.watchOnlyCatalog += 1;
+    return summary;
+  }, { freeExecutable: 0, paid: 0, builtIn: 0, watchOnlyCatalog: 0 });
 
   let content;
   if (error) {
@@ -151,6 +183,14 @@ export default function DiscoverPage() {
         <span><strong className="text-faint">Watch-only</strong> is not verified for execution</span>
         <span><strong className="text-warn">Built-in</strong> is seeded by AgentHub</span>
         <span><strong className="text-info">Indexed</strong> is from an external registry</span>
+        {capabilitySummary && (
+          <div className="flex w-full flex-wrap gap-1.5 border-t border-line pt-2 sm:w-auto sm:border-t-0 sm:pl-1 sm:pt-0" aria-label="Marketplace counts">
+            <span className="rounded-md bg-ok/10 px-2 py-1 font-medium text-ok">{capabilitySummary.freeExecutable} free executable</span>
+            <span className="rounded-md bg-brand/10 px-2 py-1 font-medium text-brand">{capabilitySummary.paid} paid</span>
+            <span className="rounded-md bg-warn/10 px-2 py-1 font-medium text-warn">{capabilitySummary.builtIn} built-in</span>
+            <span className="rounded-md bg-panel-2 px-2 py-1 font-medium text-muted">{capabilitySummary.watchOnlyCatalog} watch-only / catalog</span>
+          </div>
+        )}
       </div>
 
       {/* Sidebar + results */}

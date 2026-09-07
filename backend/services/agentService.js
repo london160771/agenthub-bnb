@@ -47,6 +47,20 @@ function decorateForApi(agent) {
   return { ...decorateAgent(agent), capabilityDetails: capabilityDetailsFor(agent) };
 }
 
+export function summarizeCapabilities(agents) {
+  return agents.reduce((summary, agent) => {
+    const capability = getAgentCapability(agent);
+    if (capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE) summary.freeExecutable += 1;
+    else if (
+      capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID ||
+      capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY
+    ) summary.paid += 1;
+    else if (capability === AGENT_CAPABILITIES.LOCAL_EXECUTABLE) summary.builtIn += 1;
+    else summary.watchOnlyCatalog += 1;
+    return summary;
+  }, { freeExecutable: 0, paid: 0, builtIn: 0, watchOnlyCatalog: 0 });
+}
+
 function availabilityPriority(agent) {
   const capability = getAgentCapability(agent);
   return DEFAULT_AVAILABILITY_PRIORITY[capability] ?? DEFAULT_AVAILABILITY_PRIORITY[AGENT_CAPABILITIES.INDEXED_WATCH_ONLY];
@@ -130,6 +144,7 @@ export async function listAgents(opts = {}) {
       page,
       limit,
       pages: Math.max(1, Math.ceil(sorted.length / limit)),
+      capabilitySummary: summarizeCapabilities(sorted),
     };
   }
 
@@ -145,12 +160,17 @@ export async function listAgents(opts = {}) {
     Agent.countDocuments(filter),
   ]);
 
+  const capabilitySummary = opts.includeSummary
+    ? summarizeCapabilities(await Agent.find(filter).select(PROJECTION).lean())
+    : undefined;
+
   return {
     items: items.map(decorateForApi),
     total,
     page,
     limit,
     pages: Math.max(1, Math.ceil(total / limit)),
+    ...(capabilitySummary ? { capabilitySummary } : {}),
   };
 }
 

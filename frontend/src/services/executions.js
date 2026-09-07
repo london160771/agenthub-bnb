@@ -30,6 +30,12 @@ export function getExecution(executionId, opts) {
   return api.get(`/executions/${encodeURIComponent(executionId)}`, opts);
 }
 
+/** GET /api/executions?userAddress=0x... — completed activity for one wallet. */
+export function listExecutions({ userAddress, limit = 20 } = {}, opts) {
+  const params = new URLSearchParams({ userAddress, limit: String(limit) });
+  return api.get(`/executions?${params.toString()}`, opts);
+}
+
 /**
  * POST /api/executions/:executionId/run — start (or retry) the agent's work.
  *
