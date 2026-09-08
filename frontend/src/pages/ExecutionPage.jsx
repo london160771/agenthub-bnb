@@ -199,6 +199,9 @@ function ExecutionFlow({ executionId }) {
   if (!execution) return null;
 
   const meta = STATUS_META[status] || STATUS_META.pending;
+  const paymentStatus = execution.payment?.status || 'none';
+  const paymentSensitive = paymentStatus !== 'none';
+  const paymentConfirmed = paymentStatus === 'confirmed';
 
   return (
     <Container className="py-8 lg:py-12">
@@ -249,16 +252,20 @@ function ExecutionFlow({ executionId }) {
           {status === 'completed' ? (
             <ExecutionResult execution={execution} />
           ) : status === 'failed' ? (
-            <ExecutionFailed execution={execution} onRetry={startRun} retrying={busy} paid={execution.payment?.status === 'confirmed'} />
+            <ExecutionFailed execution={execution} onRetry={startRun} retrying={busy} paymentStatus={paymentStatus} />
+          ) : paymentSensitive && !paymentConfirmed ? (
+            <ErrorState message="Payment status uncertain — do not retry payment automatically. Review the saved execution and wallet activity before taking any further action." />
           ) : timedOut ? (
             <ErrorState
-              message="This run is taking much longer than expected and may be stuck. Nothing was charged — you can start it again."
-              onRetry={startRun}
+              message={paymentSensitive
+                ? 'This run is taking much longer than expected. Payment status is uncertain or confirmed — do not retry payment automatically. Review the saved execution and wallet activity first.'
+                : 'This free read-only run is taking much longer than expected and may be stuck. You can safely start the agent again.'}
+              onRetry={paymentSensitive ? undefined : startRun}
             />
           ) : polling ? (
-            <RunningNotice status={status} external={execution.chain === 'bnb-mainnet'} paid={execution.payment?.status === 'confirmed'} />
+            <RunningNotice status={status} external={execution.chain === 'bnb-mainnet'} paid={paymentConfirmed} />
           ) : (
-            <PendingPrompt onStart={startRun} busy={busy} external={execution.chain === 'bnb-mainnet'} paid={execution.payment?.status === 'confirmed'} />
+            <PendingPrompt onStart={startRun} busy={busy} external={execution.chain === 'bnb-mainnet'} paid={paymentConfirmed} />
           )}
 
           <FaucetNote external={execution.chain === 'bnb-mainnet'} />
@@ -272,6 +279,7 @@ function ExecutionFlow({ executionId }) {
 function ExecutionFacts({ execution }) {
   const external = execution.chain === 'bnb-mainnet';
   const paid = execution.payment?.status === 'confirmed' && Boolean(execution.transactionHash);
+  const paymentSensitive = execution.payment?.status && execution.payment.status !== 'none';
   const rows = [
     [
       'Execution ID',
@@ -279,7 +287,9 @@ function ExecutionFacts({ execution }) {
         {execution.executionId}
       </span>,
     ],
-    ['Recorded fee', execution.cost === 0 ? 'Free' : formatBnb(execution.cost, execution.currency || DEFAULT_CHAIN.currency)],
+    ['Actual cost', paid
+      ? formatBnb(execution.payment.amount ?? execution.cost, execution.payment.token || execution.currency || 'BNB')
+      : paymentSensitive ? 'Payment not confirmed — verify before retrying' : 'Free'],
     ['Network', external ? 'External HTTP · BSC Mainnet data' : DEFAULT_CHAIN.name],
     paid && ['Payment', `${execution.payment.protocol} · ${execution.payment.amount} ${execution.payment.token} · chain ${execution.payment.chainId}`],
     execution.durationMs != null && ['Duration', formatMs(execution.durationMs)],
@@ -297,7 +307,9 @@ function ExecutionFacts({ execution }) {
         </a>
       ) : (
         <span key="tx" className="text-faint">
-          {external ? 'None — external HTTP only' : 'None — payment simulated'}
+          {paymentSensitive
+            ? 'Payment status uncertain — do not retry automatically'
+            : external ? 'None — free external HTTP only' : 'None — free read-only run'}
         </span>
       ),
     ],

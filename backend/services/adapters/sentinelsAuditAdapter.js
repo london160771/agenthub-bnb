@@ -21,6 +21,27 @@ function fail(message) {
   throw new TaskInputError(message);
 }
 
+export class SentinelsResultValidationError extends TaskInputError {
+  constructor(message, rawResult) {
+    super(message);
+    this.name = 'SentinelsResultValidationError';
+    this.rawResult = rawResult;
+  }
+}
+
+function failResult(message, rawResult) {
+  throw new SentinelsResultValidationError(message, rawResult);
+}
+
+function substantiveScalar(value) {
+  return (typeof value === 'string' && value.trim() !== '')
+    || (typeof value === 'number' && Number.isFinite(value));
+}
+
+function substantiveReportUrl(value) {
+  return typeof value === 'string' && /^https?:\/\//i.test(value.trim());
+}
+
 function parseInput(input = {}, execution) {
   const solidityCode = typeof input.solidityCode === 'string' ? input.solidityCode.trim() : '';
   if (!solidityCode) fail('Paste the Solidity source code to audit.');
@@ -72,15 +93,15 @@ async function request(args) {
   }
 }
 
-function parseContent(body) {
+export function validateSentinelsResult(body, { paymentTxHash = '', contractName = '' } = {}) {
   const content = body?.result?.content;
-  if (!Array.isArray(content)) fail('Sentinels Audit returned no task result content.');
+  if (!Array.isArray(content)) failResult('Sentinels Audit returned no task result content.', body);
   const text = content
     .filter((part) => part?.type === 'text' && typeof part.text === 'string')
     .map((part) => part.text)
     .join('\n\n')
     .trim();
-  if (!text) fail('Sentinels Audit returned an empty task result.');
+  if (!text) failResult('Sentinels Audit returned an empty task result.', body);
 
   let structured = null;
   try { structured = JSON.parse(text); } catch {
@@ -89,9 +110,36 @@ function parseContent(body) {
       try { structured = JSON.parse(fenced); } catch { structured = null; }
     }
   }
-  if (structured?.ok === false || (structured?.error && !structured?.findings && !structured?.issues)) {
-    fail('Sentinels Audit returned an error instead of an audit result.');
+  if (!structured || typeof structured !== 'object' || Array.isArray(structured)) {
+    failResult('Sentinels Audit returned unrecognized free text instead of a structured audit result.', body);
   }
+  if (structured.ok === false || structured.error) {
+    failResult('Sentinels Audit returned an error instead of an audit result.', body);
+  }
+
+  const findings = structured.findings || structured.issues || structured.vulnerabilities;
+  const reportUrl = structured.report?.viewUrl || structured.report?.htmlUrl || structured.reportUrl;
+  const score = structured.score ?? structured.securityScore ?? structured.riskScore;
+  const risk = structured.risk || structured.riskLevel || structured.severity;
+  const substantive = Array.isArray(findings)
+    || substantiveReportUrl(reportUrl)
+    || substantiveScalar(score)
+    || substantiveScalar(risk);
+  if (!substantive) {
+    failResult('Sentinels Audit returned structured data without substantive audit fields.', body);
+  }
+
+  const returnedPaymentHash = structured.paymentTxHash
+    || structured.transactionHash
+    || structured.payment?.transactionHash;
+  if (returnedPaymentHash && String(returnedPaymentHash).toLowerCase() !== String(paymentTxHash).toLowerCase()) {
+    failResult('Sentinels Audit returned a result bound to a different payment transaction.', body);
+  }
+  const returnedContractName = structured.contractName || structured.task?.contractName;
+  if (contractName && returnedContractName && String(returnedContractName).trim().toLowerCase() !== String(contractName).trim().toLowerCase()) {
+    failResult('Sentinels Audit returned a result for a different contract task.', body);
+  }
+
   return { text, structured };
 }
 
@@ -141,7 +189,7 @@ export async function executeSentinelsAudit({ agent, execution }) {
   if (execution?.payment?.status !== 'confirmed') fail('The BSC Mainnet payment is not confirmed.');
   const args = parseInput(execution.input || {}, execution);
   const { body, url, status } = await request(args);
-  const { text, structured } = parseContent(body);
+  const { text, structured } = validateSentinelsResult(body, args);
   const now = new Date().toISOString();
   return {
     headline: structured?.headline || structured?.verdict || 'Sentinels Audit returned a paid security result',
@@ -176,7 +224,9 @@ export const sentinelsAuditAdapter = Object.freeze({
   adapterKey: 'sentinels-audit',
   endpoint: SENTINELS_AUDIT_ENDPOINT,
   chainId: SENTINELS_AUDIT_CHAIN_ID,
+  paymentProtocol: 'native-bnb',
   paid: true,
+  paidExecutionEnabled: false,
   canHandle: (agent) => getExternalAdapterKey(agent) === 'sentinels-audit',
   execute: executeSentinelsAudit,
 });

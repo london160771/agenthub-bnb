@@ -136,10 +136,10 @@ async function runMonitoring({ input, chain }) {
 }
 
 /* ------------------------------------------------------------------ *
- * portfolio — read what an address holds, or rebalance analysis if targetAllocation given
- * Rebalancing is read-only: parse "0xToken:60,0xOther:40" (weights sum 100), verify
- * contracts, read BEP-20 balances/decimals/symbols, compute current % vs target drift
- * and BUY/SELL sizes in token units (USD secondary caveated). No swaps executed.
+ * portfolio — read what an address holds, or inspect specified token balances
+ * when targetAllocation is given. Rebalancing remains read-only. Without a
+ * verified common valuation for every asset, token quantities are never added
+ * together and allocation/drift/trade actions remain explicitly unavailable.
  * ------------------------------------------------------------------ */
 function parseAllocationString(raw) {
   const s = String(raw || '').trim();
@@ -160,6 +160,65 @@ function parseAllocationString(raw) {
   }
   if (Math.abs(sum - 100) > 0.01) return { ok: false, reason: `Weights sum to ${sum} — must be 100` };
   return { ok: true, items: out };
+}
+
+/**
+ * Present verified token reads without deriving cross-asset allocation math.
+ * Exported so the fail-closed behavior can be tested without an RPC call.
+ */
+export function buildUnavailableRebalanceTables(holdings) {
+  const unavailable = (note) => ({ value: 'Unavailable', source: SOURCES.unavailable, note });
+  const valuationNote = 'A verified common price is required to compare different assets.';
+  return {
+    holdingsTable: {
+      title: 'Specified token holdings',
+      note: 'Each raw balance is kept in its own token unit. Failed reads remain unavailable.',
+      columns: [
+        { key: 'asset', label: 'Asset' },
+        { key: 'contract', label: 'Token contract' },
+        { key: 'decimals', label: 'Decimals' },
+        { key: 'balance', label: 'Balance (raw)' },
+        { key: 'human', label: 'Human-readable balance' },
+      ],
+      rows: holdings.map((holding) => ({
+        asset: holding.symbol
+          ? { value: holding.symbol, source: SOURCES.chain, note: holding.address }
+          : unavailable(`Symbol read failed for ${holding.address}`),
+        contract: { value: holding.isContract ? 'Yes' : 'No', source: SOURCES.chain, note: holding.address },
+        decimals: holding.decimals == null
+          ? unavailable(`Decimals read failed for ${holding.address}`)
+          : { value: String(holding.decimals), source: SOURCES.chain },
+        balance: holding.balance == null
+          ? unavailable(`Balance read failed for ${holding.address}`)
+          : { value: holding.balance.toString(), source: SOURCES.chain },
+        human: holding.human == null
+          ? unavailable('Requires both a successful raw balance and decimals read.')
+          : { value: holding.human.toFixed(6), source: SOURCES.derived },
+      })),
+    },
+    assessmentTable: {
+      title: 'Rebalance assessment (valuation unavailable)',
+      note: 'No percentages, drift, BUY/SELL action, or trade size is derived without verified prices in one common unit.',
+      columns: [
+        { key: 'asset', label: 'Asset' },
+        { key: 'targetPct', label: 'Target' },
+        { key: 'currentPct', label: 'Current' },
+        { key: 'drift', label: 'Drift' },
+        { key: 'action', label: 'Action' },
+        { key: 'size', label: 'Size' },
+      ],
+      rows: holdings.map((holding) => ({
+        asset: holding.symbol
+          ? { value: holding.symbol, source: SOURCES.chain, note: holding.address }
+          : unavailable(`Symbol read failed for ${holding.address}`),
+        targetPct: { value: pct(holding.targetWeight), source: SOURCES.input },
+        currentPct: unavailable(valuationNote),
+        drift: unavailable(valuationNote),
+        action: unavailable(valuationNote),
+        size: unavailable(valuationNote),
+      })),
+    },
+  };
 }
 
 async function runPortfolio({ input, chain }) {
@@ -193,21 +252,27 @@ async function runPortfolio({ input, chain }) {
     for (const t of targets) {
       const code = await readContractInfo(t.address);
       if (!code.isContract) {
-        holdings.push({ address: t.address, symbol: t.address.slice(0,6)+'…', decimals: 18, balance: 0n, human: 0, isContract: false, note: 'No contract code — cannot be a token' });
-        warnings.push(`No code at ${t.address.slice(0,10)}… — treated as 0 balance`);
+        holdings.push({ address: t.address, symbol: null, decimals: null, balance: null, human: null, isContract: false, targetWeight: t.weight });
+        warnings.push(`No contract code at ${t.address.slice(0,10)}… — token metadata and balance are unavailable.`);
         continue;
       }
-      let decimals = 18;
-      let symbol = t.address.slice(0,6)+'…';
-      let balance = 0n;
+      let decimals = null;
+      let symbol = null;
+      let balance = null;
       try {
         const rawDec = await ethCall(t.address, SELECTORS.decimals);
         decimals = Number(toUint(decodeWords(rawDec, 1)[0]));
-      } catch {}
+        if (!Number.isInteger(decimals) || decimals < 0 || decimals > 255) decimals = null;
+      } catch {
+        warnings.push(`Decimals read failed for ${t.address.slice(0,10)}…`);
+      }
       try {
         const s = await ethCall(t.address, SELECTORS.symbol).then((r)=> decodeString(r)).catch(()=>null);
         if (s) symbol = s;
-      } catch {}
+        else warnings.push(`Symbol read failed for ${t.address.slice(0,10)}…`);
+      } catch {
+        warnings.push(`Symbol read failed for ${t.address.slice(0,10)}…`);
+      }
       try {
         const rawBal = await ethCall(t.address, SELECTORS.balanceOf + encodeAddress(target));
         const w = decodeWords(rawBal, 1);
@@ -221,77 +286,33 @@ async function runPortfolio({ input, chain }) {
           const first = hex.slice(0,64);
           balance = BigInt('0x'+first);
         } catch {
-          warnings.push(`Balance read failed for ${symbol} (${t.address.slice(0,10)}…)`);
-          balance = 0n;
+          warnings.push(`Balance read failed for ${symbol || t.address.slice(0,10) + '…'}`);
+          balance = null;
         }
       }
-      const human = Number(balance) / Math.pow(10, decimals);
+      const converted = balance != null && decimals != null
+        ? Number(balance) / Math.pow(10, decimals)
+        : null;
+      const human = Number.isFinite(converted) ? converted : null;
+      if (converted != null && human == null) warnings.push(`Human-readable balance overflowed for ${symbol || t.address.slice(0,10) + '…'}`);
       holdings.push({ address: t.address, symbol, decimals, balance, human, isContract: true, targetWeight: t.weight });
     }
-    const totalHuman = holdings.reduce((s,h)=> s + (Number.isFinite(h.human)? h.human:0), 0);
-    const rows = [];
-    for (const h of holdings) {
-      const currentPct = totalHuman > 0 ? (h.human / totalHuman * 100) : 0;
-      const drift = currentPct - h.targetWeight;
-      let action = 'HOLD';
-      let tone = 'info';
-      if (drift < -0.5) { action = 'BUY'; tone = 'ok'; }
-      else if (drift > 0.5) { action = 'SELL'; tone = 'bad'; }
-      const sizeHuman = (h.targetWeight/100 * totalHuman - h.human);
-      const sizeStr = (Math.abs(sizeHuman) < 0.0001 ? '0' : Math.abs(sizeHuman).toFixed(4)) + ' ' + h.symbol;
-      rows.push({
-        asset: { value: h.symbol, source: SOURCES.chain, note: h.address },
-        targetPct: { value: pct(h.targetWeight), source: SOURCES.input },
-        currentPct: { value: pct(currentPct), source: SOURCES.derived, note: h.isContract ? `Balance ${h.balance.toString()} / 10^${h.decimals}` : h.note },
-        drift: { value: (drift>0?'+':'')+pct(drift), source: SOURCES.derived, tone: Math.abs(drift)<0.5 ? 'info' : (drift>0?'bad':'ok') },
-        action: { value: action, source: SOURCES.derived, tone },
-        size: { value: sizeStr, source: SOURCES.derived, note: action==='HOLD' ? 'Within 0.5% tolerance' : `${action} to reach target` },
-      });
-    }
-    const table = {
-      title: 'Rebalance plan (token units, plan-only)',
-      note: 'Token-unit drift primary; USD secondary omitted (needs verified price). No swaps executed.',
-      columns: [
-        { key: 'asset', label: 'Asset' },
-        { key: 'targetPct', label: 'Target' },
-        { key: 'currentPct', label: 'Current' },
-        { key: 'drift', label: 'Drift' },
-        { key: 'action', label: 'Action' },
-        { key: 'size', label: 'Size' },
-      ],
-      rows,
-    };
-    const holdingsTable = {
-      title: 'Holdings read (chain)',
-      columns: [
-        { key: 'asset', label: 'Asset' },
-        { key: 'decimals', label: 'Decimals' },
-        { key: 'balance', label: 'Balance (raw)' },
-        { key: 'human', label: 'Human' },
-      ],
-      rows: holdings.map((h)=> ({
-        asset: { value: h.symbol, source: SOURCES.chain },
-        decimals: { value: String(h.decimals), source: SOURCES.chain },
-        balance: { value: h.balance.toString(), source: SOURCES.chain },
-        human: { value: h.human.toFixed(6), source: SOURCES.derived },
-      })),
-    };
+    const { holdingsTable, assessmentTable } = buildUnavailableRebalanceTables(holdings);
     const gasPer = estimateFee({ gasPriceWei: chain.gasPriceWei, gasUnits: SWAP_GAS_UNITS });
-    const totalGas = (Number(gasPer.fee) * rows.filter(r=>r.action.value!=='HOLD').length).toFixed(6);
+    warnings.push('Allocation percentages, drift, BUY/SELL actions, and trade sizes are unavailable because no verified common price feed is configured.');
     return {
-      headline: `Rebalance analysis — ${holdings.length} assets vs target`,
-      summary: `Read BEP-20 balances for ${holdings.length} tokens at block #${chain.blockNumber.toLocaleString('en-US')}. Computed token-unit drift vs targetAllocation; no swaps executed.`,
+      headline: 'Token holdings read — rebalance allocation unavailable',
+      summary: `Attempted BEP-20 metadata and balance reads for ${holdings.length} specified assets at block #${chain.blockNumber.toLocaleString('en-US')}. Different token quantities were not combined; no allocation, drift, or trade action was derived.`,
       fields: [
         field('walletBalance', 'Native balance', bnb(state.balance, 6)),
         field('targets', 'Target assets', String(holdings.length), { source: SOURCES.input, note: allocationRaw }),
         ...networkFields(chain),
-        field('gasPerTrade', 'Gas per trade', bnb(gasPer.fee,6), { source: SOURCES.derived, note: `Real gas price × ${SWAP_GAS_UNITS.toLocaleString('en-US')} gas` }),
-        field('totalGas', 'Total gas (if all trades)', `${totalGas} tBNB`, { source: SOURCES.derived }),
-        field('holdingsNote', 'USD values', 'Not shown', { source: SOURCES.unavailable, note: 'USD drift needs verified Venus oracle price per token; token-unit drift shown primary.' }),
+        field('gasPerTrade', 'Illustrative gas per future trade', bnb(gasPer.fee,6), { source: SOURCES.derived, note: `Real gas price × an assumed ${SWAP_GAS_UNITS.toLocaleString('en-US')} gas. No trade is recommended or created.` }),
+        field('valuation', 'Common valuation', 'Unavailable', { source: SOURCES.unavailable, note: 'No verified common price feed is configured for all specified assets.' }),
       ],
-      tables: [holdingsTable, table],
+      tables: [holdingsTable, assessmentTable],
       warnings,
-      recommendation: 'Plan only — review drift and sizes, then execute manually if desired. Nothing was signed or broadcast.',
+      recommendation: 'Review the raw token reads only. AgentHub cannot recommend a rebalance without verified prices in one common unit. Nothing was signed or broadcast.',
     };
   }
 

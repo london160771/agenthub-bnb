@@ -186,7 +186,7 @@ export default function DiscoverPage() {
         {capabilitySummary && (
           <div className="flex w-full flex-wrap gap-1.5 border-t border-line pt-2 sm:w-auto sm:border-t-0 sm:pl-1 sm:pt-0" aria-label="Marketplace counts">
             <span className="rounded-md bg-ok/10 px-2 py-1 font-medium text-ok">{capabilitySummary.freeExecutable} free executable</span>
-            <span className="rounded-md bg-brand/10 px-2 py-1 font-medium text-brand">{capabilitySummary.paid} paid</span>
+            <span className="rounded-md bg-brand/10 px-2 py-1 font-medium text-brand">{capabilitySummary.paid} paid / preflight</span>
             <span className="rounded-md bg-warn/10 px-2 py-1 font-medium text-warn">{capabilitySummary.builtIn} built-in</span>
             <span className="rounded-md bg-panel-2 px-2 py-1 font-medium text-muted">{capabilitySummary.watchOnlyCatalog} watch-only / catalog</span>
           </div>

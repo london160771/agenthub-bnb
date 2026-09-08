@@ -6,8 +6,8 @@
  *
  * Two deliberate safety properties live here rather than in the controller,
  * because they must hold for every caller:
- *   1. Cost is read from the agent document on the server, never from the
- *      request body — a tampered client cannot change what a hire costs.
+ *   1. Actual cost is read from the verified payment requirement on the server,
+ *      never from the request body or a legacy catalogue display price.
  *   2. Local and external networks are separated, and no transaction hash is
  *      invented; a paid hash is written only after receipt verification.
  */
@@ -17,10 +17,8 @@ import { Execution } from '../models/Execution.js';
 import {
   AGENT_CAPABILITIES,
   getAgentCapability,
-  isExternallyExecutableAgent,
-  isPaymentReadyAgent,
-  isRemoteAgent,
 } from './agentCapabilities.js';
+import { isPaidExecutionEligibleAgent } from './adapters/registry.js';
 
 const PROJECTION = '-__v -_id';
 
@@ -52,7 +50,7 @@ const DUPLICATE_WINDOW_MS = 15_000;
 const STEP_TEMPLATE = [
   { key: 'hired', label: 'Agent hired', atCreate: true },
   { key: 'received', label: 'Task received', atCreate: true },
-  { key: 'wallet', label: 'Wallet verified', atCreate: true },
+  { key: 'wallet', label: 'Wallet address validated', atCreate: true },
   { key: 'query', label: 'Querying on-chain data' },
   { key: 'analyse', label: 'Analyzing' },
   { key: 'report', label: 'Generating result' },
@@ -82,13 +80,77 @@ function toPublic(doc) {
   return obj;
 }
 
+export function actualExecutionCostFor(agent) {
+  const capability = getAgentCapability(agent);
+  const paid = capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID
+    || capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY;
+  if (paid) return { cost: null, currency: 'none' };
+  return { cost: 0, currency: 'none' };
+}
+
+function publicPayment(payment = {}) {
+  return {
+    protocol: payment.protocol || null,
+    status: payment.status || 'none',
+    amount: payment.amount ?? null,
+    token: payment.token || null,
+    chainId: payment.chainId ?? null,
+    transactionHash: payment.transactionHash || '',
+    verifiedAt: payment.verifiedAt || null,
+    blockNumber: payment.blockNumber ?? null,
+  };
+}
+
+/**
+ * Public execution detail deliberately excludes raw task input, raw/normalized
+ * provider payloads, payment evidence internals, wallet address, and endpoint.
+ * Full wallet-signature authorization remains future production hardening.
+ */
+export function redactExecutionForPublic(execution) {
+  if (!execution) return execution;
+  const {
+    executionId, agentId, task, output, steps, status, errorMessage,
+    cost, currency, durationMs, chain, transactionHash, executionProtocol,
+    paymentProtocol, payment, executionVerified, startedAt, completedAt,
+    rpcCallCount, createdAt, updatedAt,
+  } = execution;
+  const safeOutput = output && typeof output === 'object' && !Array.isArray(output)
+    ? Object.fromEntries(Object.entries(output).filter(([key]) => key !== 'rawResponse'))
+    : output;
+  return {
+    executionId, agentId, task, output: safeOutput, steps, status, errorMessage,
+    cost, currency, durationMs, chain, transactionHash, executionProtocol,
+    paymentProtocol, payment: publicPayment(payment), executionVerified,
+    startedAt, completedAt, rpcCallCount, createdAt, updatedAt,
+  };
+}
+
+export function executionHistorySummary(execution) {
+  const redacted = redactExecutionForPublic(execution);
+  return {
+    executionId: redacted.executionId,
+    agentId: redacted.agentId,
+    task: redacted.task,
+    status: redacted.status,
+    cost: redacted.cost,
+    currency: redacted.currency,
+    durationMs: redacted.durationMs,
+    chain: redacted.chain,
+    transactionHash: redacted.transactionHash,
+    payment: redacted.payment,
+    completedAt: redacted.completedAt,
+    createdAt: redacted.createdAt,
+  };
+}
+
 /** The agent being hired. Returns null when the id is unknown. */
 export async function getHireableAgent(agentId) {
   return Agent.findOne({ agentId }).select(PROJECTION).lean();
 }
 
 export async function getExecutionById(executionId) {
-  return Execution.findOne({ executionId }).select(PROJECTION).lean();
+  const execution = await Execution.findOne({ executionId }).select(PROJECTION).lean();
+  return redactExecutionForPublic(execution);
 }
 
 /**
@@ -114,7 +176,7 @@ export async function listCompletedExecutions({ userAddress, limit = 20 } = {}) 
   const agentById = new Map(agents.map((agent) => [agent.agentId, agent]));
 
   return executions.map((execution) => ({
-    ...execution,
+    ...executionHistorySummary(execution),
     agent: agentById.get(execution.agentId)
       ? {
           agentId: agentById.get(execution.agentId).agentId,
@@ -168,9 +230,9 @@ export async function claimForRun(executionId) {
 /**
  * Put a failed execution back to `pending` so it can be run again.
  *
- * Retries are safe here precisely because a run has no side effects beyond this
- * record: it reads the chain and writes a result. Nothing was charged, nothing
- * was sent, so re-running cannot double-anything.
+ * A retry never submits a payment. A paid execution can only reuse its existing
+ * confirmed receipt; ambiguous paid states are not offered a public retry action.
+ * The runner's atomic claim still prevents duplicate task execution.
  *
  * Only `failed` is eligible — a `completed` execution keeps its result, and a
  * `running` one is someone else's in-flight work.
@@ -223,14 +285,14 @@ export async function findRecentDuplicate({ userAddress, agentId, task }) {
  * @param {string} args.userAddress  Validated 0x address (stored lowercase).
  * @param {string} args.task         Human-readable summary of the request.
  * @param {object} args.input        Structured task configuration.
- * @param {object} args.agent        Already-loaded agent — the price source.
+ * @param {object} args.agent        Already-loaded agent — capability/payment source.
  */
 export async function createExecution({ agentId, userAddress, task, input, agent }) {
   const now = new Date();
   const capability = getAgentCapability(agent);
-  const external = isExternallyExecutableAgent(agent);
-  const remote = isRemoteAgent(agent);
-  const paid = capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID || isPaymentReadyAgent(agent);
+  const external = capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE;
+  const paid = isPaidExecutionEligibleAgent(agent);
+  const remote = external || paid;
   const paymentChainId = paid ? Number(agent.payment?.chainId) : null;
   const paymentNetwork = paid ? String(agent.payment?.settlementNetwork || '').trim() : '';
   const payment = paid
@@ -244,6 +306,7 @@ export async function createExecution({ agentId, userAddress, task, input, agent
         transactionHash: '',
       }
     : { status: 'none' };
+  const actualCost = actualExecutionCostFor(agent);
   const doc = {
     executionId: newExecutionId(),
     agentId,
@@ -252,10 +315,10 @@ export async function createExecution({ agentId, userAddress, task, input, agent
     input,
     steps: buildSteps(now, remote),
     status: 'pending',
-    // Server-authoritative price: whatever the agent actually charges.
-    cost: agent.pricing?.amount ?? 0,
-    // Testnet fees are in tBNB regardless of how the agent labels its price.
-    currency: remote ? (paid ? (agent.payment?.token || agent.payment?.currency || 'token') : 'none') : HIRE_CURRENCY,
+    // Actual monetary execution cost. Agent.pricing retains any separate
+    // legacy/listed catalogue price; it is not copied into this ledger field.
+    cost: actualCost.cost,
+    currency: actualCost.currency,
     chain: remote
       ? (paid ? (paymentChainId === 56 ? 'bnb-mainnet' : `external-${paymentNetwork || `chain-${paymentChainId || 'unknown'}`}`) : 'bnb-mainnet')
       : HIRE_CHAIN,

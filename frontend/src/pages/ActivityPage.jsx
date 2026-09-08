@@ -29,7 +29,7 @@ export default function ActivityPage() {
 
       <div className="mt-6">
         {!address ? (
-          <EmptyState icon={History} title="Connect to see your activity" description="AgentHub shows completed executions tied to your connected public wallet. No sample history is created." action={<ButtonLink to="/discover" variant="primary">Discover an agent <ArrowRight size={15} /></ButtonLink>} />
+          <EmptyState icon={History} title="Connect to see your activity" description="AgentHub filters completed executions by the public address supplied by your wallet. Address ownership is not yet signature-authenticated, and no sample history is created." action={<ButtonLink to="/discover" variant="primary">Discover an agent <ArrowRight size={15} /></ButtonLink>} />
         ) : error ? (
           <ErrorState error={error} onRetry={refetch} />
         ) : loading ? (

@@ -1,6 +1,7 @@
 import { isDbConnected } from '../config/db.js';
 import { Agent } from '../models/Agent.js';
 import { confirmNativeBnbPayment, preparePayment } from '../services/payments/paymentService.js';
+import { redactExecutionForPublic } from '../services/executionService.js';
 import { NativeBnbPaymentError } from '../services/payments/nativeBnbPaymentExecutor.js';
 import { ApiError, asyncHandler, sendSuccess } from '../utils/apiResponse.js';
 
@@ -47,7 +48,8 @@ export const postPaymentConfirmation = asyncHandler(async (req, res) => {
   }
 
   try {
-    sendSuccess(res, await confirmNativeBnbPayment({ executionId, transactionHash, userAddress }));
+    const execution = await confirmNativeBnbPayment({ executionId, transactionHash, userAddress });
+    sendSuccess(res, redactExecutionForPublic(execution));
   } catch (err) {
     if (err instanceof NativeBnbPaymentError) {
       const status = err.code.startsWith('PAYMENT_RPC_') ? 503 : 400;

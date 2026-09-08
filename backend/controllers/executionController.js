@@ -13,6 +13,7 @@ import {
   getExecutionById,
   listCompletedExecutions,
   getHireableAgent,
+  redactExecutionForPublic,
   resetForRetry,
   HIRE_CHAIN_ID,
 } from '../services/executionService.js';
@@ -20,9 +21,8 @@ import { ApiError, sendSuccess, asyncHandler } from '../utils/apiResponse.js';
 import {
   getAgentCapability,
   AGENT_CAPABILITIES,
-  isExternallyExecutableAgent,
-  isPaymentReadyAgent,
 } from '../services/agentCapabilities.js';
+import { isPaidExecutionEligibleAgent } from '../services/adapters/registry.js';
 import { prepareExecution } from '../services/executionPreparationService.js';
 
 /** Shape check only — this is not an EIP-55 checksum validation. */
@@ -154,13 +154,16 @@ export const postExecution = asyncHandler(async (req, res) => {
     throw ApiError.conflict(`"${agent.name}" is paused and is not accepting new work right now.`);
   }
   const capability = getAgentCapability(agent);
-  const external = isExternallyExecutableAgent(agent);
-  const paid = isPaymentReadyAgent(agent) || capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID;
-  const remote = external || paid;
+  const external = capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE;
+  const paidExecutionEligible = isPaidExecutionEligibleAgent(agent);
+  const paid = paidExecutionEligible;
+  const remote = external || paidExecutionEligible;
   if (capability !== AGENT_CAPABILITIES.LOCAL_EXECUTABLE && !remote) {
+    const reason = capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY && !paidExecutionEligible
+      ? 'This is payment preflight only until a real paid task result is verified.'
+      : 'Only exact allowlisted built-ins or independently verified external task adapters can run.';
     throw ApiError.badRequest(
-      `"${agent.name}" is discoverable in AgentHub but is not executable here. ` +
-        'Only seeded/local-executable or independently verified external agents can run here.',
+      `"${agent.name}" is discoverable in AgentHub but is not executable here. ${reason}`,
     );
   }
 
@@ -199,7 +202,7 @@ export const postExecution = asyncHandler(async (req, res) => {
   // Note: any `cost`/`currency`/`chain`/`transactionHash` in the request body
   // is ignored — the service derives all of them.
   const execution = await createExecution({ agentId, userAddress, task, input, agent });
-  sendSuccess(res, execution, 201);
+  sendSuccess(res, redactExecutionForPublic(execution), 201);
 });
 
 /**

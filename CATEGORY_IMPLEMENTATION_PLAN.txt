@@ -3,13 +3,23 @@ AGENTHUB — CATEGORY IMPLEMENTATION PLAN
 Four hackathon categories: Rebalancing · Grid Trading · Yield Optimisation ·
 Health Factor Monitoring
 ================================================================================
-Status: PLAN/HANDOFF at 2026-09-06; T1.1-T1.5 shipped in Phase 7, T1.6 shipped in Phase 9 (§8C), and T1.7-T1.9 shipped in committed Phase 10 (§8D, e157e15) — real testnet tables, plan-only, no tx. Phase 11 cleanup is committed at 689355c1, Phase 11.1B at 4fa02d9, Phase 11.2 at 7ee2561, and Phase 11.3 at 5d6ab67: seven indexed/executable-free read-only external task/result adapters are now verified, including HODL.DANCE and two Range Pilot services; Brain remains catalog-only; Sentinels Audit has a verified native-BNB payment requirement but no paid task result yet. Phase 11.6 adds the generic native-BNB wallet/receipt boundary and paid MCP adapter; Phase 11.7 adds backend-authoritative capability normalization and generic execution preparation; Phase 11.8 adds the two independently verified Range Pilot read-only adapters; no payment was sent.
+SUBMISSION-SAFETY CORRECTION (2026-09-07): T1.9 no longer derives token-unit
+allocation or BUY/SELL recommendations by adding heterogeneous token balances.
+The current Rebalance Advisor shows specified raw token reads and marks current
+allocation, drift, action, and size unavailable without verified common prices.
+Historical statements below that call token-unit drift "unimpeachable" or T1.9
+complete are superseded.
+The remaining category sections preserve historical planning context. Their old
+claims about missing infrastructure, simulated outputs, unmeasured benchmarks,
+or placeholder routes are archival; the current status above takes precedence.
+
+Status: PLAN/HANDOFF at 2026-09-06; T1.1-T1.5 shipped in Phase 7, T1.6 shipped in Phase 9 (§8C), and T1.7-T1.9 shipped in committed Phase 10 (§8D, e157e15) — real testnet tables, plan-only, no tx. The Rebalance Advisor allocation/drift/action/size portion of T1.9 is superseded by the submission-safety correction above; its specified raw token reads remain. Phase 11 cleanup is committed at 689355c1, Phase 11.1B at 4fa02d9, Phase 11.2 at 7ee2561, and Phase 11.3 at 5d6ab67: seven indexed/executable-free read-only external task/result adapters are now verified, including HODL.DANCE and two Range Pilot services; Brain remains catalog-only; Sentinels Audit has a verified native-BNB payment requirement but remains preflight-only. Phase 11.6 adds the generic native-BNB wallet/receipt boundary and paid MCP adapter; Phase 11.7 adds backend-authoritative capability normalization and generic execution preparation; Phase 11.8 adds the two independently verified Range Pilot read-only adapters; no payment was sent.
 Audit date: 2026-08-26 (T1.6 update 2026-08-28, T1.7-T1.9 update 2026-08-29, Phase 11/11.2 updates 2026-09-04 without rewriting the 2026-08-26 audit)
 Supersedes the pessimistic verdicts in CATEGORY_GAP_REPORT.md — see "WHAT
 CHANGED" below.
 
 CODEX TAKEOVER NOTE (2026-09-02):
-Phase 10 is COMPLETED (18 seeded, Yield/Grid/Rebalance tables, hasSimulated=false, Venus reconciliation intact).
+Phase 10 is COMPLETED (18 seeded, Yield/Grid tables, built-in read-only execution, hasSimulated=false, Venus reconciliation intact). Rebalance Advisor's valuation-dependent allocation/drift/action/size output is intentionally unavailable without verified common prices.
 Phase 11.1B is committed at 4fa02d9, Phase 11.2 at 7ee2561, and Phase 11.3 at 5d6ab67. Phase 11.4 findings, Phase 11.6 paid-flow implementation, Phase 11.7 generic marketplace execution, and Phase 11.8 inventory expansion are current UNCOMMITTED working-tree work — audit `git status` + `git diff` before trusting any current Phase 11 comment.
 Seeded agents retained as development/fallback and must not be confused with real executable Mainnet agents (source='seeded' vs 'indexed').
 Phase 11.9 is the current uncommitted work: Quick Intel has a verified x402 v2 exact challenge on Base Mainnet (chain 8453), while its ERC-8004 identity remains BSC Mainnet (chain 56). No x402 signing or payment is enabled.
@@ -17,7 +27,7 @@ User-approved priority order now supersedes old §9 TIER 1 remaining:
 1. Turn indexed agents into executable agents / real marketplace
 2. Increase quality real BSC Mainnet agent inventory
 3. Finish UX: Settings, Activity, Dashboard, Saved, marketplace/mobile polish
-4. Complete REAL Agent Advantage documentation with 3 measured tasks and genuine trading/security evidence
+  4. Maintain the verified Agent Advantage evidence/report and keep claims tied to measured tasks and genuine trading/security evidence
 5. Full testing, deployment, demo video, final audit/submission
 Preserve Phase 7/10 functionality. Do not cross BSC Mainnet 56 transaction boundary without explicit user approval.
 The former placeholder/synthetic ERC-8183 work was removed during the Phase 11 cleanup. Do not add payment or execution behavior until the ERC-8183 lifecycle, quote, calldata, network, and returned task result are independently verified.
@@ -28,10 +38,12 @@ The former placeholder/synthetic ERC-8183 work was removed during the Phase 11 c
 That report concluded all four categories were unsupported, with one root cause:
 "AgentHub has no verified BNB testnet contract addresses for any protocol."
 
-That root cause is now RESOLVED. Venus Protocol publishes an explicitly
-testnet-labelled deployment list, and I verified those addresses by reading BNB
-Smart Chain testnet (chain 97) directly. Real on-chain data now exists for all
-four categories. The plan below is built on verified reads, not assumptions.
+That root cause is now RESOLVED for the verified read paths. Venus Protocol
+publishes an explicitly testnet-labelled deployment list, and I verified those
+addresses by reading BNB Smart Chain testnet (chain 97) directly. Real on-chain
+reads support the shipped Health Factor, Yield, and Grid paths; Rebalance Advisor
+retains only specified-token reads when common valuation is unavailable. The
+plan below is built on verified reads, not assumptions.
 
 --------------------------------------------------------------------------------
 1. VERIFIED EXTERNAL FACTS (clearly separated from repository findings)
@@ -361,7 +373,8 @@ S7. provenance
    block / rpcHost / time  chain    (buildProvenance)
    Radiant, if requested   unavailable
 
-9. AGENT ADVANTAGE COMPATIBILITY
+9. AGENT ADVANTAGE COMPATIBILITY (HISTORICAL PLAN; measured evidence is now in
+   AGENT_ADVANTAGE_EVIDENCE.md and AGENT_ADVANTAGE_REPORT.md)
    YES — and this UNBLOCKS a category AGENT_ADVANTAGE.md §7 currently lists as
    ineligible. Once the health factor is a chain read it scores properly on the
    Provenance dimension.
@@ -372,8 +385,8 @@ S7. provenance
    price, and compute the ratio by hand. That is a genuinely laborious manual
    task across many contract reads, which is exactly the shape that makes the
    comparison meaningful.
-   NO BENCHMARK NUMBERS ARE STATED HERE. Nothing is measured until a human runs
-   both halves and records evidence per AGENT_ADVANTAGE.md §6.
+   This planning section contains no benchmark numbers; the completed measured
+   comparison is recorded in the evidence and report files named above.
    PREREQUISITE: a testnet wallet that actually holds a Venus position. If none
    is available the experiment cannot run, and that must be reported, not faked.
 
@@ -484,6 +497,12 @@ S7. provenance
 --------------------------------------------------------------------------------
 7. CATEGORY 3 — REBALANCING
 --------------------------------------------------------------------------------
+HISTORICAL DESIGN NOTE — SUPERSEDED BY THE SUBMISSION-SAFETY CORRECTION:
+The implementation below describes the earlier token-unit allocation/drift and
+BUY/SELL plan that was removed. Current Rebalance Advisor behavior is limited to
+specified token metadata/raw-balance reads and marks allocation, drift, action,
+and size unavailable without verified common valuation.
+
 1. CURRENT STATE
    An agent named rebalance-advisor exists: category 'portfolio', subcategory
    'Rebalancing', status 'live', tagline "Tells you what to trade to hit your
@@ -713,8 +732,8 @@ TIER 1 — MUST HAVE FOR SUBMISSION
   T1.6  S6 output.tables + ExecutionResult table renderer
   T1.7  Grid Trading as a new plan-only category (six-point wiring, F6)
   T1.8  Yield -> real ranked markets from live Venus rates
-  T1.9  Rebalancing via allocation-string option (b): real token-unit drift and
-        a real trade list
+  T1.9  SUPERSEDED  Rebalancing allocation/drift/trade plan; current behavior
+        keeps specified-token reads and marks valuation-dependent fields unavailable
 
 TIER 2 — IMPORTANT IF TIME ALLOWS
   T2.1  S4 tokenService -> fixes portfolio's long-standing "tokens unavailable"

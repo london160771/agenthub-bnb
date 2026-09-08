@@ -29,7 +29,7 @@ import { getAgent, listAgents } from '../services/agents.js';
 import { preparePayment } from '../services/payments.js';
 import { SOURCE_LABELS, CATEGORIES } from '../config.js';
 import { cn } from '../lib/cn.js';
-import { AGENT_CAPABILITIES, capabilityBadgesFor, capabilityCopyFor, displayPricingFor, isExternallyExecutable, isHireable, networkContextFor } from '../lib/agentCapability.js';
+import { AGENT_CAPABILITIES, capabilityBadgesFor, capabilityCopyFor, displayPricingFor, isExternallyExecutable, isHireable, isPaymentReady, networkContextFor } from '../lib/agentCapability.js';
 import { PaidPaymentConfirmation } from '../components/payment/PaidPaymentConfirmation.jsx';
 import {
   formatBnb,
@@ -230,6 +230,7 @@ export default function AgentProfilePage() {
   const demo = isDemoSource(source);
   const canHire = isHireable(agent);
   const isExternalExecutable = isExternallyExecutable(agent);
+  const isPaidPreflight = isPaymentReady(agent);
   const isCatalogVerified = capability === AGENT_CAPABILITIES.INDEXED_CATALOG_VERIFIED;
   const capabilityCopy = capabilityCopyFor(agent);
   const capabilityBadges = capabilityBadgesFor(agent);
@@ -411,7 +412,9 @@ export default function AgentProfilePage() {
                 <div className="mt-4 rounded-lg border border-info/20 bg-info/5 p-3 text-xs leading-relaxed text-muted">
                   {isCatalogVerified
                     ? 'Catalog listing only. Public identity and service metadata are available, but no task execution is verified here yet.'
-                    : 'Discoverable listing only. AgentHub has not verified that this agent can accept a task and return a result.'}
+                    : isPaidPreflight
+                      ? 'Payment preflight only. The requirement can be inspected, but wallet payment and task execution are disabled until a real paid result is verified.'
+                      : 'Discoverable listing only. AgentHub has not verified that this agent can accept a task and return a result.'}
                 </div>
               ) : null}
               {canHire ? (

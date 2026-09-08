@@ -233,7 +233,7 @@ const AGENT_ADVANTAGE_HIGHLIGHTS = [
     category: 'Trading / grid analysis',
     manual: '27.658 s',
     agentTime: '1.733 s',
-    speedup: '15.96×',
+    ratio: '15.96×',
     quality: '20/25 → 23/25',
   },
   {
@@ -241,7 +241,7 @@ const AGENT_ADVANTAGE_HIGHLIGHTS = [
     category: 'Yield optimisation',
     manual: '29.617391 s',
     agentTime: '2.221 s',
-    speedup: '13.34×',
+    ratio: '13.34×',
     quality: '20/25 → 23/25',
   },
   {
@@ -249,7 +249,7 @@ const AGENT_ADVANTAGE_HIGHLIGHTS = [
     category: 'Liquidation / health-factor risk',
     manual: '134.4137659 s',
     agentTime: '2.797 s',
-    speedup: '48.06×',
+    ratio: '48.06×',
     quality: '23/25 → 23/25',
   },
 ];
@@ -264,12 +264,12 @@ function AgentAdvantage() {
               Agent Advantage · Verified benchmarks
             </Badge>
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              The marketplace, measured against the manual workflow.
+              Backend processing, measured against timed manual baselines.
             </h2>
             <p className="mt-4 leading-relaxed text-muted">
               Three real external ERC-8004 agents were compared with frozen manual baselines. Each
-              AgentHub run completed in under three seconds, with BSC Mainnet provenance and no
-              simulated output.
+              persisted backend run completed in under three seconds, with BSC Mainnet provenance
+              and no simulated output. Full AgentHub operator timing was not recorded.
             </p>
           </div>
           <ButtonLink to="/docs#agent-advantage" variant="outline" className="w-fit">
@@ -309,7 +309,7 @@ function AgentAdvantage() {
               </div>
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm">
-                <span className="font-semibold text-fg">{item.speedup} faster</span>
+                <span className="font-semibold text-fg">Manual/backend ratio {item.ratio}</span>
                 <span className="text-muted">Quality {item.quality}</span>
               </div>
             </Card>
@@ -317,8 +317,8 @@ function AgentAdvantage() {
         </div>
 
         <p className="mt-5 text-xs leading-relaxed text-faint">
-          Measured execution time and rubric scores come from the approved report. This evidence
-          measures workflow efficiency, not profitability or guaranteed returns.
+          These figures compare backend processing time with timed manual baselines. They are not
+          full workflow or hiring speedups and do not measure profitability or guaranteed returns.
         </p>
       </Container>
     </section>

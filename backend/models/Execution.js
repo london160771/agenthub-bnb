@@ -97,11 +97,10 @@ const AdvantageSchema = new Schema(
      * Human wall-clock time to get the answer USING the agent: from starting the
      * hire form to having the result in hand, stopwatch-measured.
      *
-     * This — not the execution's `durationMs` — is the figure comparable to
-     * `manualDurationMs`. `durationMs` measures only the backend run, which
-     * excludes the person choosing an agent and filling in the form; comparing it
-     * to a human's wall-clock would flatter the agent by omitting exactly the
-     * part a human does. Both numbers are kept, and the report shows both.
+     * This — not the execution's `durationMs` — would be the fair figure to
+     * compare with `manualDurationMs`. The current evidence did not record this
+     * stopwatch, so its report labels all ratios as backend-processing/manual
+     * baseline comparisons rather than full workflow speedups.
      */
     agentOperatorDurationMs: { type: Number, min: 0 },
     /**
@@ -167,8 +166,9 @@ const ExecutionSchema = new Schema(
     status: { type: String, enum: EXECUTION_STATUSES, default: 'pending', index: true },
     errorMessage: { type: String, default: '' },
 
-    // Fee recorded against the hire. NOT charged — this build simulates payment,
-    // so no tBNB moves and `transactionHash` stays empty.
+    // Actual monetary execution cost. Free/local runs store 0 + "none"; paid
+    // runs use the backend-verified payment requirement/receipt. Catalogue
+    // display prices remain on Agent.pricing and are not execution charges.
     cost: { type: Number, default: 0, min: 0 },
     currency: { type: String, default: 'BNB' },
     durationMs: { type: Number, default: null, min: 0 },

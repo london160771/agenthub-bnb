@@ -31,6 +31,19 @@ export function isDbConnected() {
   return mongoose.connection.readyState === 1;
 }
 
+export function assertProductionDatabaseConfiguration({ production = isProd, mongoUri = env.mongoUri } = {}) {
+  if (production && !String(mongoUri || '').trim()) {
+    throw new Error('MONGODB_URI is required in production; AgentHub will not start without persistent storage.');
+  }
+}
+
+export function productionDatabaseFailure(error, { production = isProd } = {}) {
+  if (!production) return false;
+  const startupError = new Error(`Production MongoDB connection failed: ${error?.message || 'unknown connection error'}`);
+  startupError.cause = error;
+  throw startupError;
+}
+
 function connectionState() {
   const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
   return {
@@ -278,13 +291,13 @@ export function getIndexedRefreshPromise() {
  * Connect to MongoDB.
  *   - MONGODB_URI set        → connect to that database (Atlas/production).
  *   - unset + development    → start an in-memory Mongo and auto-seed.
- *   - unset + production     → boot without a DB; data endpoints report
- *                              SERVICE_UNAVAILABLE until one is configured.
+ *   - unset + production     → fail startup; persistence is required.
  */
 export async function connectDatabase({ refresh = true } = {}) {
   mongoose.set('strictQuery', true);
   shutdownRequested = false;
   bindConnectionEvents();
+  assertProductionDatabaseConfiguration();
 
   try {
     if (env.mongoUri) {
@@ -306,14 +319,6 @@ export async function connectDatabase({ refresh = true } = {}) {
       return true;
     }
 
-    if (isProd) {
-      console.warn(
-        '[db] MONGODB_URI not set in production — running without a database. ' +
-          'Data endpoints will return SERVICE_UNAVAILABLE until it is configured.',
-      );
-      return false;
-    }
-
     await startInMemoryMongo();
     connected = true;
     bindConnectionEvents();
@@ -326,6 +331,7 @@ export async function connectDatabase({ refresh = true } = {}) {
     logConnectionEvent('initial connection failed', { error: errorSummary(err) });
     connected = false;
     connectInFlight = false;
+    productionDatabaseFailure(err);
     scheduleReconnect();
     return false;
   } finally {

@@ -1,10 +1,21 @@
-import { AGENT_CAPABILITIES, getAgentCapability, isPaymentReadyAgent } from '../agentCapabilities.js';
+import { AGENT_CAPABILITIES, getAgentCapability } from '../agentCapabilities.js';
 import { Agent } from '../../models/Agent.js';
 import { Execution } from '../../models/Execution.js';
 import { getPaymentAdapter } from './registry.js';
 import { normalizePaymentRequirement } from './paymentRequirement.js';
 import { NativeBnbPaymentError, verifyNativeBnbPayment } from './nativeBnbPaymentExecutor.js';
 import { PAYMENT_PROTOCOLS, PAYMENT_STATES } from './paymentStates.js';
+import { isPaidExecutionEligibleAgent } from '../adapters/registry.js';
+
+/** Actual paid cost may be persisted only from a normalized verified requirement. */
+export function actualPaidCostFromVerifiedRequirement(requirement) {
+  const amount = Number(requirement?.amount);
+  const currency = String(requirement?.token?.symbol || '').trim();
+  if (!requirement?.paymentVerified || !Number.isFinite(amount) || amount <= 0 || !currency) {
+    throw new NativeBnbPaymentError('PAYMENT_COST_UNVERIFIED', 'Confirmed execution cost requires a verified payment requirement.');
+  }
+  return { cost: amount, currency };
+}
 
 /** Build a safe, read-only payment plan from a backend-loaded Agent record. */
 export function preparePayment({ agent, task = '' }) {
@@ -33,16 +44,21 @@ export function preparePayment({ agent, task = '' }) {
   }
 
   const prepared = adapter.prepare({ requirement: normalized.requirement, task });
+  const capability = getAgentCapability(agent);
+  const preflightOnly = capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY
+    && !isPaidExecutionEligibleAgent(agent);
   return {
     ok: true,
-    state: prepared.state,
+    state: preflightOnly ? 'PAYMENT_PREFLIGHT_ONLY' : prepared.state,
     agent: { agentId: agent.agentId, name: agent.name },
-    capability: getAgentCapability(agent),
+    capability,
     protocol: normalized.protocol,
     requirement: prepared.requirement,
     paymentRequest: prepared.paymentRequest || null,
     quote: prepared.quote,
-    confirmation: prepared.confirmation,
+    confirmation: preflightOnly
+      ? { ...(prepared.confirmation || {}), required: false, enabled: false }
+      : prepared.confirmation,
     provenance: { ...normalized.evidence, ...prepared.provenance },
     transitions: prepared.transitions,
   };
@@ -72,8 +88,14 @@ export async function confirmNativeBnbPayment({ executionId, transactionHash, us
   }
 
   const agent = await Agent.findOne({ agentId: execution.agentId }).lean();
-  if (!agent || (!isPaymentReadyAgent(agent) && getAgentCapability(agent) !== AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID)) {
-    throw new NativeBnbPaymentError('PAYMENT_AGENT_NOT_READY', 'This agent does not have a verified native-BNB payment contract.');
+  if (
+    !agent
+    || !isPaidExecutionEligibleAgent(agent)
+  ) {
+    throw new NativeBnbPaymentError(
+      'PAYMENT_AGENT_NOT_READY',
+      'This agent is not verified for paid execution. Payment-preflight listings cannot accept wallet payments.',
+    );
   }
   if (agent.paymentProtocol !== PAYMENT_PROTOCOLS.NATIVE_BNB) {
     throw new NativeBnbPaymentError('PAYMENT_PROTOCOL_MISMATCH', 'This execution is not a native-BNB payment.');
@@ -92,6 +114,7 @@ export async function confirmNativeBnbPayment({ executionId, transactionHash, us
   if (!normalized.ok || normalized.protocol !== PAYMENT_PROTOCOLS.NATIVE_BNB) {
     throw new NativeBnbPaymentError('PAYMENT_REQUIREMENT_INCOMPLETE', 'The saved native-BNB payment requirement is incomplete.');
   }
+  const actualCost = actualPaidCostFromVerifiedRequirement(normalized.requirement);
   const verified = await verifyNativeBnbPayment({
     requirement: normalized.requirement,
     transactionHash,
@@ -102,6 +125,11 @@ export async function confirmNativeBnbPayment({ executionId, transactionHash, us
     { executionId, 'payment.status': 'awaiting_confirmation', transactionHash: '' },
     {
       $set: {
+        // The verified requirement/receipt is the source of truth for actual
+        // execution cost. This safely corrects this pending record without
+        // rewriting unrelated historical executions.
+        cost: actualCost.cost,
+        currency: actualCost.currency,
         transactionHash: verified.transactionHash,
         payment: {
           protocol: PAYMENT_PROTOCOLS.NATIVE_BNB,

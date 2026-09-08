@@ -2,15 +2,37 @@
 AGENTHUB — PROJECT HANDOFF
 For transferring this project to another Claude account, Codex, or any other AI.
 ================================================================================
-Written: 2026-08-26  ·  Last updated: 2026-09-06, during Phase 11.7 generic marketplace execution — see §8K
+Written: 2026-08-26  ·  Last updated: 2026-09-07, submission-safety correction — see below
 Repo: C:\Users\uk\OneDrive\Desktop\agenthub-bnb
 Remote: https://github.com/london160771/agenthub-bnb.git  (branch: main)
+
+SUBMISSION-SAFETY CORRECTION (2026-09-07):
+- Seeded source is no longer execution evidence. Only venus-health-guardian,
+  radiant-liquidation-shield, grid-strategy-planner, and rebalance-advisor are
+  allowlisted local executors; all other seeded listings are watch-only.
+- Rebalance Advisor reads specified token metadata/raw balances but does not
+  combine heterogeneous token units. Allocation, drift, BUY/SELL action, and
+  size are unavailable until every asset has a verified common valuation.
+- Historical token-unit drift/BUY-SELL claims below are superseded and must not
+  be used as current capability or evidence.
+- Paid-ready is not itself an execution guarantee. Eligibility is decided by the
+  exact verified payment/execution adapter; Sentinels Audit and Quick Intel are
+  currently preflight-only. Automatic payment retry/recovery remains disabled.
+- Wallet-scoped history uses a browser-supplied public address, not signature
+  authentication. Public execution/history responses are redacted; signed
+  wallet ownership remains required production hardening.
+- Agent Advantage ratios compare persisted backend processing with timed manual
+  baselines. Full AgentHub operator timing was not recorded; no full-workflow or
+  hiring speedup is claimed.
+- Production requires an initial MongoDB connection and reports HTTP 503 while
+  MongoDB is disconnected; development may retain its forgiving fallback.
 
 CODEX TAKEOVER — READ THIS FIRST (2026-09-02):
 This handoff was written for Muse (Anthropic) and is now being handed to Codex (OpenAI).
 The Phase 11 cleanup checkpoint is committed at `689355c1b44d53a6cee1c15dfb7fc8f0dd24e8ab`; the Phase 11.1B checkpoint is committed at `4fa02d9d9e9dbf5357fc90e7de2f0ecc18677ece`; Phase 11.2 is committed at `7ee2561`; Phase 11.3 is committed at `5d6ab67`. Phase 11.4 findings, Phase 11.6 paid-flow implementation, and Phase 11.7 generic marketplace execution are current UNCOMMITTED working-tree work. Audit `git status` + `git diff` before trusting any current Phase 11 comment.
 Muse's incomplete ERC-8183 preparation was removed. Brain catalog evidence is retained, but paid skill execution remains unverified.
-Preserve Phase 7 (Venus reconciliation, hasSimulated=false) and Phase 10 (Yield/Grid/Rebalance tables) functionality.
+Preserve Phase 7 (Venus reconciliation, hasSimulated=false) and the verified
+portions of Phase 10 (Yield/Grid tables and built-in read-only execution).
 Do NOT cross the BSC Mainnet 56 transaction boundary (eth_sendTransaction / approve / fund) without explicit user approval.
 Seeded agents are retained as development/fallback and must not be confused with real executable Mainnet agents.
 
@@ -93,8 +115,10 @@ AgentCard and external HTTP/A2A catalog response for BSC Mainnet identities
 (chain 56). It does not verify paid skill execution. No Mainnet transaction,
 signing or private key exists in the repo.
 
-PHASE 10 (Yield/Grid/Rebalancing — real testnet tables) is
-COMPLETE, VERIFIED, COMMITTED at e157e15. Details in §8D. Phases 7-9 guarantees untouched.
+PHASE 10 (Yield/Grid/Rebalancing read paths — real testnet tables) is
+COMPLETE, VERIFIED, COMMITTED at e157e15. Its valuation-dependent Rebalancing
+plan output is superseded as described above. Details in §8D; Phases 7-9
+guarantees remain untouched.
 
 PHASE 9 (T1.6 structured outputs + table renderer) is
 COMPLETE, VERIFIED, COMMITTED at 3f5ee47. Details in §8C.
@@ -107,11 +131,11 @@ PUSHED. Details in §8A.
 
 Phase 6.5 was committed as 09bfd48.
 
-WHAT PHASE 7 DELIBERATELY DID NOT DO — now ALL FOUR CATEGORIES ARE FUNCTIONAL (see §8A-§8D and the superseded historical §11):
+WHAT PHASE 7 DELIBERATELY DID NOT DO — current category status (see §8A-§8D and the superseded historical §11):
   - Yield now returns ranked Venus Core Pool markets by derived supply APY (12 cap → top 8, warnings for dropped, chain rates + derived APY).
-  - Rebalancing now returns token-unit drift + BUY/SELL plan via targetAllocation text field (read-only, no swaps).
+  - Rebalance Advisor reads specified token metadata/raw balances; allocation, drift, action, and size remain unavailable without verified common valuation.
   - Grid Trading now exists as plan-only grid-strategy-planner under trading (ladder table, no DEX, no order execution).
-  - Table renderer SHIPPED at §8C and used by all three.
+  - Table renderer SHIPPED at §8C and used by the structured outputs.
 
 >>> NEXT AI (Codex): read AGENTS.md, then see §8E (Phase 11 cleanup) and §15 (current approved priorities). Brain is catalog-verified/watch-only until a real task result is verified.
     Never use `git add -A` — explicit paths only. After an approved commit, also
@@ -144,33 +168,30 @@ Real, verified end to end:
 - Lint clean; vite build succeeds (Phase 7: 1875 modules, ~382 kB JS; Phase 8: 91 modules, ~854 kB JS / 231 kB gzip; Phase 9/10: 91 modules ~858 kB / 232 kB gzip — no new deps).
 - Phase 8: /find Finder MVP live at /find (deterministic 40/20/15/10/10/5 scoring, AI assist when key present else keyword fallback, match % + why + source badge + trust/cost), 8004scan ingestion for BSC chain 56 as source='indexed' (see §8B/§9A). Current capability decoration distinguishes catalog-verified, executable external adapters, and watch-only records; the backend remains authoritative.
 - Phase 9: output.tables/warnings + ResultTable renderer + per-cell provenance (see §8C).
-- Phase 10: Yield ranked Venus markets (chain rates, derived APY), Grid plan-only ladder, Rebalancing token-unit drift/BUY-SELL (all tables, warnings, hasSimulated=false).
+- Phase 10 originally shipped Yield ranking, a Grid plan-only ladder, and token-unit Rebalancing arithmetic. The Rebalancing allocation/drift/BUY-SELL portion is superseded by the 2026-09-07 submission-safety correction at the top of this file.
 
-SIMULATED PAYMENT — be precise about this: no transaction is ever signed or
-broadcast. transactionHash stays ''. `cost` is the agent's LISTED price recorded
-against the hire; nothing is charged. Chain reads are free.
+HISTORICAL FREE-HIRE PAYMENT MODEL — superseded for paid-capable records by the
+2026-09-07 submission-safety correction. Free execution cost is 0; catalog price
+is separate. Current paid-ready execution is protocol-specific: Sentinels Audit
+and Quick Intel remain preflight-only, while a future adapter may opt into an
+explicitly verified payment flow.
 
 --------------------------------------------------------------------------------
 6. WHAT IS INCOMPLETE
 --------------------------------------------------------------------------------
-Routes still rendering PlaceholderPage (frontend/src/routes/AppRoutes.jsx):
-  /activity   <-- Activity dashboard — SPEC TIER 1 (MANDATORY)
-  /dashboard
-  /saved
-  /settings
-Real routes: / · /discover · /agents/:agentId · /find · /compare · /hire/:agentId ·
-/execution/:executionId  (/find was placeholder, now shipped at Phase 8)
+Supporting navigation routes are now implemented: /activity, /dashboard,
+/saved, and /settings. Real routes also include / · /discover ·
+/agents/:agentId · /find · /compare · /hire/:agentId · /execution/:executionId.
 
 Also incomplete:
 - ERC-8004/8004scan: indexed discovery is integrated in Phase 8 (§8B/§9A). Independent on-chain identity verification remains incomplete; do not label indexed records "Verified on-chain".
-- Of the four hackathon categories, ALL FOUR ARE NOW FUNCTIONAL (§8A-§8D): Yield ranked testnet APYs, Rebalancing token-unit drift/plan, Grid ladder, Health Factor reconciled.
-- No Agent Advantage measurement has been taken (§12) — intentionally deferred to Phase 11.
-- BEP-20 token positions: native-only report remains when targetAllocation blank; when supplied, BEP-20 balances are read via eth_call balanceOf (verified) — USD secondary still unavailable/caveated where no oracle price.
-- THE BACKEND HAS NO TESTS AT ALL. `npm test --prefix backend` runs `node --test`
-  and reports "# tests 0" — there are no test files. Every verification claim in
-  this document is therefore MANUAL evidence, reproducible only by re-running the
-  flows described. This is pre-existing, not a Phase 7 regression, but it means
-  nothing guards the reconciliation logic against a future edit.
+- Category status is mixed: Yield, Grid, and Health Factor have verified read
+  paths; Rebalance Advisor intentionally withholds valuation-dependent
+  allocation/drift/action/size fields.
+- Agent Advantage evidence and the final report are now measured and documented
+  in AGENT_ADVANTAGE_EVIDENCE.md and AGENT_ADVANTAGE_REPORT.md.
+- Backend automated tests now exist under backend/tests/ and run with
+  `npm test --prefix backend`; historical "no tests" notes below are archival.
 
 --------------------------------------------------------------------------------
 7. IMPORTANT ARCHITECTURE / TECHNICAL DECISIONS
@@ -567,11 +588,11 @@ DELIBERATELY LEFT OUT: Yield (ranked pools), Rebalancing (trade list), Grid (lad
 --------------------------------------------------------------------------------
 8D. PHASE 10 — YIELD / GRID / REBALANCING (SHIPPED 2026-08-29, committed at e157e15)
 --------------------------------------------------------------------------------
-STATUS: shipped, verified, committed at e157e15. Lean, hackathon-focused; all three categories now produce real testnet-backed tables via Phase 9 infrastructure. No deposits/swaps/tx/signing, no mainnet, no invented prices/addresses, hasSimulated=false, no new deps/env.
+STATUS: historical Phase 10 snapshot, shipped and committed at e157e15. Yield and Grid still provide the verified read-only table paths; the Rebalance Advisor allocation/drift/action/size claims in this snapshot are superseded by the submission-safety correction. No deposits/swaps/tx/signing, no mainnet, no invented prices/addresses, hasSimulated=false, no new deps/env.
 
 FILES
   MOD  backend/services/abi.js              + supplyRatePerBlock 0xae9d70b0, borrowRatePerBlock 0xf8f9da28, totalSupply 0x18160ddd (all verified 2026-08-26 differentiated non-zero; evidence in SELECTORS comments)
-  MOD  backend/services/agentExecutors.js   + cell() exported, hasSimulated scans tables; runYield: getAllMarkets→12 cap→per-market symbol/supplyRate/borrowRate→aprFromRate (BLOCKS_PER_YEAR 10,512,000 @3s, derived, note printed) → ranking top 8, warnings for capped/dropped; runTrading: grid branch when lowerBound/upperBound/gridLevels present → validate (2-50 levels, >0 bounds, upper>lower) → getVenusPriceForToken (12-market capped oracle lookup via underlying→price, 36-uDec scaling) else input → ladder (level/price/side/size) + spacing/gas/totalCapital/affordable; else DCA fallback untouched; runPortfolio: parseAllocationString "0xA:60,0xB:40" (weights sum 100, 2-8 assets) → eth_getCode verification → decimals/symbol/balanceOf (tolerant 3-word proxy fallback) → human total → currentPct/drift/BUY-SELL(size) in token units + holdings table; both tables plan-only.
+  MOD  backend/services/agentExecutors.js   + cell() exported, hasSimulated scans tables; runYield: getAllMarkets→12 cap→per-market symbol/supplyRate/borrowRate→aprFromRate (BLOCKS_PER_YEAR 10,512,000 @3s, derived, note printed) → ranking top 8, warnings for capped/dropped; runTrading: grid branch when lowerBound/upperBound/gridLevels present → validate (2-50 levels, >0 bounds, upper>lower) → getVenusPriceForToken (12-market capped oracle lookup via underlying→price, 36-uDec scaling) else input → ladder (level/price/side/size) + spacing/gas/totalCapital/affordable; else DCA fallback untouched. Historical runPortfolio text below is superseded: current code reads each requested token independently and leaves allocation/drift/action unavailable without verified common-price valuation.
   MOD  frontend/src/lib/hire.js             + portfolio.targetAllocation text (500ch, optional) + trading lowerBound/upperBound/gridLevels/capitalPerLevel/referencePrice numbers (optional, bounds 0.0001-1M, 2-50) with help "Leave blank for DCA mode"
   MOD  backend/data/seedAgents.js            + grid-strategy-planner (trading, plan-only grid ladder, PancakeSwap/Venus, live, 18 agents total)
   (Phase 9) backend/models/Execution.js doc + frontend ExecutionResult.jsx ResultTable already shipped — reused, untouched for Phase 10 except via new tables
@@ -775,6 +796,11 @@ only exact verified adapter identities and records HTTP provenance separately.
 --------------------------------------------------------------------------------
 8H. PHASE 11.3 — GENERIC PAID-AGENT EXECUTION FRAMEWORK (COMMITTED)
 --------------------------------------------------------------------------------
+HISTORICAL SNAPSHOT: the no-broadcast-only behavior described here was the
+Phase 11.3 state. Current paid eligibility is protocol-specific: current
+Sentinels Audit and Quick Intel remain preflight-only, while a future exact
+adapter may opt into an explicitly verified payment flow.
+
 Phase 11.3 adds a protocol-neutral, read-only payment preparation layer. Agent
 records now carry `executionProtocol` (`http`, `a2a`, `mcp`) and
 `paymentProtocol` (`none`, `x402`, `erc8183`, `native-bnb`, `custom`) alongside
@@ -1050,53 +1076,41 @@ Sketch (NOT built, NOT scheduled, NOT part of Phase 7):
 --------------------------------------------------------------------------------
 10. AGENT ADVANTAGE STATUS
 --------------------------------------------------------------------------------
-FOUNDATION COMPLETE. ZERO MEASUREMENTS TAKEN. Every manual/comparison field in
-the database is null, and NOTHING in the running application writes one — by
-design. Read AGENT_ADVANTAGE.md (290 lines) before touching this.
+CURRENT SOURCE OF TRUTH: AGENT_ADVANTAGE_EVIDENCE.md and
+AGENT_ADVANTAGE_REPORT.md contain the completed, measured core comparison.
+The zero-measurement statements retained in the historical notes below describe
+the pre-benchmark state and must not be read as current status.
 
 Captured automatically today: createdAt, startedAt, completedAt, durationMs,
 rpcCallCount, output.reads[], output.provenance, cost/currency, task/input,
 output.fields[].
 
-Defined but not yet collected: manualDurationMs, manualSteps, manualCost (+
-required manualCostBasis and manualCurrency), agentOperatorDurationMs,
-agentSteps, agentQuality/manualQuality (0-20 via a 4x0-5 rubric named
-`agenthub-v1`), plus four REQUIRED provenance fields.
+The report records the frozen manual timings/costs, AgentHub backend durations,
+quality scores, and provenance for the three completed external runs. Those
+quality scores are rubric-based, not independent certification.
 
-Key definitions you must not redefine casually:
-- The headline time comparison is agentOperatorDurationMs vs manualDurationMs.
-  NOT durationMs vs a human's wall-clock — that would omit the part of the agent
-  path a human actually performs (choosing an agent, filling the form).
-- agentSteps is counted BY A HUMAN. It is explicitly NOT the six internal
-  timeline steps (hired/received/wallet/query/analyse/report), which are constant
-  at 6 and measure our pipeline, not human work.
-- Records are written ONLY by a deliberate one-off maintenance script run by a
-  human after an experiment. That script does not exist yet. No request path,
-  executor, or runner may EVER write an advantage field.
+Timing interpretation for the completed report: its speedup compares persisted
+AgentHub backend processing duration with the frozen manual baseline. It does
+not claim a full human workflow or hiring speedup. The six internal timeline
+steps remain pipeline instrumentation, not a human-work measure.
 
-Three experiments are specified but NOT RUN (research, trading, portfolio).
-Eligibility per AGENT_ADVANTAGE.md §7: research/monitoring/portfolio/trading
-eligible; health-factor and yield NOT eligible, because their core value is
-currently simulated or unavailable.
-*** THAT ELIGIBILITY RULE IS NOW OUT OF DATE AND AGENT_ADVANTAGE.md §7 STILL SAYS
-THE OLD THING. *** Phase 7 landed (§8A), so HEALTH-FACTOR IS NOW ELIGIBLE — its
-core value is a real, reconciled on-chain read. YIELD IS STILL NOT eligible:
-"Ranked pool candidates" remains `unavailable`. AGENT_ADVANTAGE.md was
-deliberately not edited during Phase 7 (out of scope); whoever runs the next
-experiment should fix §7 there first, and make it say health-factor yes / yield no
-rather than lumping them together.
+Three experiments were specified and the finalized report covers three completed
+external runs (trading, yield, and health-factor risk).
+The finalized evidence file preserves the frozen baselines, the real AgentHub
+results, and the two disclosed failed Borrow Buffer attempts.
 
-The landing page previously showed invented figures ("~14 min / 6 steps" vs
-"2.8 sec / 1 request"). They were REMOVED and replaced with visible "—"
-placeholders and a "Not yet measured" badge. DO NOT REINTRODUCE ILLUSTRATIVE
-NUMBERS ANYWHERE.
+The landing page now shows only the verified Agent Advantage highlights from
+AGENT_ADVANTAGE_REPORT.md. It does not claim a full workflow speedup,
+profitability, or universal superiority; do not reintroduce illustrative
+numbers anywhere.
 
 --------------------------------------------------------------------------------
 11. THE FOUR HACKATHON CATEGORIES AND THEIR CURRENT GAPS (HISTORICAL NOTE)
 --------------------------------------------------------------------------------
-SUPERSEDED SUMMARY FROM BEFORE PHASE 10. All four Smart Money categories are
-now functional as read-only BNB testnet flows; retain the detailed historical
-analysis below for context, but do not use its old capability-gap conclusions.
+ARCHIVE ONLY: this summary preserves a pre-Phase-10 capability snapshot for
+context. Do not use its old implementation or capability-gap conclusions as
+current behavior; the current Rebalance Advisor limitation is stated at the top
+of this handoff.
 Full 11-section analysis per category, shared infrastructure design, and a
 Tier 1/2/3 ranking are in CATEGORY_IMPLEMENTATION_PLAN.txt. Summary:
 
@@ -1269,7 +1283,8 @@ integration.
 --------------------------------------------------------------------------------
 15. WHAT SHOULD BE BUILT NEXT
 --------------------------------------------------------------------------------
-Phases 7-10 are shipped — T1.1-T1.9 DONE (§8A-§8D):
+Phases 7-10 are shipped — T1.1-T1.8 are complete and the original T1.9 plan is
+superseded (§8A-§8D):
   T1.1  DONE  abi.js + blockchainService.ethCall()
   T1.2  DONE  venusAdapter.js
   T1.3  DONE  Health Factor -> real chain data; simulated path deleted
@@ -1278,15 +1293,17 @@ Phases 7-10 are shipped — T1.1-T1.9 DONE (§8A-§8D):
   T1.6  DONE  output.tables + table renderer in ExecutionResult.jsx (§8C)
   T1.7  DONE  Grid Trading plan-only ladder (trading, §8D)
   T1.8  DONE  Yield ranked Venus markets by supply APY (§8D)
-  T1.9  DONE  Rebalancing token-unit drift + trade plan (§8D)
-All four Smart Money categories are now functional (Health Factor, Yield, Grid, Rebalancing).
+  T1.9  SUPERSEDED  Rebalancing allocation/drift/trade plan; current executor withholds these fields without common prices (§8D)
+Current verified category coverage is Health Factor, Yield, and Grid, plus
+Rebalance Advisor's raw specified-token reads. These are not four equivalent
+end-to-end category implementations.
 
 CURRENT APPROVED PRIORITIES (supersedes the older Phase 11-12 ordering):
   1. Turn real indexed agents into executable agents / real marketplace.
   2. Increase quality real BSC Mainnet agent inventory.
   3. Finish UX: Settings, Activity, Dashboard, Saved, marketplace/mobile polish.
-  4. Complete REAL Agent Advantage documentation with 3 measured tasks and
-     genuine trading/security evidence.
+  4. Maintain the verified Agent Advantage evidence/report and keep claims tied
+     to measured tasks and genuine trading/security evidence.
   5. Full testing, deployment, demo video, final audit/submission.
 ARCHITECTURAL RULE REMAINS: shared primitives first, then thin agents.
 

@@ -57,7 +57,7 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-center gap-3 rounded-lg border border-line bg-panel-2 p-3">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-info/10 text-info"><Network size={17} aria-hidden="true" /></span>
-                <div className="min-w-0"><p className="text-sm font-medium text-fg">BSC Mainnet</p><p className="mt-0.5 text-xs text-muted">External BSC agents / some paid execution · chain {CHAINS.mainnet.id}</p></div>
+                <div className="min-w-0"><p className="text-sm font-medium text-fg">BSC Mainnet</p><p className="mt-0.5 text-xs text-muted">External BSC agents and verified BSC payment paths · chain {CHAINS.mainnet.id}</p></div>
               </div>
               <div className="flex items-center gap-3 rounded-lg border border-line bg-panel-2 p-3">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand/10 text-brand"><Network size={17} aria-hidden="true" /></span>

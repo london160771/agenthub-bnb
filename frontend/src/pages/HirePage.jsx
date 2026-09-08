@@ -26,7 +26,7 @@ import {
   validateHireInput,
 } from '../lib/hire.js';
 import { useWallet } from '../context/walletContext.js';
-import { capabilityCopyFor, isExternallyExecutable, isHireable, isPaymentReady, paymentChainIdFor } from '../lib/agentCapability.js';
+import { capabilityCopyFor, isExternallyExecutable, isHireable, isPaidExecutable, paymentChainIdFor } from '../lib/agentCapability.js';
 
 /**
  * HIRE (spec §39 phase 5): configure a task → review cost and network →
@@ -91,7 +91,7 @@ function HireFlow({ agentId }) {
     [agent, values],
   );
 
-  const paidReady = isPaymentReady(agent);
+  const paidExecution = isPaidExecutable(agent);
   const paymentChainId = paymentChainIdFor(agent);
 
   const handleSubmit = async () => {
@@ -113,13 +113,13 @@ function HireFlow({ agentId }) {
 
     // Belt and braces: the confirm button is already gated on these network
     // requirements. Paid hires must be prepared on the payment network.
-    if (!isConnected || (paidReady ? chainId !== paymentChainId : (!isExternallyExecutable(agent) && !isCorrectChain))) return;
+    if (!isConnected || (paidExecution ? chainId !== paymentChainId : (!isExternallyExecutable(agent) && !isCorrectChain))) return;
 
     setErrors({});
     setSubmitError(null);
     setSubmitting(true);
     try {
-      if (paidReady) {
+      if (paidExecution) {
         const plan = await prepareExecution({
           agentId: agent.agentId,
           task: taskSummary,
@@ -365,7 +365,7 @@ function HireFlow({ agentId }) {
         className="mt-6"
         eyebrow="Hire"
         title={`Hire ${agent.name}`}
-        description={paidReady
+        description={paidExecution
           ? 'Task first. Then review the exact fee and approve it in your wallet only when everything looks right.'
           : 'Describe the task, review the details, and run it. Free tasks do not open your wallet.'}
       />

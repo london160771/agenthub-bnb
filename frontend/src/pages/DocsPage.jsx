@@ -34,8 +34,8 @@ const AGENT_TYPES = [
     variant: 'ok',
   },
   {
-    label: 'Paid / paid-ready',
-    detail: 'The provider has a verified payment requirement. The exact token, amount, recipient, and settlement network are reviewed before approval.',
+    label: 'Paid / paid preflight',
+    detail: 'Paid-ready means the requirement is verified; execution still depends on an exact verified payment executor.',
     variant: 'brand',
   },
   {
@@ -85,7 +85,7 @@ const BENCHMARKS = [
     agent: 'Assay Grid',
     manual: '27.658 s',
     agentTime: '1.733 s',
-    speedup: '15.96×',
+    ratio: '15.96×',
     quality: '20/25 → 23/25',
   },
   {
@@ -93,7 +93,7 @@ const BENCHMARKS = [
     agent: 'Venus Yield Lens',
     manual: '29.617391 s',
     agentTime: '2.221 s',
-    speedup: '13.34×',
+    ratio: '13.34×',
     quality: '20/25 → 23/25',
   },
   {
@@ -101,7 +101,7 @@ const BENCHMARKS = [
     agent: 'SMEAI Reference Health Factor Monitor',
     manual: '134.4137659 s',
     agentTime: '2.797 s',
-    speedup: '48.06×',
+    ratio: '48.06×',
     quality: '23/25 → 23/25',
   },
 ];
@@ -221,7 +221,7 @@ export default function DocsPage() {
           id="agent-advantage"
           eyebrow="Measured evidence"
           title="Agent Advantage"
-          description="Three real external ERC-8004 marketplace agents compared with frozen manual workflows."
+          description="Three real external ERC-8004 agents: backend processing compared with frozen timed manual baselines."
         >
           <Card>
             <CardBody>
@@ -233,8 +233,9 @@ export default function DocsPage() {
               </div>
               <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted">
                 Manual work was completed and frozen before each corresponding AgentHub run. All three
-                AgentHub executions completed in under three seconds. Scores use the same 25-point
-                rubric for both sides and are not independent third-party certification.
+                AgentHub backend executions completed in under three seconds. Full operator timing
+                was not recorded, so these are not workflow or hiring speedups. Scores use the same
+                25-point rubric for both sides and are not independent third-party certification.
               </p>
 
               <div className="mt-6 overflow-x-auto rounded-lg border border-line">
@@ -246,7 +247,7 @@ export default function DocsPage() {
                       <th className="px-4 py-3 font-semibold">External agent</th>
                       <th className="px-4 py-3 font-semibold">Manual</th>
                       <th className="px-4 py-3 font-semibold">AgentHub</th>
-                      <th className="px-4 py-3 font-semibold">Speedup</th>
+                      <th className="px-4 py-3 font-semibold">Manual/backend ratio</th>
                       <th className="px-4 py-3 font-semibold">Quality</th>
                     </tr>
                   </thead>
@@ -257,7 +258,7 @@ export default function DocsPage() {
                         <td className="px-4 py-3 text-muted">{benchmark.agent}</td>
                         <td className="px-4 py-3 font-mono text-muted">{benchmark.manual}</td>
                         <td className="px-4 py-3 font-mono font-semibold text-brand">{benchmark.agentTime}</td>
-                        <td className="px-4 py-3 font-semibold text-fg">{benchmark.speedup}</td>
+                        <td className="px-4 py-3 font-semibold text-fg">{benchmark.ratio}</td>
                         <td className="px-4 py-3 text-muted">{benchmark.quality}</td>
                       </tr>
                     ))}
@@ -296,7 +297,7 @@ export default function DocsPage() {
             <CardBody className="grid gap-4 sm:grid-cols-2">
               {[
                 [LockKeyhole, 'No private keys stored', 'AgentHub only sees the public wallet address shared by the browser wallet.'],
-                [Wallet, 'Explicit paid confirmation', 'Paid actions show the exact amount, token, recipient, and settlement chain before approval.'],
+                [Wallet, 'Protocol-specific payment', 'Paid-ready listings show exact payment facts. Each listing enters execution only when its exact payment executor is verified; current Sentinels and Quick Intel remain preflight-only.'],
                 [ShieldCheck, 'Fail-closed payment checks', 'Incomplete or unverified payment metadata does not become a runnable paid flow.'],
                 [CheckCircle2, 'Result and provenance separated', 'Read the agent output first, then inspect network, block, provider, and warnings as evidence.'],
               ].map(([Icon, title, detail]) => (
@@ -310,6 +311,9 @@ export default function DocsPage() {
               ))}
             </CardBody>
           </Card>
+          <p className="mt-3 text-sm leading-relaxed text-muted">
+            Wallet-scoped views currently use the public address supplied by the browser wallet; they do not yet prove address ownership with a signature. Public execution responses are redacted, and wallet-signature authentication remains required production hardening.
+          </p>
         </DocsSection>
 
         <DocsSection

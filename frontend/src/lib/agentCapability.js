@@ -38,9 +38,9 @@ export const CAPABILITY_META = Object.freeze({
     variant: 'ok',
   },
   [AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY]: {
-    label: 'Paid',
-    detail: 'Payment verified',
-    description: 'The exact payment requirement is verified. Task execution will be enabled after a real paid result is verified.',
+    label: 'Paid preflight',
+    detail: 'Preparation only',
+    description: 'The payment requirement can be inspected, but wallet payment and task execution stay disabled until a real paid result is verified.',
     variant: 'warn',
   },
   [AGENT_CAPABILITIES.INDEXED_WATCH_ONLY]: {
@@ -60,12 +60,25 @@ export function isLocallyExecutable(agent) {
 
 export function isExternallyExecutable(agent) {
   const capability = capabilityFor(agent);
-  return capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE || capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID;
+  return capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE || isPaidExecutable(agent);
 }
 
-/** Paid requirements are verified, so the user may begin payment confirmation. */
+/** Paid requirement metadata is verified for read-only preflight display. */
 export function isPaymentReady(agent) {
   return capabilityFor(agent) === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY;
+}
+
+/** A previously verified external task that may enter the confirmed-payment flow. */
+export function isPaidExecutable(agent) {
+  const capability = capabilityFor(agent);
+  const adapterEligibility = agent?.capabilityDetails?.execution?.paidExecutionEligible;
+  return (
+    (capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID && adapterEligibility !== false)
+    || (
+      capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY
+      && adapterEligibility === true
+    )
+  );
 }
 
 /** Selected settlement chain for a verified paid requirement. */
@@ -74,9 +87,9 @@ export function paymentChainIdFor(agent) {
   return Number.isInteger(chainId) && chainId > 0 ? chainId : 56;
 }
 
-/** A Hire page is available for free executors and paid agents ready for payment. */
+/** A Hire page is available only for executable agents. */
 export function isHireable(agent) {
-  return isLocallyExecutable(agent) || isExternallyExecutable(agent) || isPaymentReady(agent);
+  return isLocallyExecutable(agent) || isExternallyExecutable(agent);
 }
 
 export function isExecutable(agent) {
@@ -84,6 +97,14 @@ export function isExecutable(agent) {
 }
 
 export function capabilityMetaFor(agent) {
+  if (capabilityFor(agent) === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY && isPaidExecutable(agent)) {
+    return {
+      label: 'Executable',
+      detail: 'Paid external run',
+      description: 'AgentHub has verified the payment requirement and the exact paid execution path for this BSC agent.',
+      variant: 'ok',
+    };
+  }
   return CAPABILITY_META[capabilityFor(agent)] || CAPABILITY_META[AGENT_CAPABILITIES.INDEXED_WATCH_ONLY];
 }
 
@@ -103,7 +124,12 @@ export function capabilityBadgesFor(agent) {
     ];
   }
   if (capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY) {
-    return [{ label: 'Paid', variant: 'warn' }];
+    return isPaidExecutable(agent)
+      ? [
+          { label: 'Executable', variant: 'ok' },
+          { label: 'Paid', variant: 'brand' },
+        ]
+      : [{ label: 'Paid preflight', variant: 'warn' }];
   }
   if (capability === AGENT_CAPABILITIES.INDEXED_CATALOG_VERIFIED) {
     return [{ label: 'Catalog', variant: 'info' }];

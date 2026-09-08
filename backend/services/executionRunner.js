@@ -21,7 +21,7 @@ import { ChainReadError, readChainState, withRpcLog } from './blockchainService.
 import { claimForRun, getHireableAgent } from './executionService.js';
 import { Agent } from '../models/Agent.js';
 import { AGENT_CAPABILITIES, getAgentCapability } from './agentCapabilities.js';
-import { getExecutionAdapterForAgent } from './adapters/registry.js';
+import { getExecutionAdapterForAgent, isPaidExecutionEligibleAgent } from './adapters/registry.js';
 
 /**
  * Errors whose message was written to be read by a user. Anything else gets a
@@ -87,6 +87,20 @@ export async function runExecution(executionId) {
       }
 
       const capability = getAgentCapability(agent);
+      const paidExecutionEligible = isPaidExecutionEligibleAgent(agent);
+      if (
+        (
+          capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY
+          || capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID
+        )
+        && !paidExecutionEligible
+      ) {
+        throw new TaskInputError(
+          capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY
+            ? `"${agent.name}" is payment-preflight only. Wallet payment and task execution remain disabled until a verified paid executor is enabled.`
+            : `"${agent.name}" has no enabled verified paid executor for its payment protocol, so AgentHub will not run it.`,
+        );
+      }
       const externalAdapter = getExecutionAdapterForAgent(agent);
       if (capability !== AGENT_CAPABILITIES.LOCAL_EXECUTABLE && !externalAdapter) {
         throw new TaskInputError(
@@ -94,8 +108,7 @@ export async function runExecution(executionId) {
         );
       }
       if (
-        (capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY ||
-          capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID) &&
+        (capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID || paidExecutionEligible) &&
         doc.payment?.status !== 'confirmed'
       ) {
         throw new TaskInputError('The paid task cannot run until its BSC Mainnet payment is confirmed.');
@@ -159,12 +172,25 @@ export async function runExecution(executionId) {
     // though it produced no result.
     doc.rpcCallCount = rpcLog.length;
     doc.completedAt = new Date();
+    // A paid provider's unrecognized response is retained for private audit,
+    // but it is never normalized, exposed through public reads, or promoted to
+    // verified execution capability.
+    if (err?.rawResult !== undefined) {
+      doc.rawResult = err.rawResult;
+      doc.normalizedResult = null;
+      doc.executionVerified = false;
+    }
     // ChainReadError and TaskInputError messages are written to be shown to a
     // user. Anything else gets a generic message: an unexpected error's text may
     // contain internals, and the real detail belongs in the server log.
+    const paymentStatus = doc.payment?.status;
     doc.errorMessage = isUserSafe(err)
       ? err.message
-      : 'The agent could not complete this task. Nothing was charged and nothing was sent on-chain.';
+      : paymentStatus === 'confirmed'
+        ? 'The paid agent could not complete this task after payment confirmation. Do not submit another payment automatically; review the confirmed transaction and provider status.'
+        : paymentStatus && paymentStatus !== 'none'
+          ? 'Payment status is uncertain. Do not retry payment automatically; review the saved execution and wallet activity first.'
+          : 'The agent could not complete this read-only task. No payment was required and nothing was sent on-chain.';
     await doc.save();
 
     if (!isUserSafe(err)) {

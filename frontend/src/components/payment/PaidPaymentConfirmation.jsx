@@ -19,9 +19,9 @@ function Row({ label, children }) {
 }
 
 /**
- * Generic paid-agent confirmation boundary. Rendering is side-effect free. The
- * only path to the wallet is the explicit button below, after the exact
- * backend-provided request is visible to the user.
+ * Generic paid-agent confirmation boundary. Rendering is side-effect free.
+ * Paid-ready records render as preflight only; an explicit payment callback is
+ * required before this component can ever open a wallet.
  */
 export function PaidPaymentConfirmation({
   agent,
@@ -39,6 +39,7 @@ export function PaidPaymentConfirmation({
   const tokenSymbol = requirement.token?.symbol || 'token';
   const nativeBnb = plan?.protocol === 'native-bnb';
   const x402 = plan?.protocol === 'x402';
+  const preflightOnly = typeof onPay !== 'function';
   const failed = Boolean(error) || plan?.state === 'FAILED' || plan?.ok === false;
   const missing = plan?.error?.missing || [];
   const ready = !loading && !failed && Boolean(request) && plan?.provenance?.paymentVerified === true && nativeBnb;
@@ -53,14 +54,16 @@ export function PaidPaymentConfirmation({
     <Card>
       <CardBody>
         <SectionHeading
-          title="Confirm payment"
-          description="Review this exact request before opening your wallet. AgentHub does not receive your private key."
+          title={preflightOnly ? 'Payment preflight' : 'Confirm payment'}
+          description={preflightOnly
+            ? 'Inspect the verified payment facts. Payment and paid execution are disabled for this listing.'
+            : 'Review this exact request before opening your wallet. AgentHub does not receive your private key.'}
           className="mb-3"
         />
 
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <Badge variant={failed ? 'bad' : processing ? 'warn' : ready ? 'warn' : 'info'}>
-            {loading ? 'Loading…' : processing ? 'Waiting for confirmation…' : plan?.state || 'Preparing'}
+            {loading ? 'Loading…' : processing ? 'Waiting for confirmation…' : preflightOnly ? 'PREFLIGHT ONLY' : plan?.state || 'Preparing'}
           </Badge>
           {plan?.provenance?.paymentVerified === true && <Badge variant="ok">Payment facts verified</Badge>}
         </div>
@@ -127,7 +130,7 @@ export function PaidPaymentConfirmation({
         <div className="mt-4">
           {!onPay ? (
             <Button variant="outline" className="w-full" disabled>
-              Open Hire flow to pay for a task
+              Payment preflight only — paid execution disabled
             </Button>
           ) : x402 ? (
             <Button variant="outline" className="w-full" disabled>
@@ -156,7 +159,7 @@ export function PaidPaymentConfirmation({
             <CheckCircle2 size={13} aria-hidden="true" /> Waiting for a confirmed receipt before calling the external agent.
           </p>
         )}
-        {!onPay && <p className="mt-2 text-center text-xs text-faint">Open the Hire flow to pay for a specific task.</p>}
+        {!onPay && <p className="mt-2 text-center text-xs text-faint">No wallet request or payment can be submitted from this preflight.</p>}
       </CardBody>
     </Card>
   );

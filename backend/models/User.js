@@ -24,7 +24,9 @@ const NotificationSettingsSchema = new Schema(
 
 /**
  * A user is identified purely by wallet address (lowercased for stable lookup).
- * No passwords, emails, or custodial secrets — auth is wallet-signature based.
+ * No passwords, emails, or custodial secrets. The current wallet-scoped UX uses
+ * a public address but does not yet prove ownership with a wallet signature;
+ * signature authentication remains required production hardening.
  */
 const UserSchema = new Schema(
   {

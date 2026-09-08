@@ -25,7 +25,9 @@ export const quickIntelAdapter = Object.freeze({
   adapterKey: 'quick-intel',
   endpoint: QUICK_INTEL_ENDPOINT,
   chainId: 8453,
+  paymentProtocol: 'x402',
   paid: true,
+  paidExecutionEnabled: false,
   canHandle: (agent) => getExternalAdapterKey(agent) === 'quick-intel' && String(agent?.erc8004Id || '') === QUICK_INTEL_ID,
   execute: async ({ execution }) => {
     validateInput(execution?.input || {});

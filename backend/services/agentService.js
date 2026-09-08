@@ -7,6 +7,7 @@
 import { Agent, AGENT_CATEGORIES } from '../models/Agent.js';
 import { AGENT_CAPABILITIES, decorateAgent, getAgentCapability } from './agentCapabilities.js';
 import { capabilityDetailsFor } from './agentCapabilityModel.js';
+import { isPaidExecutionEligibleAgent } from './adapters/registry.js';
 
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 24;
@@ -44,7 +45,17 @@ const PROJECTION = '-__v -_id';
 
 function decorateForApi(agent) {
   if (!agent) return agent;
-  return { ...decorateAgent(agent), capabilityDetails: capabilityDetailsFor(agent) };
+  const capabilityDetails = capabilityDetailsFor(agent);
+  return {
+    ...decorateAgent(agent),
+    capabilityDetails: {
+      ...capabilityDetails,
+      execution: {
+        ...capabilityDetails.execution,
+        paidExecutionEligible: isPaidExecutionEligibleAgent(agent),
+      },
+    },
+  };
 }
 
 export function summarizeCapabilities(agents) {

@@ -16,7 +16,7 @@ For each completed controlled experiment:
 
 For the replacement Experiment 3, I completed and froze the manual baseline after inspecting the SMEAI schema, then invoked SMEAI and preserved its completed execution record below.
 
-Direct monetary cost for the public manual work was `$0` in each experiment. This means no paid API, transaction, or wallet action was used. The two completed AgentHub records report `cost: 0` with currency `none`; this is a recorded free execution, not an estimate.
+Direct monetary cost for the public manual work was `$0` in each experiment. This means no paid API, transaction, or wallet action was used. The three completed external AgentHub records report `cost: 0` with currency `none`; this is a recorded free execution, not an estimate.
 
 The controlled runtime was the existing AgentHub frontend at `http://localhost:5173` and backend at `http://localhost:3001`. No AgentHub process was started, restarted, replaced, or moved to a temporary port. Port 5174 was not touched.
 
@@ -710,6 +710,7 @@ Manual quality score: **23/25**
 - Status: `completed`
 - Exact persisted task: `SMEAI Reference Health Factor Monitor — health factor task (venus wallet: 0x3af6…b450)`
 - Input wallet: `0x3af6cd5c74fa15c75f6770f5765f175ff61db450`, the same real public Venus account used by the frozen manual baseline.
+- Submission-safety revalidation: the persisted provider-returned wallet is also `0x3af6cd5c74fa15c75f6770f5765f175ff61db450`, an exact case-insensitive match. Experiment 3 therefore remains valid and was not rerun. Current adapter code rejects a mismatch and labels the returned address as external evidence; the historical JSON below retains its original `source: input` label only to preserve the persisted record verbatim.
 - `startedAt`: `2026-09-07T03:19:36.129Z`
 - `completedAt`: `2026-09-07T03:19:38.926Z`
 - Measured AgentHub duration: `2.797 seconds` (`durationMs: 2797`)
@@ -857,6 +858,8 @@ Both are real blockchain/RPC-backed read-only executions. `hasSimulated: false` 
 
 ### 6.1 Built-in Rebalancing — Rebalance Advisor
 
+**Safety correction:** this historical persisted result is retained verbatim for auditability, but its cross-token allocation, drift, and BUY/SELL rows are invalid because heterogeneous token quantities were added without a verified common valuation. Current code no longer produces those calculations: it shows raw per-token reads and marks allocation, drift, action, and size unavailable. This supplementary run must not be cited as evidence of a working rebalance recommendation.
+
 - Source: **Built-in / AgentHub**
 - Agent: `Rebalance Advisor`
 - Agent ID: `rebalance-advisor`
@@ -869,13 +872,13 @@ Both are real blockchain/RPC-backed read-only executions. `hasSimulated: false` 
 - `completedAt`: `2026-09-07T03:37:31.770Z`
 - Duration: `5.816 seconds` (`durationMs: 5816`)
 - Network: **BNB Smart Chain Testnet**, chain ID `97`, `bnb-testnet`
-- Persisted execution cost: `0.004 tBNB`; direct monetary cost: `$0` — this was a catalog/testnet denomination, with no payment, signing, or transaction.
+- Legacy persisted catalogue price: `0.004 tBNB`; actual monetary cost: `$0` — no payment, signing, or transaction occurred. New free execution records persist actual cost `0` with currency `none`.
 - RPC/provenance: `source: bnb-testnet-rpc`; host `bsc-testnet-dataseed.bnbchain.org`; block `129568308`; read at `2026-09-07T03:37:31.461Z`; explorer `https://testnet.bscscan.com`.
 - RPC calls: `14`; transaction hash: empty; `executionVerified: false` because no transaction was submitted.
 - `rawResult`: `null` (local executor output is persisted as `normalizedResult`).
 - `hasSimulated`: `false`.
 
-Compact result summary, derived from the persisted `normalizedResult` with table rows flattened for this supplementary section:
+Historical compact result summary, derived from the persisted `normalizedResult` with table rows flattened. It is preserved as evidence of what the old code returned, not endorsed as valid rebalancing arithmetic:
 
 ```json
 {
@@ -912,7 +915,7 @@ Compact result summary, derived from the persisted `normalizedResult` with table
 }
 ```
 
-Limitations: the target wallet held zero WBNB and BUSD at the captured block; the executor reports token-unit drift only because no verified USD oracle was used for these token contracts; and the result is a plan, not a swap or rebalancing transaction.
+Invalidation: although the underlying raw balance reads remain historical RPC evidence, token quantities from different assets are not a common unit. The displayed percentages, drift, BUY action, and sizes above are therefore invalid and are no longer generated. No swap or rebalancing transaction occurred.
 
 ### 6.2 Built-in Health Factor — Venus Health Guardian
 
@@ -928,7 +931,7 @@ Limitations: the target wallet held zero WBNB and BUSD at the captured block; th
 - `completedAt`: `2026-09-07T03:37:36.906Z`
 - Duration: `3.890 seconds` (`durationMs: 3890`)
 - Network: **BNB Smart Chain Testnet**, chain ID `97`, `bnb-testnet`
-- Persisted execution cost: `0.004 tBNB`; direct monetary cost: `$0` — this was a catalog/testnet denomination, with no payment, signing, or transaction.
+- Legacy persisted catalogue price: `0.004 tBNB`; actual monetary cost: `$0` — no payment, signing, or transaction occurred. New free execution records persist actual cost `0` with currency `none`.
 - RPC/provenance: `source: bnb-testnet-rpc`; host `bsc-testnet-dataseed.bnbchain.org`; block `129568322`; read at `2026-09-07T03:37:36.588Z`; Venus Comptroller `0x94d1820b2D1c7c7452A163983Dc888CEC546b77D`; explorer `https://testnet.bscscan.com`.
 - RPC calls: `8`; transaction hash: empty; `executionVerified: false` because no transaction was submitted.
 - `rawResult`: `null` (local executor output is persisted as `normalizedResult`).
@@ -968,20 +971,20 @@ Network separation: the official core experiments above are external indexed ERC
 
 ## 7. Summary comparison
 
-| Task | Agent | Source | Agent time | Manual time | Agent cost | Manual cost | Agent quality | Manual quality |
+| Task | Agent | Source | Backend processing | Timed manual baseline | Agent cost | Manual cost | Agent quality | Manual quality |
 |---|---|---|---:|---:|---:|---:|---:|---:|
 | Trading grid | Assay Grid | External indexed ERC-8004 | 1.733 s | 27.658 s | $0 | $0 | 23/25 | 20/25 |
 | Yield ranking | Venus Yield Lens | External indexed ERC-8004 | 2.221 s | 29.617391 s | $0 | $0 | 23/25 | 20/25 |
 | Borrow/liquidation risk | SMEAI Reference Health Factor Monitor | External indexed ERC-8004 | 2.797 s | 134.4137659 s | $0 | $0 | 23/25 | 23/25 |
 
-These are the official 3 external experiments. Agent time is the persisted backend execution duration (`completedAt - startedAt`), not an operator stopwatch. The two failed Venus Borrow Buffer attempts remain preserved in Section 4 and are not silently substituted into this core table.
+These are the official 3 external experiments. The AgentHub figure is the persisted backend execution duration (`completedAt - startedAt`), not an operator stopwatch. Full agent-operator timing was not recorded, so the manual/backend ratios are processing-time comparisons only and are not end-to-end workflow or hiring speedups. The two failed Venus Borrow Buffer attempts remain preserved in Section 4 and are not silently substituted into this core table.
 
 Supplementary built-in summary:
 
 | Built-in agent | Category | Network | Duration | Cost | hasSimulated |
 |---|---|---|---:|---|---|
-| Rebalance Advisor | Rebalancing / portfolio | BNB Smart Chain Testnet (97) | 5.816 s | 0.004 tBNB recorded; $0 actual | false |
-| Venus Health Guardian | Health Factor | BNB Smart Chain Testnet (97) | 3.890 s | 0.004 tBNB recorded; $0 actual | false |
+| Rebalance Advisor | Token holdings / allocation unavailable | BNB Smart Chain Testnet (97) | 5.816 s | Legacy 0.004 tBNB catalogue price; $0 actual | false |
+| Venus Health Guardian | Health Factor | BNB Smart Chain Testnet (97) | 3.890 s | Legacy 0.004 tBNB catalogue price; $0 actual | false |
 
 ## 8. Raw execution IDs
 
@@ -1010,7 +1013,7 @@ Relevant non-execution provenance:
 - The two current Venus Borrow Buffer failures are documented in Section 4 with exact execution IDs, timestamps, input, error, and null result fields. No third attempt was made.
 - The replacement SMEAI task completed successfully as `exe_1b9f6e2e8d78`; its full raw and normalized results are documented in Section 5.
 - The two built-in supplementary runs completed on Testnet and are documented separately in Section 6; neither is an external ERC-8004 marketplace agent.
-- The two completed AgentHub runs were free read-only external HTTP/A2A tasks. Their `cost: 0`/`currency: none` records did not require payment.
+- The three completed external AgentHub runs were free read-only HTTP/A2A tasks. Their `cost: 0`/`currency: none` records did not require payment.
 - A public BSC log query returned a provider `limit exceeded` response during the original research. The public position was still verified through the public borrow transaction receipt and direct read-only contract calls.
 - One late read/parsing attempt encountered a transient DNS failure. It did not change the already captured manual values.
 - No wallet transaction was prepared, signed, or sent; no payment was made; and no private key or secret was used. The built-in runs used the existing persisted wallet identity only as a read target and hire owner.

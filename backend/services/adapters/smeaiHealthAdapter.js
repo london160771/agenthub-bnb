@@ -37,11 +37,14 @@ async function request(wallet) {
   } finally { clearTimeout(timer); }
 }
 
-function responseFor(json) {
+export function responseFor(json, requestedWallet) {
   const result = json?.result;
   const data = result?.parts?.find((part) => part?.kind === 'data')?.data?.response;
   if (result?.kind !== 'message' || !data || typeof data !== 'object') fail('SMEAI Health returned no task result.');
   if (!ADDRESS_RE.test(String(data.wallet || '')) || !Number.isFinite(Number(data.block))) fail('SMEAI Health returned an unsupported task result.');
+  if (String(data.wallet).toLowerCase() !== String(requestedWallet || '').toLowerCase()) {
+    fail('SMEAI Health returned a result for a different wallet, so AgentHub rejected it.');
+  }
   return data;
 }
 
@@ -49,13 +52,13 @@ export async function executeSmeaiHealth({ agent, execution }) {
   if (getExternalAdapterKey(agent) !== 'smeai-health') fail('This is not the verified SMEAI Health agent.');
   const wallet = parseInput(execution.input || {});
   const { json, url } = await request(wallet);
-  const data = responseFor(json);
+  const data = responseFor(json, wallet);
   const field = (key, label, value, source = 'external', opts = {}) => ({ key, label, value: String(value), source, ...opts });
   return {
     headline: data.verdict || 'SMEAI Health returned a Venus position result',
     summary: `SMEAI Health returned a real Venus health-factor task result through A2A at BSC Mainnet block #${data.block}. This is external service output, not an AgentHub RPC read or transaction.`,
     fields: [
-      field('wallet', 'Wallet checked', data.wallet, 'input'),
+      field('wallet', 'Provider-returned wallet', data.wallet, 'external'),
       field('weightedCollateralUsd', 'Weighted collateral', `$${data.weightedCollateralUsd}`),
       field('totalBorrowedUsd', 'Total borrowed', `$${data.totalBorrowedUsd}`),
       field('healthFactor', 'Health factor', data.healthFactor == null ? 'Not applicable' : data.healthFactor),

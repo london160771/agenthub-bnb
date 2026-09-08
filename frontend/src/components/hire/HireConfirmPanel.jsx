@@ -8,7 +8,7 @@ import { DEFAULT_CHAIN } from '../../config.js';
 import { formatBnb } from '../../lib/format.js';
 import { shortAddress } from '../../lib/wallet.js';
 import { useWallet } from '../../context/walletContext.js';
-import { isExternallyExecutable, isPaymentReady, paymentChainIdFor } from '../../lib/agentCapability.js';
+import { isExternallyExecutable, isPaidExecutable, paymentChainIdFor } from '../../lib/agentCapability.js';
 
 const PRICING_MODEL_LABELS = {
   'per-task': 'Per task',
@@ -52,13 +52,13 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
 
   const price = agent.pricing?.amount ?? 0;
   const external = isExternallyExecutable(agent);
-  const paidReady = isPaymentReady(agent);
-  const x402Paid = paidReady && agent.paymentProtocol === 'x402';
+  const paid = isPaidExecutable(agent);
+  const x402Paid = paid && agent.paymentProtocol === 'x402';
   // Testnet funds are tBNB; paid agents use the token and settlement network
   // recorded by the backend, which may differ from the identity chain.
-  const currency = paidReady ? (agent.payment?.token || agent.payment?.currency || 'token') : DEFAULT_CHAIN.currency;
-  const amount = paidReady ? agent.payment?.amount : price;
-  const free = !paidReady && amount === 0;
+  const currency = paid ? (agent.payment?.token || agent.payment?.currency || 'token') : DEFAULT_CHAIN.currency;
+  const amount = paid ? agent.payment?.amount : price;
+  const free = !paid && amount === 0;
   const paymentChainId = paymentChainIdFor(agent);
   const feeLabel = `${amount == null ? 'Unavailable' : amount} ${currency}`;
 
@@ -75,10 +75,10 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
               </span>
             </Row>
             <Row label="Network fee (gas)">
-              <span className="text-faint">{paidReady ? (x402Paid ? 'Not available until x402 signing is enabled' : 'Wallet estimates before approval') : 'None — nothing is broadcast'}</span>
+              <span className="text-faint">{paid ? (x402Paid ? 'Not available until x402 signing is enabled' : 'Wallet estimates before approval') : 'None — nothing is broadcast'}</span>
             </Row>
             <Row label="Pricing model">
-              {paidReady ? 'Per task' : external ? 'Free external service' : PRICING_MODEL_LABELS[agent.pricing?.model] || agent.pricing?.model || '—'}
+              {paid ? 'Per task' : external ? 'Free external service' : PRICING_MODEL_LABELS[agent.pricing?.model] || agent.pricing?.model || '—'}
             </Row>
           </div>
 
@@ -90,17 +90,17 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
               </span>
             </div>
             <p className="text-xs leading-relaxed text-faint">
-              {paidReady ? 'Payment is required before the task can run.' : 'No funds move at this step.'}
+              {paid ? 'Payment is required before the task can run.' : 'No funds move at this step.'}
             </p>
           </div>
 
           <div className="py-2">
             <Row label="Network">
-              <Badge variant={paidReady || external || isCorrectChain ? 'ok' : 'neutral'}>
-                {paidReady ? `${x402Paid ? (agent.payment?.settlementNetwork || 'External settlement') : 'BSC Mainnet'} · ${paymentChainId}` : external ? 'External HTTP · BSC Mainnet data · 56' : `${DEFAULT_CHAIN.name} · ${DEFAULT_CHAIN.id}`}
+              <Badge variant={paid || external || isCorrectChain ? 'ok' : 'neutral'}>
+                {paid ? `${x402Paid ? (agent.payment?.settlementNetwork || 'External settlement') : 'BSC Mainnet'} · ${paymentChainId}` : external ? 'External HTTP · BSC Mainnet data · 56' : `${DEFAULT_CHAIN.name} · ${DEFAULT_CHAIN.id}`}
               </Badge>
             </Row>
-            {paidReady && (
+            {paid && (
               <>
                 {x402Paid && <Row label="ERC-8004 identity">BSC Mainnet · 56</Row>}
                 <Row label="Recipient">
@@ -121,7 +121,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
           </div>
         </div>
 
-        {paidReady && (
+        {paid && (
           <div className="mt-4 flex gap-2 rounded-lg border border-warn/30 bg-warn/5 p-3">
             <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warn" aria-hidden="true" />
             <p className="text-xs leading-relaxed text-muted">
@@ -136,10 +136,10 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
         <div className="mt-4 rounded-lg border border-info/25 bg-info/5 p-3">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-info">
             <FlaskConical size={14} aria-hidden="true" />
-              {paidReady ? 'Paid external task' : external ? 'Free external task' : 'Free testnet run'}
+              {paid ? 'Paid external task' : external ? 'Free external task' : 'Free testnet run'}
           </p>
           <p className="mt-1.5 text-xs leading-relaxed text-muted">
-            {paidReady ? (
+            {paid ? (
               x402Paid
                 ? <>This review step does <strong className="text-fg">not</strong> open your wallet. The exact x402 challenge is shown above; signing and submission are disabled in this phase.</>
                 : <>This review step does <strong className="text-fg">not</strong> open your wallet. The exact native BNB transfer is shown above; only the explicit payment button can open the wallet.</>
@@ -205,7 +205,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
                 funds.
               </p>
             </>
-          ) : paidReady && chainId !== paymentChainId ? (
+          ) : paid && chainId !== paymentChainId ? (
             <>
               <div className="mb-3 flex gap-2 rounded-lg border border-warn/30 bg-warn/5 p-3">
                 <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warn" aria-hidden="true" />
@@ -217,7 +217,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
                 {switching ? 'Check your wallet…' : `Switch to payment network (${paymentChainId})`}
               </Button>
             </>
-          ) : !external && !paidReady && !isCorrectChain ? (
+          ) : !external && !paid && !isCorrectChain ? (
             <>
               <div className="mb-3 flex gap-2 rounded-lg border border-warn/30 bg-warn/5 p-3">
                 <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warn" aria-hidden="true" />
@@ -250,11 +250,11 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
                 disabled={submitting}
               >
                 <Zap size={17} aria-hidden="true" />
-                {submitting ? 'Preparing…' : paidReady ? 'Review payment' : external ? 'Run external task' : free ? 'Confirm hire (free)' : 'Confirm hire'}
+                {submitting ? 'Preparing…' : paid ? 'Review payment' : external ? 'Run external task' : free ? 'Confirm hire (free)' : 'Confirm hire'}
               </Button>
               <p className="mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-faint">
                 <Info size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
-                 {paidReady ? 'No wallet request appears until you review and explicitly approve the payment.' : 'No signature request will appear.'}
+                 {paid ? 'No wallet request appears until you review and explicitly approve the payment.' : 'No signature request will appear.'}
               </p>
             </>
           )}
@@ -279,7 +279,7 @@ export function HireConfirmPanel({ agent, submitting, onSubmit, submitError, cla
           </div>
         )}
 
-        {!external && !paidReady && DEFAULT_CHAIN.faucet && (
+        {!external && !paid && DEFAULT_CHAIN.faucet && (
           <p className="mt-4 border-t border-line pt-3 text-xs leading-relaxed text-faint">
             Want test funds in your wallet to see a real balance?{' '}
             <a

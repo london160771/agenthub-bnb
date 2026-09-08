@@ -4,7 +4,7 @@ import {
   getAgentCapability,
   isLocalExecutableAgent,
 } from './agentCapabilities.js';
-import { getExecutionAdapterForAgent } from './adapters/registry.js';
+import { getExecutionAdapterForAgent, isPaidExecutionEligibleAgent } from './adapters/registry.js';
 import { preparePayment } from './payments/paymentService.js';
 import { normalizeAgentCapability } from './agentCapabilityModel.js';
 
@@ -83,6 +83,24 @@ export function prepareExecution({ agent, task = '', input = {}, walletAddress =
       mode: 'unavailable',
       execution: details.execution,
       blockers: details.blockers,
+    };
+  }
+  if (
+    capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY
+    && !isPaidExecutionEligibleAgent(agent)
+  ) {
+    return {
+      ...plan,
+      mode: 'preflight',
+      state: 'PAYMENT_PREFLIGHT_ONLY',
+      confirmation: { ...(plan.confirmation || {}), required: false, enabled: false },
+      executionProtocol: details.execution.protocol,
+      execution: details.execution,
+      paymentProtocol: plan.protocol,
+      walletAddress: walletAddress || null,
+      task,
+      inputAccepted: input && typeof input === 'object' && !Array.isArray(input),
+      blockers: [...new Set([...(details.blockers || []), 'paid execution remains disabled until a substantive paid task result is validated'])],
     };
   }
   return {

@@ -14,6 +14,17 @@ export const AGENT_CAPABILITIES = Object.freeze({
   INDEXED_WATCH_ONLY: 'indexed/watch-only',
 });
 
+// A built-in is executable only when its listing describes the exact local
+// implementation behind it. Source provenance alone is never execution
+// evidence: most seeded records are catalogue examples whose broader advertised
+// behavior is intentionally not routed through a generic category executor.
+export const LOCAL_EXECUTABLE_AGENT_IDS = new Set([
+  'venus-health-guardian',
+  'radiant-liquidation-shield',
+  'grid-strategy-planner',
+  'rebalance-advisor',
+]);
+
 export const BRAIN_A2A_ENDPOINT = 'https://agent.brainonbnb.com/a2a';
 export const BRAIN_AGENT_CARD_URL = 'https://agent.brainonbnb.com/.well-known/agent-card.json';
 
@@ -34,7 +45,8 @@ const BRAIN_CATALOG_IDENTITIES = new Set([
 // status codes are not enough to enter this set. Each adapter still validates
 // the task response at runtime before an execution can complete. Paid adapters
 // must declare paid-ready only after the persisted payment contract evidence is
-// verified; paid execution is promoted only after a validated task result.
+// verified. Whether a paid-ready record may actually run is decided separately
+// by the exact adapter's paid-execution eligibility, not by this label alone.
 const VERIFIED_EXECUTION_IDENTITIES = new Map([
   [
     '56:258641',
@@ -168,7 +180,9 @@ export function getVerifiedExecutionDefinition(agent) {
 export function getAgentCapability(agent) {
   if (!agent) return AGENT_CAPABILITIES.INDEXED_WATCH_ONLY;
   if (agent.source === 'seeded' || agent.source === 'demo') {
-    return AGENT_CAPABILITIES.LOCAL_EXECUTABLE;
+    return LOCAL_EXECUTABLE_AGENT_IDS.has(String(agent.agentId || ''))
+      ? AGENT_CAPABILITIES.LOCAL_EXECUTABLE
+      : AGENT_CAPABILITIES.INDEXED_WATCH_ONLY;
   }
   if (isPaidReadyRecord(agent)) {
     if (agent.executionVerified === true) return AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID;
@@ -208,7 +222,7 @@ export function isExternallyExecutableAgent(agent) {
   return capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE || capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID;
 }
 
-/** A verified payment contract exists, so the user may begin the pay-then-run flow. */
+/** A verified payment contract exists for read-only preflight inspection. */
 export function isPaymentReadyAgent(agent) {
   return getAgentCapability(agent) === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY;
 }

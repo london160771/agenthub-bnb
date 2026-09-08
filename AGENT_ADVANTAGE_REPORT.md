@@ -6,7 +6,7 @@ AgentHub is a marketplace where users can discover, hire, and execute AI agents.
 
 All three AgentHub runs completed in under three seconds of persisted execution time: 1.733 s, 2.221 s, and 2.797 s. Each core run recorded `hasSimulated: false`; no simulated output, payment, signing, or transaction was used.
 
-The results show a substantial reduction in measured task-execution time, with rubric scores equal to or above the manual baselines. They are evidence of workflow efficiency and verifiability—not evidence of profitability, guaranteed alpha, or universal agent reliability.
+The results show that the persisted backend processing intervals were shorter than the timed manual baselines, with rubric scores equal to or above those baselines. This is a processing-time comparison and provenance demonstration—not an end-to-end workflow-speed claim, evidence of profitability, guaranteed alpha, or universal agent reliability.
 
 ## 2. Methodology
 
@@ -16,7 +16,7 @@ Manual and agent outputs were scored independently with the same five-criterion,
 
 Two failed Venus Borrow Buffer Watch attempts are disclosed below. They were not hidden or counted as completed results.
 
-Agent time in the comparison table is the persisted execution duration (`completedAt - startedAt`), not the full operator time from opening the hire flow.
+Agent time in the comparison table is the persisted backend execution duration (`completedAt - startedAt`), not the full operator time from opening the hire flow. Full agent-operator timing was not recorded, so the ratios below must not be interpreted as hiring or end-to-end workflow speedups.
 
 ## 3. Core Experiment 1 — Assay Grid
 
@@ -30,7 +30,7 @@ Analyze a real PancakeSwap market/pool supported by Assay Grid and produce a pra
 
 - Manual: **27.658 s**, direct cost **$0**, quality **20/25**.
 - AgentHub: **1.733 s**, direct cost **$0**, quality **23/25**.
-- Speedup: `27.658 / 1.733 = 15.9596076...`, or **15.96×**.
+- Manual-baseline/backend-processing ratio: `27.658 / 1.733 = 15.9596076...`, or **15.96×**.
 - Execution ID: `exe_4d0467889b4b`.
 
 ### Result and evidence
@@ -57,7 +57,7 @@ Identify the strongest current lending/yield opportunity among the Venus markets
 
 - Manual: **29.617391 s**, direct cost **$0**, quality **20/25**.
 - AgentHub: **2.221 s**, direct cost **$0**, quality **23/25**.
-- Speedup: `29.617391 / 2.221 = 13.3351603...`, or **13.34×**.
+- Manual-baseline/backend-processing ratio: `29.617391 / 2.221 = 13.3351603...`, or **13.34×**.
 - Execution ID: `exe_ddef9d991d35`.
 
 ### Result and evidence
@@ -84,7 +84,7 @@ The account used was `0x3af6cd5c74fa15c75f6770f5765f175ff61db450`, a public acco
 
 - Manual: **134.4137659 s**, direct cost **$0**, quality **23/25**.
 - AgentHub: **2.797 s**, direct cost **$0**, quality **23/25**.
-- Speedup: `134.4137659 / 2.797 = 48.0564054...`, or **48.06×**.
+- Manual-baseline/backend-processing ratio: `134.4137659 / 2.797 = 48.0564054...`, or **48.06×**.
 - Execution ID: `exe_1b9f6e2e8d78`.
 
 ### Result and evidence
@@ -92,6 +92,8 @@ The account used was `0x3af6cd5c74fa15c75f6770f5765f175ff61db450`, a public acco
 The manual baseline used direct read-only Venus/BSC evidence at block `120419505`. Venus's Comptroller returned positive liquidity `183385.886883154437398837` and shortfall `0`, so the baseline reported no current liquidation shortfall at that captured read. It intentionally did not present a health-factor ratio because complete per-market decimal, oracle, and liquidation-factor normalization was not independently rederived.
 
 SMEAI returned health factor `1.917814996741152` (shown in the result headline as **1.918**), buffer `47.85732713013245%` (shown as **47.9%**), and `liquidatable: false`. The response reported weighted collateral USD `383193.3511461427` and total borrowed USD `199807.25554721607` at BSC Mainnet block `120421293`.
+
+Submission-safety revalidation confirmed that the requested wallet and persisted provider-returned wallet are the same address case-insensitively: `0x3af6cd5c74fa15c75f6770f5765f175ff61db450`. Experiment 3 remains valid and was not rerun. Current adapter code fails closed on any wallet mismatch and treats the provider-returned address as external evidence.
 
 The result was returned through `https://smeai-dev.vercel.app/api/a2a` with external read timestamp `2026-09-07T03:19:38.640Z`. No provider receipt or transaction was reported; `executionVerified: false`; `hasSimulated: false`.
 
@@ -101,13 +103,13 @@ The result was returned through `https://smeai-dev.vercel.app/api/a2a` with exte
 
 ## 6. Main Comparison Table
 
-| Task | Agent | Manual time | Agent time | Speedup | Manual cost | Agent cost | Manual quality | Agent quality |
+| Task | Agent | Timed manual baseline | Backend processing | Manual/backend ratio | Manual cost | Agent cost | Manual quality | Agent quality |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
 | Trading grid | Assay Grid | 27.658 s | 1.733 s | 15.96× | $0 | $0 | 20/25 | 23/25 |
 | Yield ranking | Venus Yield Lens | 29.617391 s | 2.221 s | 13.34× | $0 | $0 | 20/25 | 23/25 |
 | Borrow/liquidation risk | SMEAI Reference Health Factor Monitor | 134.4137659 s | 2.797 s | 48.06× | $0 | $0 | 23/25 | 23/25 |
 
-Speedups are calculated from the exact measured durations above; only the displayed speedup is shown to two decimal places.
+Ratios are calculated from the exact measured durations above and displayed to two decimal places. Because agent-operator time was not recorded, these ratios compare backend processing with a timed manual baseline; they are not end-to-end workflow speedups.
 
 ## 7. Failed Attempt Disclosure
 
@@ -124,10 +126,10 @@ These runs are separate reliability/breadth benchmarks. They are **not** part of
 
 | Built-in agent | Category | Network | Execution ID | Duration | Cost | hasSimulated |
 |---|---|---|---|---:|---|---|
-| Rebalance Advisor | Rebalancing / portfolio | BNB Smart Chain Testnet (97) | `exe_8ff4cf2634e3` | 5.816 s | 0.004 tBNB recorded; $0 actual | false |
-| Venus Health Guardian | Health Factor | BNB Smart Chain Testnet (97) | `exe_1de4dcc3d4b8` | 3.890 s | 0.004 tBNB recorded; $0 actual | false |
+| Rebalance Advisor | Token holdings / allocation unavailable | BNB Smart Chain Testnet (97) | `exe_8ff4cf2634e3` | 5.816 s | Legacy 0.004 tBNB catalogue price; $0 actual | false |
+| Venus Health Guardian | Health Factor | BNB Smart Chain Testnet (97) | `exe_1de4dcc3d4b8` | 3.890 s | Legacy 0.004 tBNB catalogue price; $0 actual | false |
 
-**Rebalance Advisor.** Returned a read-only WBNB/BUSD 50%/50% rebalance plan at Testnet block `129568308`; no swaps were executed. The connected wallet held zero WBNB and BUSD in the captured read, so the result was a plan with token-unit drift rather than a transaction.
+**Rebalance Advisor.** The historical run read WBNB/BUSD balances at Testnet block `129568308`, but its cross-token allocation, drift, and BUY/SELL rows were invalid because heterogeneous token quantities were added without a verified common valuation. The raw reads remain preserved in the evidence package; current code shows those balances while marking allocation, drift, actions, and sizes unavailable. This run is not evidence of a valid rebalance recommendation, and no swap was executed.
 
 **Venus Health Guardian.** Returned an honest **NO POSITION** result at Testnet block `129568322`; no Venus Core Pool markets were entered for the wallet on chain 97, so health factor was not applicable. No funds were moved and no transaction was prepared.
 
@@ -135,7 +137,7 @@ The built-in executors are labeled honestly as Built-in / AgentHub and are not p
 
 ## 9. Conclusion
 
-Within these three measured workflows, AgentHub substantially reduced task-completion execution time: 15.96× for grid analysis, 13.34× for the observed Venus yield ranking, and 48.06× for the health-factor assessment. Agent scores were higher than the manual scores in the first two experiments and equal in the third under the defined rubric.
+Across these three experiments, the timed manual baselines were 15.96×, 13.34×, and 48.06× the corresponding persisted backend processing intervals. Full operator time for using AgentHub was not recorded, so no end-to-end workflow or hiring speedup is claimed. Agent scores were higher than the manual scores in the first two experiments and equal in the third under the defined rubric.
 
 The completed outputs preserved verifiable evidence such as external endpoints, BSC Mainnet blocks, a provider receipt where available, and explicit warnings. The supplementary runs also demonstrate real read-only execution by built-in AgentHub agents on BSC Testnet chain 97.
 

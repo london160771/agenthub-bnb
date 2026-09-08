@@ -57,7 +57,12 @@ function paymentDetails(agent, definition) {
 
 function blockersFor(agent, capability, definition, payment, chainId, protocol, endpoint) {
   const blockers = [];
-  if (agent?.source !== 'indexed') return blockers;
+  if (agent?.source !== 'indexed') {
+    if (capability !== AGENT_CAPABILITIES.LOCAL_EXECUTABLE) {
+      blockers.push('this seeded listing is not allowlisted for the local executor that matches its advertised task');
+    }
+    return blockers;
+  }
   if (chainId !== MAINNET_CHAIN_ID) blockers.push('indexed identity is not on BSC Mainnet (chain 56)');
   if (!endpoint) blockers.push('no published execution endpoint is persisted');
   if (endpoint && !EXECUTION_PROTOCOLS.has(protocol)) blockers.push(`unsupported execution protocol: ${protocol || 'unknown'}`);
@@ -65,9 +70,6 @@ function blockersFor(agent, capability, definition, payment, chainId, protocol, 
   if (payment?.error) blockers.push(payment.error.message || 'payment requirement is incomplete or unsupported');
   if (capability === AGENT_CAPABILITIES.INDEXED_CATALOG_VERIFIED) {
     blockers.push('catalog/AgentCard evidence does not prove task execution');
-  }
-  if (capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY) {
-    blockers.push('no validated paid task result has been recorded yet');
   }
   if (capability === AGENT_CAPABILITIES.INDEXED_WATCH_ONLY && blockers.length === 0) {
     blockers.push('execution remains watch-only until a real task/result probe is independently verified');

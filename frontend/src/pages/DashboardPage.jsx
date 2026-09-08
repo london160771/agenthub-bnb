@@ -10,7 +10,7 @@ import { AgentGrid } from '../components/marketplace/AgentGrid.jsx';
 import { useApi } from '../hooks/useApi.js';
 import { listAgents } from '../services/agents.js';
 import { CATEGORIES } from '../config.js';
-import { isExecutable, isPaymentReady } from '../lib/agentCapability.js';
+import { isExecutable, isPaidExecutable, isPaymentReady } from '../lib/agentCapability.js';
 import { useWallet } from '../context/walletContext.js';
 import { listExecutions } from '../services/executions.js';
 import { ExecutionHistoryList } from '../components/activity/ExecutionHistoryList.jsx';
@@ -40,7 +40,7 @@ export default function DashboardPage() {
 
   const agents = data?.items || [];
   const executable = agents.filter(isExecutable);
-  const paidReady = agents.filter(isPaymentReady);
+  const paidReady = agents.filter((agent) => isPaymentReady(agent) && !isPaidExecutable(agent));
   const categoriesFound = new Set(agents.map((agent) => agent.category).filter(Boolean)).size;
 
   return (
@@ -123,7 +123,7 @@ export default function DashboardPage() {
       <section className="mt-8">
         <SectionHeading
           title="Ready to try"
-          description={paidReady.length > 0 ? `${paidReady.length} paid listing${paidReady.length === 1 ? '' : 's'} also show a verified payment requirement.` : 'Agents with a verified task and result path appear here.'}
+          description={paidReady.length > 0 ? `${paidReady.length} paid-preflight listing${paidReady.length === 1 ? '' : 's'} also show a verified payment requirement; payment and execution remain disabled.` : 'Agents with a verified task and result path appear here.'}
           actions={<ButtonLink to="/discover" variant="ghost" size="sm">See all <ArrowRight size={14} /></ButtonLink>}
         />
         {error ? (

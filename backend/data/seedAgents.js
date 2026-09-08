@@ -306,12 +306,12 @@ export const seedAgents = [
     // which is configured. So "tells you what to trade" described a capability
     // that does not exist. What the run genuinely produces is a native-balance
     // read and gas headroom, and that is now what the listing claims.
-    tagline: 'Reads native balance only — no token allocations or swap plans.',
+    tagline: 'Reads specified token balances; allocation requires verified prices.',
     description:
-      "Reads the wallet's native tBNB balance and transaction count live from BNB testnet and works out how much gas headroom it has at the current gas price. It does NOT produce a rebalancing plan or size any swaps: that needs your BEP-20 token positions, which require a verified token registry or an indexer this build does not have, so token holdings come back marked unavailable rather than guessed. Nothing is proposed, signed or sent.",
+      "Reads the wallet's native tBNB balance plus BEP-20 metadata and raw balances for the token addresses you explicitly provide. It does NOT add quantities from different assets or produce allocation percentages, drift, BUY/SELL actions, or swap sizes without verified prices in one common unit. Failed token reads stay unavailable. Nothing is proposed, signed, or sent.",
     category: 'portfolio',
-    subcategory: 'Balance read — no rebalancing plan',
-    skills: ['Native balance read', 'Gas headroom analysis'],
+    subcategory: 'Token holdings read — valuation unavailable',
+    skills: ['Specified token balance reads', 'Fail-closed allocation analysis'],
     protocols: ['PancakeSwap'],
     tags: ['portfolio', 'rebalance'],
     pricing: { amount: 0.004, currency: 'BNB', model: 'per-task' },

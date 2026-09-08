@@ -43,7 +43,7 @@ const paidReady = (agentId, executionVerified = false) => ({
 test('default marketplace priority keeps executable external agents before built-ins and catalog records', () => {
   const agents = [
     { agentId: 'watch', source: 'indexed', erc8004Id: '56:999999' },
-    { agentId: 'built-in', source: 'seeded' },
+    { agentId: 'venus-health-guardian', source: 'seeded' },
     paidReady('paid-ready'),
     { agentId: 'catalog', source: 'indexed', erc8004Id: '56:49467', endpoint: 'https://agent.brainonbnb.com/a2a' },
     indexedFree('free', '56:331752', 'https://assay-ten-iota.vercel.app/api/agents/yield'),
@@ -55,7 +55,7 @@ test('default marketplace priority keeps executable external agents before built
     'paid',
     'paid-ready',
     'free',
-    'built-in',
+    'venus-health-guardian',
     'catalog',
     'watch',
   ]);

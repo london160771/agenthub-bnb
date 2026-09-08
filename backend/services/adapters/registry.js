@@ -15,8 +15,10 @@ import { hodlDanceAdapter } from './hodlDanceAdapter.js';
 import { sentinelsAuditAdapter } from './sentinelsAuditAdapter.js';
 import { rangePilotAdapter } from './rangePilotAdapter.js';
 import { quickIntelAdapter } from './quickIntelAdapter.js';
-import { isExternallyExecutableAgent } from '../agentCapabilities.js';
-import { isPaymentReadyAgent } from '../agentCapabilities.js';
+import {
+  AGENT_CAPABILITIES,
+  getAgentCapability,
+} from '../agentCapabilities.js';
 
 const catalogAdapters = [brainA2aAdapter];
 const executionAdapters = [assayYieldAdapter, assayGridAdapter, smeaiHealthAdapter, smeaiLpAdapter, hodlDanceAdapter, sentinelsAuditAdapter, rangePilotAdapter, quickIntelAdapter];
@@ -26,8 +28,38 @@ export function getCatalogAdapterForAgent(agent) {
 }
 
 export function getExecutionAdapterForAgent(agent) {
-  if (!isExternallyExecutableAgent(agent) && !isPaymentReadyAgent(agent)) return null;
+  const capability = getAgentCapability(agent);
+  if (
+    ![
+      AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE,
+      AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID,
+      AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY,
+    ].includes(capability)
+  ) return null;
   return executionAdapters.find((adapter) => adapter.canHandle(agent)) || null;
+}
+
+/**
+ * A paid adapter must opt into execution explicitly. This keeps payment-ready
+ * discovery/preflight separate from a verified payment executor, while giving
+ * future exact-identity adapters (including ERC-8183) a small extension point.
+ */
+export function isPaidExecutionEligibleAdapter(adapter) {
+  return Boolean(
+    adapter?.kind === 'execution'
+      && adapter.paid === true
+      && adapter.paidExecutionEnabled === true
+      && typeof adapter.paymentProtocol === 'string'
+      && adapter.paymentProtocol.trim() !== '',
+  );
+}
+
+export function isPaidExecutionEligibleAgent(agent) {
+  const adapter = getExecutionAdapterForAgent(agent);
+  return Boolean(
+    isPaidExecutionEligibleAdapter(adapter)
+      && String(adapter.paymentProtocol || '').toLowerCase() === String(agent?.paymentProtocol || '').toLowerCase(),
+  );
 }
 
 // Compatibility name for callers that may be added later. It never returns a
@@ -37,7 +69,12 @@ export function getAdapterForAgent(agent) {
 }
 
 export function isExecutableAgent(agent) {
-  return Boolean(getExecutionAdapterForAgent(agent));
+  const adapter = getExecutionAdapterForAgent(agent);
+  const capability = getAgentCapability(agent);
+  return Boolean(
+    adapter
+      && (capability === AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE || isPaidExecutionEligibleAgent(agent)),
+  );
 }
 
 export const adapterRegistry = Object.freeze({
@@ -46,5 +83,7 @@ export const adapterRegistry = Object.freeze({
   getAdapterForAgent,
   getCatalogAdapterForAgent,
   getExecutionAdapterForAgent,
+  isPaidExecutionEligibleAdapter,
+  isPaidExecutionEligibleAgent,
   isExecutableAgent,
 });

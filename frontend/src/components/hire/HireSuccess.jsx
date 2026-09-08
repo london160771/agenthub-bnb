@@ -107,12 +107,12 @@ export function HireSuccess({ agent, execution }) {
               and this hire record was saved in the AgentHub database.
             </li>
             <li>
-              <strong className="text-fg">{paid ? 'Real:' : external ? 'Real:' : 'Simulated:'}</strong>{' '}
+              <strong className="text-fg">{paid || external ? 'Real:' : 'Free:'}</strong>{' '}
               {paid
                 ? 'the payment was confirmed on BSC Mainnet and its transaction hash is recorded; the paid task has not run yet.'
                 : external
                   ? 'the external agent request is free and read-only; no payment transaction was used.'
-                  : `the payment. No transaction was signed or broadcast, and no ${DEFAULT_CHAIN.currency} moved.`}
+                  : `no payment is required. No transaction was signed or broadcast, and no ${DEFAULT_CHAIN.currency} moved.`}
             </li>
             <li>
               <strong className="text-fg">Next:</strong> running the task {external ? 'calls the published external HTTP service for BSC Mainnet data' : `reads live data from ${DEFAULT_CHAIN.name}`}. Every value in the result is labelled with where it came from,
