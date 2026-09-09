@@ -1,4 +1,8 @@
 import { normalizeX402Challenge } from './payments/x402Challenge.js';
+import {
+  HALLMARK_HEALTH_A2A_ENDPOINT,
+  HALLMARK_HEALTH_ENDPOINT,
+} from './adapters/hallmarkHealthAdapter.js';
 
 const QUICK_INTEL_CHALLENGE = Object.freeze({
   x402Version: 2,
@@ -39,6 +43,36 @@ const QUICK_INTEL_CHALLENGE = Object.freeze({
 const QUICK_INTEL_X402 = normalizeX402Challenge(QUICK_INTEL_CHALLENGE, {
   preferredNetwork: 'eip155:8453',
   tokenDecimalsByNetwork: { 'eip155:8453': 6 },
+});
+
+// Captured from the live HTTP 402 response at the Hallmark health report
+// endpoint. The exact integer amount and the provider's payment metadata are
+// retained for read-only preflight; no payment proof is present or implied.
+const HALLMARK_HEALTH_CHALLENGE = Object.freeze({
+  x402Version: 2,
+  resource: Object.freeze({ url: HALLMARK_HEALTH_ENDPOINT, mimeType: 'application/json' }),
+  accepts: [Object.freeze({
+    scheme: 'exact',
+    network: 'eip155:56',
+    amount: '250000000000000000',
+    asset: '0x55d398326f99059fF775485246999027B3197955',
+    payTo: '0x38c6Fc4a5525B37f9545423A7132157f69ce08dA',
+    maxTimeoutSeconds: 120,
+    extra: Object.freeze({
+      name: 'USDT',
+      version: '1',
+      decimals: 18,
+      assetTransferMethod: 'permit2-exact',
+    }),
+    maxAmountRequired: '250000000000000000',
+    resource: HALLMARK_HEALTH_ENDPOINT,
+    mimeType: 'application/json',
+  })],
+});
+
+const HALLMARK_HEALTH_X402 = normalizeX402Challenge(HALLMARK_HEALTH_CHALLENGE, {
+  preferredNetwork: 'eip155:56',
+  tokenDecimalsByNetwork: { 'eip155:56': 18 },
 });
 
 /**
@@ -114,6 +148,52 @@ const VERIFIED_PAYMENT_RECORDS = Object.freeze([
         source: 'AgentHub independent verification of the live Quick Intel HTTP 402 challenge',
         method: 'HTTP 402 payment-required challenge plus read-only Base USDC decimals contract call; no payment submitted',
         endpoint: 'https://x402.quickintel.io/v1/scan/full',
+      }),
+    }),
+  }),
+  Object.freeze({
+    erc8004Id: '56:338480',
+    // 8004scan persists the A2A card endpoint as the agent endpoint. The paid
+    // x402 task resource is retained inside payment.x402.resource below.
+    endpoint: HALLMARK_HEALTH_A2A_ENDPOINT,
+    executionProtocol: 'a2a',
+    paymentProtocol: 'x402',
+    payment: Object.freeze({
+      type: 'x402',
+      status: 'verified',
+      amount: HALLMARK_HEALTH_X402.selected.amount,
+      amountBaseUnits: HALLMARK_HEALTH_X402.selected.amountBaseUnits,
+      token: 'USDT',
+      tokenAddress: HALLMARK_HEALTH_X402.selected.tokenAddress,
+      tokenDecimals: HALLMARK_HEALTH_X402.selected.tokenDecimals,
+      currency: 'USDT',
+      chainId: HALLMARK_HEALTH_X402.selected.chainId,
+      settlementNetwork: 'BSC Mainnet',
+      recipient: HALLMARK_HEALTH_X402.selected.payTo,
+      contract: null,
+      requiresWallet: null,
+      requiresMainnetTx: null,
+      requiresTokenApproval: null,
+      effect: 'The provider requires an x402 exact payment authorization for one priced Venus position report. AgentHub exposes the verified challenge only; no wallet signature, approval, or payment is requested.',
+      x402: Object.freeze({
+        version: HALLMARK_HEALTH_X402.version,
+        scheme: HALLMARK_HEALTH_X402.scheme,
+        network: HALLMARK_HEALTH_X402.selected.network,
+        amountBaseUnits: HALLMARK_HEALTH_X402.selected.amountBaseUnits,
+        payTo: HALLMARK_HEALTH_X402.selected.payTo,
+        asset: HALLMARK_HEALTH_X402.selected.tokenAddress,
+        maxTimeoutSeconds: HALLMARK_HEALTH_X402.selected.maxTimeoutSeconds,
+        supportedNetworks: HALLMARK_HEALTH_X402.supportedNetworks,
+        request: HALLMARK_HEALTH_X402.request,
+        resource: HALLMARK_HEALTH_ENDPOINT,
+        extra: HALLMARK_HEALTH_X402.selected.extra,
+      }),
+      verification: Object.freeze({
+        status: 'verified',
+        source: 'AgentHub independent verification of the live Hallmark HTTP 402 challenge',
+        method: 'HTTP 402 payment-required challenge with x402 v2 exact BSC Mainnet USDT metadata; no payment submitted',
+        endpoint: HALLMARK_HEALTH_ENDPOINT,
+        verifiedAt: new Date('2026-09-09T02:09:00.000Z'),
       }),
     }),
   }),

@@ -15,13 +15,32 @@ import { hodlDanceAdapter } from './hodlDanceAdapter.js';
 import { sentinelsAuditAdapter } from './sentinelsAuditAdapter.js';
 import { rangePilotAdapter } from './rangePilotAdapter.js';
 import { quickIntelAdapter } from './quickIntelAdapter.js';
+import { gridBandAdapter } from './gridBandAdapter.js';
+import { assayHealthAdapter } from './assayHealthAdapter.js';
+import { rangeKeeperAdapter } from './rangeKeeperAdapter.js';
+import { bortHunterAdapter } from './bortHunterAdapter.js';
+import { hallmarkHealthAdapter } from './hallmarkHealthAdapter.js';
 import {
   AGENT_CAPABILITIES,
   getAgentCapability,
 } from '../agentCapabilities.js';
 
 const catalogAdapters = [brainA2aAdapter];
-const executionAdapters = [assayYieldAdapter, assayGridAdapter, smeaiHealthAdapter, smeaiLpAdapter, hodlDanceAdapter, sentinelsAuditAdapter, rangePilotAdapter, quickIntelAdapter];
+const executionAdapters = [
+  assayYieldAdapter,
+  assayGridAdapter,
+  smeaiHealthAdapter,
+  smeaiLpAdapter,
+  hodlDanceAdapter,
+  sentinelsAuditAdapter,
+  rangePilotAdapter,
+  quickIntelAdapter,
+  gridBandAdapter,
+  assayHealthAdapter,
+  rangeKeeperAdapter,
+  bortHunterAdapter,
+  hallmarkHealthAdapter,
+];
 
 export function getCatalogAdapterForAgent(agent) {
   return catalogAdapters.find((adapter) => adapter.canHandle(agent)) || null;

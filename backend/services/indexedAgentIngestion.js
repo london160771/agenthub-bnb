@@ -27,6 +27,11 @@ const VERIFIED_EXTERNAL_CATEGORIES = Object.freeze({
   '56:331625': 'health-factor',
   '56:331698': 'portfolio',
   '56:96231': 'trading',
+  '56:321995': 'trading',
+  '56:331753': 'health-factor',
+  '56:320966': 'portfolio',
+  '56:338630': 'trading',
+  '56:338480': 'health-factor',
 });
 
 const PAYMENT_TYPES = new Set(['free', 'x402', 'erc8183', 'native-bnb', 'other', 'unknown']);
@@ -287,7 +292,10 @@ function preserveVerifiedPayment(existing, doc) {
   const known = getVerifiedPaymentMetadata(doc);
   let mergedDoc = doc;
   if (known) {
-    const verifiedAt = doc.payment?.verification?.verifiedAt || doc.lastVerifiedAt || new Date();
+    const verifiedAt = doc.payment?.verification?.verifiedAt
+      || doc.lastVerifiedAt
+      || known.payment?.verification?.verifiedAt
+      || new Date();
     mergedDoc = {
       ...doc,
       endpoint: doc.endpoint || known.endpoint,

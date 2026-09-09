@@ -329,7 +329,68 @@ export function fieldsFor(agent) {
   const external = isExternallyExecutable(agent);
   const rangePilotHealth = external && agent?.executionAdapter === 'range-pilot' && agent?.erc8004Id === '56:322090';
   const rangePilotYield = external && agent?.executionAdapter === 'range-pilot' && agent?.erc8004Id === '56:322046';
-  const externalBase = agent?.executionAdapter === 'quick-intel'
+  const externalBase = agent?.executionAdapter === 'grid-band'
+    ? [
+        {
+          key: 'poolId',
+          label: 'PancakeSwap pool',
+          type: 'select',
+          required: true,
+          options: [{ value: 'WBNB-USDT-500', label: 'WBNB / USDT · 0.05% fee' }],
+          default: 'WBNB-USDT-500',
+          help: 'The provider currently exposes this verified read-only pool identifier.',
+        },
+        {
+          key: 'boundaries',
+          label: 'Tick boundaries',
+          type: 'text',
+          required: true,
+          default: '-100000,0,100000',
+          placeholder: '-100000,0,100000',
+          maxLength: 120,
+          help: 'Enter exactly three ascending tick boundaries, separated by commas.',
+        },
+      ]
+    : agent?.executionAdapter === 'assay-health'
+      ? [
+          {
+            key: 'account',
+            label: 'Venus account',
+            type: 'address',
+            required: true,
+            placeholder: '0x…',
+            help: 'Public BSC Mainnet account whose Venus liquidity and shortfall should be read.',
+            wallet: true,
+            default: 'wallet',
+          },
+        ]
+      : agent?.executionAdapter === 'range-keeper'
+        ? [
+            {
+              key: 'id',
+              label: 'PancakeSwap V3 position id',
+              type: 'number',
+              required: true,
+              default: 7238953,
+              min: 1,
+              max: 1000000000,
+              step: 1,
+              help: 'Provider-documented example position id for a read-only lookup.',
+            },
+          ]
+        : agent?.executionAdapter === 'bort-hunter'
+          ? [
+              {
+                key: 'skill',
+                label: 'Read-only task',
+                type: 'select',
+                required: true,
+                options: [{ value: 'check_balance', label: 'Check balance' }],
+                default: 'check_balance',
+                help: 'AgentHub allowlists only BORT’s verified read-only balance skill; trading skills are unavailable.',
+              },
+            ]
+          : agent?.executionAdapter === 'quick-intel'
     ? [
         {
           key: 'chain',

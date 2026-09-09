@@ -104,6 +104,60 @@ const VERIFIED_EXECUTION_IDENTITIES = new Map([
       capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY,
     },
   ],
+  [
+    '56:321995',
+    {
+      adapterKey: 'grid-band',
+      endpoint: 'https://range-pilot-watch.onrender.com/docs/agents/grid-band.html',
+      taskEndpoint: 'https://range-pilot-watch.onrender.com/agents/grid-band/assess',
+      executionProtocol: 'http',
+      paymentProtocol: 'none',
+      capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE,
+    },
+  ],
+  [
+    '56:331753',
+    {
+      adapterKey: 'assay-health',
+      endpoint: 'https://assay-ten-iota.vercel.app/api/agents/health',
+      executionProtocol: 'http',
+      paymentProtocol: 'none',
+      capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE,
+    },
+  ],
+  [
+    '56:320966',
+    {
+      adapterKey: 'range-keeper',
+      endpoint: 'https://trustlist-range-keeper.onrender.com/position',
+      taskEndpoint: 'https://trustlist-range-keeper.onrender.com/position',
+      executionProtocol: 'http',
+      paymentProtocol: 'none',
+      capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE,
+    },
+  ],
+  [
+    '56:338630',
+    {
+      adapterKey: 'bort-hunter',
+      endpoint: 'https://api.bortagent.xyz/api/a2a/11169/card',
+      taskEndpoint: 'https://api.bortagent.xyz/api/a2a/11169',
+      executionProtocol: 'a2a',
+      paymentProtocol: 'none',
+      capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_FREE,
+    },
+  ],
+  [
+    '56:338480',
+    {
+      adapterKey: 'hallmark-health',
+      endpoint: 'https://hallmark-agents.vercel.app/a2a/health',
+      taskEndpoint: 'https://hallmark-agents.vercel.app/x402/health/report',
+      executionProtocol: 'a2a',
+      paymentProtocol: 'x402',
+      capability: AGENT_CAPABILITIES.INDEXED_EXECUTABLE_PAID_READY,
+    },
+  ],
 ]);
 
 const PAID_READY_PROTOCOLS = new Set(['x402', 'erc8183', 'native-bnb', 'custom']);
@@ -130,12 +184,22 @@ function isPaidReadyRecord(agent) {
     Number.isInteger(payment.tokenDecimals) &&
     Boolean(payment.settlementNetwork);
   const settlementChain = Number(payment.chainId);
+  const verificationEndpoint = String(verification.endpoint || '').replace(/\/$/, '');
+  const agentEndpoint = String(agent.endpoint || '').replace(/\/$/, '');
+  const x402Resource = typeof x402.resource === 'string'
+    ? x402.resource
+    : x402.resource?.url;
+  const paymentEndpointMatches = verificationEndpoint === agentEndpoint || (
+    protocol === 'x402' &&
+    Boolean(x402Resource) &&
+    verificationEndpoint === String(x402Resource).replace(/\/$/, '')
+  );
   return (
     Boolean(executionRecord) &&
     PAID_READY_PROTOCOLS.has(protocol) &&
     payment.status === 'verified' &&
     verification.status === 'verified' &&
-    String(verification.endpoint || '').replace(/\/$/, '') === String(agent.endpoint || '').replace(/\/$/, '') &&
+    paymentEndpointMatches &&
     Boolean(verification.source) &&
     Boolean(verification.method) &&
     Boolean(verification.verifiedAt) &&
