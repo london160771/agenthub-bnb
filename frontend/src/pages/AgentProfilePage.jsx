@@ -413,7 +413,7 @@ export default function AgentProfilePage() {
                   {isCatalogVerified
                     ? 'Catalog listing only. Public identity and service metadata are available, but no task execution is verified here yet.'
                     : isPaidPreflight
-                      ? 'Payment preflight only. The requirement can be inspected, but wallet payment and task execution are disabled until a real paid result is verified.'
+                      ? 'Payment preview only. Verified payment details are available, but live paid execution is not enabled yet.'
                       : 'Discoverable listing only. AgentHub has not verified that this agent can accept a task and return a result.'}
                 </div>
               ) : null}

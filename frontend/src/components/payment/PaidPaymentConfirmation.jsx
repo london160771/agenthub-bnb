@@ -4,6 +4,7 @@ import { Badge } from '../ui/Badge.jsx';
 import { Button } from '../ui/Button.jsx';
 import { SectionHeading } from '../ui/PageHeader.jsx';
 import { useWallet } from '../../context/walletContext.js';
+import { PaidExecutionLifecycle } from './PaidExecutionLifecycle.jsx';
 
 function valueOrUnavailable(value) {
   return value == null || value === '' ? 'Unavailable' : String(value);
@@ -31,6 +32,7 @@ export function PaidPaymentConfirmation({
   error = null,
   processing = false,
   onPay,
+  lifecycleState = 'review',
 }) {
   const { address, chainId, isConnected, connect, switchToMainnet, sendNativeBnb } = useWallet();
   const requirement = plan?.requirement || {};
@@ -56,7 +58,7 @@ export function PaidPaymentConfirmation({
         <SectionHeading
           title={preflightOnly ? 'Payment preflight' : 'Confirm payment'}
           description={preflightOnly
-            ? 'Inspect the verified payment facts. Payment and paid execution are disabled for this listing.'
+            ? 'Review the verified payment facts before any future paid execution is enabled.'
             : 'Review this exact request before opening your wallet. AgentHub does not receive your private key.'}
           className="mb-3"
         />
@@ -67,6 +69,14 @@ export function PaidPaymentConfirmation({
           </Badge>
           {plan?.provenance?.paymentVerified === true && <Badge variant="ok">Payment facts verified</Badge>}
         </div>
+
+        {!loading && plan?.protocol && (
+          <PaidExecutionLifecycle
+            protocol={plan.protocol}
+            currentState={lifecycleState}
+            preflightOnly={preflightOnly}
+          />
+        )}
 
         {loading ? (
           <p className="text-sm text-muted">Reading the saved payment requirement…</p>
@@ -129,9 +139,12 @@ export function PaidPaymentConfirmation({
 
         <div className="mt-4">
           {!onPay ? (
-            <Button variant="outline" className="w-full" disabled>
-              Payment preflight only — paid execution disabled
-            </Button>
+            <div className="rounded-lg border border-line bg-panel-2 px-3 py-3" role="status">
+              <p className="text-sm font-semibold text-fg">Payment preview only</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                This agent’s payment details are verified, but live paid execution is not enabled yet. No funds will be sent.
+              </p>
+            </div>
           ) : x402 ? (
             <Button variant="outline" className="w-full" disabled>
               x402 payment preparation only — wallet signing disabled
@@ -159,7 +172,6 @@ export function PaidPaymentConfirmation({
             <CheckCircle2 size={13} aria-hidden="true" /> Waiting for a confirmed receipt before calling the external agent.
           </p>
         )}
-        {!onPay && <p className="mt-2 text-center text-xs text-faint">No wallet request or payment can be submitted from this preflight.</p>}
       </CardBody>
     </Card>
   );
